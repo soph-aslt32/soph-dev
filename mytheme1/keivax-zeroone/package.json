@@ -1,0 +1,21 @@
+{
+  "name": "keivax-zeroone",
+  "displayName": "keivax-zeroone",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "label": "keivax-Z1",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-Z1-color-theme2.json"
+      }
+    ]
+  }
+}
