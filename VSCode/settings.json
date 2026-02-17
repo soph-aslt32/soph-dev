@@ -10,12 +10,12 @@
     // ---- workbench の設定 ----
     "workbench.editor.wrapTabs": true,
     "workbench.colorCustomizations": {
-        "editorInlayHint.foreground": "#06dd80",
-        "editorInlayHint.background": "#3a7f0510",
-        "editorInlayHint.parameterForeground": "#06dd80",
-        "editorInlayHint.parameterBackground": "#3a7f0510",
-        "editorInlayHint.typeForeground": "#06dd80",
-        "editorInlayHint.typeBackground": "#3a7f0510",
+        "editorInlayHint.foreground": "#54a5d366",
+        "editorInlayHint.background": "#031e7520",
+        "editorInlayHint.parameterForeground": "#54a5d366",
+        "editorInlayHint.parameterBackground": "#031e7520",
+        "editorInlayHint.typeForeground": "#54a5d366",
+        "editorInlayHint.typeBackground": "#031e7520",
         // インデントガイドラインの設定
         // "editorIndentGuide.background1": "#ffffff33",
         // "editorIndentGuide.background2": "#ffffff33",
@@ -446,6 +446,11 @@
     "terminal.integrated.persistentSessionReviveProcess": "never",
     "powershell.integratedConsole.showOnStartup": false,
     "github.copilot.nextEditSuggestions.enabled": true,
-    "workbench.iconTheme": "developer-icon-theme",
 
+    // アイコンテーマとカラーテーマの設定
+    "workbench.iconTheme": "developer-icon-theme",
+    "workbench.productIconTheme": "developer-icons",
+    "chat.viewSessions.orientation": "stacked",
+    "workbench.colorTheme": "keivax-Z1",
+    // "workbench.colorTheme": "Jellyfish",
 }
