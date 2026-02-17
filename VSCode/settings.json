@@ -1,0 +1,451 @@
+{
+    // フォントの設定
+    // "editor.fontFamily": "'Monoid', 'Rounded Mgen+ 1mn'",
+    // "editor.fontFamily": "'VL Gothic'",
+    "editor.fontFamily": "'Juisee HWNF'",
+    "terminal.integrated.fontSize": 16,
+    "editor.fontSize": 14,
+    // --------------
+
+    // ---- workbench の設定 ----
+    "workbench.editor.wrapTabs": true,
+    "workbench.colorCustomizations": {
+        "editorInlayHint.foreground": "#06dd80",
+        "editorInlayHint.background": "#3a7f0510",
+        "editorInlayHint.parameterForeground": "#06dd80",
+        "editorInlayHint.parameterBackground": "#3a7f0510",
+        "editorInlayHint.typeForeground": "#06dd80",
+        "editorInlayHint.typeBackground": "#3a7f0510",
+        // インデントガイドラインの設定
+        // "editorIndentGuide.background1": "#ffffff33",
+        // "editorIndentGuide.background2": "#ffffff33",
+        // "editorIndentGuide.background3": "#ffffff33",
+        // "editorIndentGuide.background4": "#ffffff33",
+        // "editorIndentGuide.background5": "#ffffff33",
+        // "editorIndentGuide.background6": "#ffffff33",
+        "editorIndentGuide.background1": "#5a58d350",
+        "editorIndentGuide.background2": "#66bcf950",
+        "editorIndentGuide.background3": "#20d83250",
+        "editorIndentGuide.background4": "#e84a5a50",
+        "editorIndentGuide.background5": "#e5c46250",
+        "editorIndentGuide.background6": "#ff63e550",
+        "editorIndentGuide.activeBackground1": "#5a58d3",
+        "editorIndentGuide.activeBackground2": "#66bcf9",
+        "editorIndentGuide.activeBackground3": "#20d832",
+        "editorIndentGuide.activeBackground4": "#e84a5a",
+        "editorIndentGuide.activeBackground5": "#e5c462",
+        "editorIndentGuide.activeBackground6": "#ff63e5",
+        // bracket pair colorization
+        "editorBracketHighlight.foreground1": "#5a58d3",
+        "editorBracketHighlight.foreground2": "#66bcf9",
+        "editorBracketHighlight.foreground3": "#20d832",
+        "editorBracketHighlight.foreground4": "#e84a5a",
+        "editorBracketHighlight.foreground5": "#e5c462",
+        "editorBracketHighlight.foreground6": "#ff63e5",
+        "editorBracketPairGuide.background1": "#5a58d350",
+        "editorBracketPairGuide.background2": "#66bcf950",
+        "editorBracketPairGuide.background3": "#20d83250",
+        "editorBracketPairGuide.background4": "#e84a5a50",
+        "editorBracketPairGuide.background5": "#e5c46250",
+        "editorBracketPairGuide.background6": "#ff63e550",
+        "editorBracketPairGuide.activeBackground1": "#5a58d3",
+        "editorBracketPairGuide.activeBackground2": "#66bcf9",
+        "editorBracketPairGuide.activeBackground3": "#20d832",
+        "editorBracketPairGuide.activeBackground4": "#e84a5a",
+        "editorBracketPairGuide.activeBackground5": "#e5c462",
+        "editorBracketPairGuide.activeBackground6": "#ff63e5",
+    },
+    // --------------------------
+
+    // ------------ editorの設定 --------------
+    "editor.guides.bracketPairs": "active",
+    "editor.renderWhitespace": "all",
+    "editor.suggest.showWords": false,
+    // ----------------------------------------
+
+    // ----- rust-analyzer -----
+    "rust-analyzer.completion.autoimport.enable": false,
+    // -------------------------
+
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
+    "security.workspace.trust.untrustedFiles": "open",
+    "editor.detectIndentation": false,
+    "python.analysis.completeFunctionParens": true,
+
+    // ----- `Markdown` -----
+    "[markdown]": {
+        "editor.tabSize": 2,
+        "editor.wordWrap": "on",
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint",
+    },
+    "markdownlint.config": {
+        "MD024": {
+            "siblings_only": true
+        }
+    },
+    "markdown-preview-enhanced.previewTheme": "github-light.css",
+    // ----------------------
+
+    // ----- `Python` -----
+    "python.analysis.inlayHints.callArgumentNames": "partial",
+    "python.analysis.inlayHints.functionReturnTypes": true,
+    "python.analysis.inlayHints.pytestParameters": true,
+    "python.analysis.inlayHints.variableTypes": true,
+    "python.analysis.autoImportCompletions": false,
+    "python.analysis.typeCheckingMode": "standard",
+
+    "window.openFilesInNewWindow": "on",
+
+    // ----- `PlantUML` -----
+    "[plantuml]": {
+        "editor.wordWrap": "on",
+    },
+    // ----------------------
+
+    // ----- `Todo Tree` -----
+    "todo-tree.highlights.defaultHighlight": {
+        // "fontWeight": "bold",
+        // "fontStyle": "italic",
+        // "textDecoration": "underline",
+        // "borderRadius": "",
+        // "icon": "",
+        // "iconColour": "",
+        "gutterIcon": true,
+        "rulerColour": "#00ACFA",
+        // "rulerOpacity": 0,
+        // "rulerLane": "right",
+        "type": "text",
+        "foreground": "#00ACFA",
+        // "background": "#6564DB",
+        // "opacity": 100,
+    },
+    "todo-tree.general.tags": [
+        "TEST",
+        "BUG",
+        "HACK",
+        "FIXME",
+        "TODO",
+        "XXX",
+        "[ ]",
+        // "[x]",
+        "WIP",
+        "PEND",
+        "NOTE",
+        "NOTES",
+        "WIP:AS",
+        "TODO:AS",
+        "PEND:AS",
+        "NOTE:AS",
+    ],
+    "todo-tree.highlights.customHighlight": {
+        "BUG": {
+            "icon": "bug",
+            // GoldenRod
+            "rulerColour": "#DAA520",
+            "foreground": "#DAA520",
+        },
+        "HACK": {
+            "icon": "tools",
+            // Coral
+            "rulerColour": "#FF7F50",
+            "foreground": "#FF7F50",
+        },
+        "FIXME": {
+            "icon": "flame",
+            // Yellow
+            "rulerColour": "#FFFF00",
+            "foreground": "#FFFF00",
+        },
+        "TODO": {
+            "icon": "check-circle-fill",
+            // Orange
+            "rulerColour": "#FFA500",
+            "foreground": "#FFA500",
+            // "icon": "rocket"
+        },
+        "XXX": {
+            "icon": "x",
+            // Crimson
+            "rulerColour": "#DC143C",
+            "foreground": "#DC143C",
+        },
+        "[ ]": {
+            "icon": "check",
+            // LimeGreen
+            "rulerColour": "#32CD32",
+            "foreground": "#32CD32",
+        },
+        "[x]": {
+            "icon": "issue-closed",
+            // "rulerColour": "#008000",
+            // "foreground": "#008000",
+        },
+        "WIP": {
+            "icon": "zap",
+            // Violet
+            "rulerColour": "#EE82EE",
+            "foreground": "#EE82EE",
+        },
+        "PEND": {
+            "icon": "clock",
+            // DarkGreen
+            "rulerColour": "#006400",
+            "foreground": "#006400",
+        },
+        "NOTE": {
+            "icon": "paintbrush",
+            // "rulerColour": "#FF0000",
+            // "foreground": "#FF0000",
+        },
+        "NOTES": {
+            "icon": "paintbrush",
+            // "rulerColour": "#FF0000",
+            // "foreground": "#FF0000",
+        },
+        // Additional custom highlights
+        "WIP:AS": {
+            "icon": "zap",
+            "foreground": "#f23eda",
+            "rulerColour": "#f23eda",
+            "fontStyle": "italic",
+            "textDecoration": "underline",
+            "type": "text"
+        },
+        "TODO:AS": {
+            "icon": "check-circle-fill",
+            "foreground": "#dda863",
+            "rulerColour": "#dda863",
+            "fontStyle": "italic",
+            "textDecoration": "underline",
+            "type": "text"
+        },
+        "PEND:AS": {
+            "icon": "clock",
+            "foreground": "#151070",
+            "rulerColour": "#151070",
+            "fontStyle": "italic",
+            "textDecoration": "underline",
+            "type": "text"
+        },
+        "NOTE:AS": {
+            "icon": "paintbrush",
+            "foreground": "#7b24c1",
+            "rulerColour": "#7b24c1",
+            "fontStyle": "italic",
+            "textDecoration": "underline",
+            "type": "text"
+        },
+    },
+    // -----------------------
+
+    "editor.acceptSuggestionOnEnter": "off",
+    "window.confirmSaveUntitledWorkspace": false,
+    "hediet.vscode-drawio.resizeImages": null,
+    "security.workspace.trust.enabled": false,
+
+    // -----------以下Latexの設定-----------
+    // 和文を使うため、助詞、句読点、全角括弧などを区切り文字として登録する
+    "editor.wordSeparators": "./\\()\"'-:,.;<>~!@#$%^&*|+=[]{}`~?　、。「」【】『』（）！？てにをはがのともへでや",
+    // 以下、LaTeX Workshopの設定
+    // LaTeXでビルドする際の設定を「Tool」「Recipi」の2種類設定する
+    //   Tool ...1つのコマンド。料理で言うところの、「焼く」「煮る」などの操作かな。
+    //   "latex-workshop.latex.tools" で定義。
+    //   Recipe ...Tool を組み合わせて料理（つまりは文書）を作るレシピ。
+    //   "latex-workshop.latex.recipes"で定義。
+    //   デフォルトの操作は、1番最初に定義されたレシピになる（他のレシピも選択可）
+    // Tool の定義
+    "latex-workshop.latex.tools": [
+        // latexmk によるlualatex
+        {
+            "name": "Latexmk (LuaLaTeX)",
+            "command": "latexmk",
+            "args": [
+                "-f",
+                "-gg",
+                // "-pv",
+                "-lualatex",
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-output-directory=%OUTDIR%",
+                "%DOC%"
+            ]
+        },
+        // latexmk による xelatex
+        {
+            "name": "Latexmk (XeLaTeX)",
+            "command": "latexmk",
+            "args": [
+                "-f",
+                "-gg",
+                "-pv",
+                "-xelatex",
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-output-directory=%OUTDIR%",
+                "%DOC%"
+            ]
+        },
+        // latexmk による uplatex
+        {
+            "name": "Latexmk (upLaTeX)",
+            "command": "latexmk",
+            "args": [
+                "-f",
+                "-gg",
+                "-pv",
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-output-directory=%OUTDIR%",
+                "%DOC%"
+            ]
+        },
+        // latexmk による platex
+        //こいつ使うときもしかしたらpdf生成されずにdviまでしかできないかも
+        {
+            "name": "Latexmk (pLaTeX)",
+            "command": "latexmk",
+            "args": [
+                "-f",
+                "-gg",
+                "-pv",
+                "-latex='platex'",
+                "-latexoption='-kanji=utf8 -no-guess-input-env'",
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-output-directory=%OUTDIR%",
+                "%DOC%"
+            ]
+        }
+    ],
+    // Recipe の定義
+    "latex-workshop.latex.recipes": [
+        // LuaLaTeX のレシピ
+        {
+            "name": "LuaLaTeX",
+            "tools": [
+                "Latexmk (LuaLaTeX)"
+            ]
+        },
+        // XeLaTeX のレシピ
+        {
+            "name": "XeLaTeX",
+            "tools": [
+                "Latexmk (XeLaTeX)"
+            ]
+        },
+        // upLaTeX のレシピ
+        {
+            "name": "upLaTeX",
+            "tools": [
+                "Latexmk (upLaTeX)"
+            ]
+        },
+        // pLaTeX のレシピ
+        {
+            "name": "pLaTeX",
+            "tools": [
+                "Latexmk (pLaTeX)"
+            ]
+        },
+    ],
+    // マジックコメント付きの LaTeX ドキュメントのビルド設定
+    // 特に記事では扱わないが、いつか使うことを考えて書いとく。
+    // 参考: https://blog.miz-ar.info/2016/11/magic-comments-in-tex/
+    "latex-workshop.latex.magic.args": [
+        "-f",
+        "-gg",
+        "-pv",
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOC%"
+    ],
+    // 不要なファイルをクリーンアップする時の目印となる拡張子
+    // 不要な一時ファイルや中間ファイルを自動削除する機能がある。
+    "latex-workshop.latex.clean.fileTypes": [
+        "*.aux",
+        "*.bbl",
+        "*.blg",
+        "*.idx",
+        "*.ind",
+        "*.lof",
+        "*.lot",
+        "*.out",
+        "*.toc",
+        "*.acn",
+        "*.acr",
+        "*.alg",
+        "*.glg",
+        "*.glo",
+        "*.gls",
+        "*.ist",
+        "*.fls",
+        "*.log",
+        "*.fdb_latexmk",
+        "*.synctex.gz",
+        // for Beamer files
+        "_minted*",
+        "*.nav",
+        "*.snm",
+        "*.vrb",
+    ],
+    // ビルド失敗した際の残存ファイルが以降のビルドに影響を与えることがあるため、
+    // 残存ファイルを削除する設定
+    "latex-workshop.latex.autoClean.run": "onBuilt",
+    // PDFビューワの開き方。画面分割で開く。
+    "latex-workshop.view.pdf.viewer": "tab",
+    // LaTeXファイル保存時にPDFも更新するかどうか。
+    // LuaLaTeXはビルドが遅いので、かえって煩わしいので無効化
+    // (u)pLaTeXなら有効化しておいてもいいかも。
+    "latex-workshop.latex.autoBuild.run": "onSave",
+    "[tex]": {
+        // スニペット補完中にも補完を使えるようにする
+        "editor.suggest.snippetsPreventQuickSuggestions": false,
+        // インデント幅を2にする
+        "editor.tabSize": 2,
+        "editor.wordWrap": "on",
+    },
+    "[latex]": {
+        // スニペット補完中にも補完を使えるようにする
+        "editor.suggest.snippetsPreventQuickSuggestions": false,
+        // インデント幅を2にする
+        "editor.tabSize": 2,
+        "editor.wordWrap": "on",
+    },
+    "[bibtex]": {
+        // インデント幅を2にする
+        "editor.tabSize": 2,
+        "editor.wordWrap": "on",
+    },
+    // 使用パッケージのコマンドや環境の補完を有効化
+    "latex-workshop.intellisense.package.enabled": true,
+    // 作成したファイルを、直下の "out" フォルダへ出力
+    "latex-workshop.latex.outDir": "out",
+    // ------------------Latexの設定終了-------------------
+
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false,
+        "latex": false,
+    },
+    "hediet.vscode-drawio.theme": "atlas",
+    "editor.unicodeHighlight.ambiguousCharacters": false,
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "hediet.vscode-drawio.appearance": "light",
+    "autoDocstring.docstringFormat": "numpy",
+
+    // ----- ターミナル関係の設定 -----
+    "terminal.integrated.persistentSessionReviveProcess": "never",
+    "powershell.integratedConsole.showOnStartup": false,
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "workbench.iconTheme": "developer-icon-theme",
+
+}
