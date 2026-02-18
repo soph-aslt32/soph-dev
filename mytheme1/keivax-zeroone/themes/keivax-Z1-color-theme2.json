@@ -16,6 +16,7 @@
         "selection.background": "#d135fc33",
         "widget.shadow": "#00000033",
         "widget.border": "#00000000",
+        "sash.hoverBorder": "#d135fc55",
         "scrollbar.shadow": "#00000000",
 
         // ============================================================
@@ -103,11 +104,11 @@
         "activityBarBadge.foreground": "#ffffff",
 
         // ============================================================
-        //  Sidebar  ★ sideBar.border のみ境界線として残す
+        //  Sidebar  ★ sash.hoverBorder でリサイズ時のみ境界表示
         // ============================================================
         "sideBar.background": "#0c110f",
         "sideBar.foreground": "#cccccc",
-        "sideBar.border": "#d135fc1a",
+        "sideBar.border": "#d135fc00",
         "sideBar.dropBackground": "#d135fc15",
         "sideBarTitle.foreground": "#cccccc",
         "sideBarSectionHeader.background": "#0c110f",
@@ -236,9 +237,9 @@
         "editorHoverWidget.border": "#00000000",
 
         // ============================================================
-        //  Editor Group  ★ editorGroup.border のみ（分割エディタ間の境界）
+        //  Editor Group  ★ sash.hoverBorder でリサイズ時のみ境界表示
         // ============================================================
-        "editorGroup.border": "#d135fc1a",
+        "editorGroup.border": "#d135fc00",
         "editorGroup.emptyBackground": "#0c110f",
         "editorGroupHeader.tabsBackground": "#0c110f",
         "editorGroupHeader.tabsBorder": "#00000000",
@@ -270,15 +271,15 @@
         "diffEditor.border": "#00000000",
 
         // ============================================================
-        //  Panel (Terminal, Output, etc.)  ★ panel.border のみ残す
+        //  Panel (Terminal, Output, etc.)  ★ sash.hoverBorder でリサイズ時のみ境界表示
         // ============================================================
         "panel.background": "#0c110f",
-        "panel.border": "#d135fc1a",
+        "panel.border": "#d135fc00",
         "panelTitle.activeBorder": "#d135fc44",
         "panelTitle.activeForeground": "#cccccc",
         "panelTitle.inactiveForeground": "#cccccc55",
         "panelInput.border": "#00000000",
-        "panelSection.border": "#d135fc1a",
+        "panelSection.border": "#d135fc00",
 
         // ============================================================
         //  Status Bar
@@ -353,7 +354,7 @@
         //  Terminal
         // ============================================================
         "terminal.foreground": "#cccccc",
-        "terminal.border": "#d135fc1a",
+        "terminal.border": "#d135fc00",
         "terminal.selectionBackground": "#d135fc28",
         "terminal.inactiveSelectionBackground": "#d135fc15",
         "terminal.tab.activeBorder": "#d135fc44",
