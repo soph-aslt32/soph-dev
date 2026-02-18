@@ -9,6 +9,7 @@
 
     // ---- workbench の設定 ----
     "workbench.editor.wrapTabs": true,
+    "workbench.sash.size": 20,
     "workbench.colorCustomizations": {
         "editorInlayHint.foreground": "#54a5d366",
         "editorInlayHint.background": "#031e7520",
