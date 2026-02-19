@@ -6,7 +6,7 @@ A minimal, dark color theme for Visual Studio Code built around a tight five-col
 
 | Color | Hex | Role |
 |-------|-----|------|
-| <img src="https://placehold.co/16x16/0c110f/0c110f" alt=""> | `#0c110f` | **Background** — Main editor and all docked UI surfaces |
+| <img src="https://placehold.co/16x16/0c1314/0c1314" alt=""> | `#0c1314` | **Background** — Main editor and all docked UI surfaces |
 | <img src="https://placehold.co/16x16/1d1721/1d1721" alt=""> | `#1d1721` | **Float Background** — Menus, hover widgets, notifications, peek views, and other floating elements |
 | <img src="https://placehold.co/16x16/d135fc/d135fc" alt=""> | `#d135fc` | **Primary Accent** — Selections, highlights, scrollbar, badges, active borders, control-flow keywords |
 | <img src="https://placehold.co/16x16/54a5d3/54a5d3" alt=""> | `#54a5d3` | **Secondary Accent** — Links, info indicators, keywords, storage types, constants |
@@ -15,7 +15,7 @@ A minimal, dark color theme for Visual Studio Code built around a tight five-col
 ## Design Principles
 
 - **Borderless by default** — Nearly all borders are fully transparent. Panel boundaries appear only on hover via the resize sash (`sash.hoverBorder`).
-- **Two-tier backgrounds** — Docked elements share the deep dark `#0c110f`; floating elements use the slightly warmer `#1d1721` to create subtle depth.
+- **Two-tier backgrounds** — Docked elements share the deep dark `#0c1314`; floating elements use the slightly warmer `#1d1721` to create subtle depth.
 - **Transparency over color** — UI states (selection, hover, focus) are expressed through varying alpha levels of the accent colors rather than introducing new hues.
 - **Standalone token colors** — All syntax highlighting rules are self-contained (no `include`), combining the full set from `dark_vs` and `dark_plus` with palette-aligned overrides.
 
