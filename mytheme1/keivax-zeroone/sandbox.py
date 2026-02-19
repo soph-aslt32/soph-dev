@@ -1,7 +1,9 @@
+from typing import Any
+
 HOGE_GLOBAL = 1
 
 class Hoge:
-    def __init__(self, name):
+    def __init__(self, name: Any):
         self.name = name
 
     def greet(self):

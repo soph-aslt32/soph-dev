@@ -77,9 +77,9 @@
         // ============================================================
         //  Scrollbar
         // ============================================================
-        "scrollbarSlider.background": "#d135fc15",
-        "scrollbarSlider.hoverBackground": "#d135fc30",
-        "scrollbarSlider.activeBackground": "#d135fc50",
+        "scrollbarSlider.background": "#d135fc3a",
+        "scrollbarSlider.hoverBackground": "#d135fc55",
+        "scrollbarSlider.activeBackground": "#d135fc80",
 
         // ============================================================
         //  Badge
@@ -450,6 +450,9 @@
         "minimapGutter.addedBackground": "#41cc3d",
         "minimapGutter.modifiedBackground": "#54a5d3",
         "minimapGutter.deletedBackground": "#bc094b",
+        "minimapSlider.background": "#d135fc33",
+        "minimapSlider.hoverBackground": "#d135fc50",
+        "minimapSlider.activeBackground": "#d135fc6a",
 
         // ============================================================
         //  Editor Marker Navigation
@@ -539,7 +542,7 @@
         {
             "scope": "comment",
             "settings": {
-                "foreground": "#41cc3d"
+                "foreground": "#41cc3d66"
             }
         },
         {
@@ -900,14 +903,22 @@
             }
         },
         {
+            "name": "Modules and namespaces",
+            "scope": [
+                "entity.name.namespace",
+                "entity.name.scope-resolution"
+            ],
+            "settings": {
+                "foreground": "#56a7c9"
+            }
+        },
+        {
             "name": "Types declaration and references",
             "scope": [
                 "support.class",
                 "support.type",
                 "entity.name.type",
-                "entity.name.namespace",
                 "entity.other.attribute",
-                "entity.name.scope-resolution",
                 "entity.name.class",
                 "storage.type.numeric.go",
                 "storage.type.byte.go",
@@ -935,7 +946,7 @@
                 "storage.type.primitive.groovy"
             ],
             "settings": {
-                "foreground": "#26d3d0"
+                "foreground": "#d300ba"
             }
         },
         {
@@ -950,7 +961,7 @@
                 "punctuation.separator.namespace.ruby"
             ],
             "settings": {
-                "foreground": "#26d3d0"
+                "foreground": "#d300ba"
             }
         },
         {
@@ -979,7 +990,7 @@
                 "constant.other.placeholder"
             ],
             "settings": {
-                "foreground": "#53d6bc"
+                "foreground": "#26d3d0"
             }
         },
         {
@@ -1089,6 +1100,7 @@
         "newOperator": "#c318f7",
         "stringLiteral": "#bc094b",
         "customLiteral": "#cbd358",
-        "numberLiteral": "#7456f7"
+        "numberLiteral": "#7456f7",
+        "namespace": "#56a7c9"
     }
 }
