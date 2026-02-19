@@ -8,7 +8,7 @@ Tuned for **Rust**, **Python**, **Java**, and **C++**.
 
 ## Main Color Palette
 
-This theme is built on 13 custom-chosen colors:
+This theme is built on 15 custom-chosen colors:
 
 | Swatch | Hex | Name |
 |:------:|------|------|
@@ -23,8 +23,10 @@ This theme is built on 13 custom-chosen colors:
 | <img src="https://placehold.co/16x16/7758e8/7758e8" alt=""> | `#7758e8` | Purple |
 | <img src="https://placehold.co/16x16/c318f7/c318f7" alt=""> | `#c318f7` | Magenta |
 | <img src="https://placehold.co/16x16/7456f7/7456f7" alt=""> | `#7456f7` | Blue-Violet |
-| <img src="https://placehold.co/16x16/53d6bc/53d6bc" alt=""> | `#53d6bc` | Mint |
 | <img src="https://placehold.co/16x16/cbd358/cbd358" alt=""> | `#cbd358` | Yellow-Green |
+| <img src="https://placehold.co/16x16/d300ba/d300ba" alt=""> | `#d300ba` | Vivid Magenta |
+| <img src="https://placehold.co/16x16/56a7c9/56a7c9" alt=""> | `#56a7c9` | Steel Blue |
+| <img src="https://placehold.co/16x16/8f51db/8f51db" alt=""> | `#8f51db` | Amethyst |
 
 ---
 
@@ -58,17 +60,16 @@ This theme is built on 13 custom-chosen colors:
 
 ## Syntax Highlighting (tokenColors)
 
-8-color palette for syntax tokens:
-
 | Swatch | Hex | Name | Scopes | Style |
 |:------:|------|------|--------|-------|
-| <img src="https://placehold.co/16x16/41cc3d/41cc3d" alt=""> | `#41cc3d` | Green | Comments, `markup.inserted` | — |
+| <img src="https://placehold.co/16x16/41cc3d/41cc3d" alt=""> | `#41cc3d88` | Green | Comments, `markup.inserted` | — (50% opacity) |
 | <img src="https://placehold.co/16x16/bc094b/bc094b" alt=""> | `#bc094b` | Crimson | Strings, regex, invalid, `markup.deleted` | **bold** (invalid) |
-| <img src="https://placehold.co/16x16/26d3d0/26d3d0" alt=""> | `#26d3d0` | Cyan | Types, classes, namespaces, `markup.changed` | — |
+| <img src="https://placehold.co/16x16/26d3d0/26d3d0" alt=""> | `#26d3d0` | Cyan | Variables, parameters, properties, attributes, dict keys | — |
+| <img src="https://placehold.co/16x16/d300ba/d300ba" alt=""> | `#d300ba` | Vivid Magenta | Types, classes, `markup.changed` | — |
+| <img src="https://placehold.co/16x16/56a7c9/56a7c9" alt=""> | `#56a7c9` | Steel Blue | Modules, namespaces (`entity.name.namespace`, `entity.name.scope-resolution`) | — |
 | <img src="https://placehold.co/16x16/7758e8/7758e8" alt=""> | `#7758e8` | Purple | Keywords, storage, modifiers, `self`/`this`, tags, constants, preprocessor | *italic* / **bold** |
 | <img src="https://placehold.co/16x16/c318f7/c318f7" alt=""> | `#c318f7` | Magenta | Control flow (`if`, `for`, `return`), `new`/`delete`, template expressions | *italic* |
 | <img src="https://placehold.co/16x16/7456f7/7456f7" alt=""> | `#7456f7` | Blue-Violet | Numbers, enum members, units, constant.sha | — |
-| <img src="https://placehold.co/16x16/53d6bc/53d6bc" alt=""> | `#53d6bc` | Mint | Variables, parameters, properties, attributes, dict keys | — |
 | <img src="https://placehold.co/16x16/cbd358/cbd358" alt=""> | `#cbd358` | Yellow-Green | Functions, support functions | — |
 
 ### Supplementary Token Colors
@@ -93,6 +94,7 @@ Legacy/specialized scopes that retain their own colors:
 | <img src="https://placehold.co/16x16/bc094b/bc094b" alt=""> | `#bc094b` | `stringLiteral` |
 | <img src="https://placehold.co/16x16/cbd358/cbd358" alt=""> | `#cbd358` | `customLiteral` |
 | <img src="https://placehold.co/16x16/7456f7/7456f7" alt=""> | `#7456f7` | `numberLiteral` |
+| <img src="https://placehold.co/16x16/56a7c9/56a7c9" alt=""> | `#56a7c9` | `namespace` |
 
 ---
 
