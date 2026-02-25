@@ -12,7 +12,7 @@
   "contributes": {
     "themes": [
       {
-        "label": "keivax",
+        "label": "keivax-zex1",
         "uiTheme": "vs-dark",
         "path": "./themes/keivax-color-theme.json"
       }
