@@ -1,6 +1,8 @@
 {
+    "schema": "vscode://schemas/color-theme",
     "name": "keivax-zex1",
     "type": "dark",
+    "semanticHighlighting": true,
     "colors": {
         "actionBar.toggledBackground": "#241228",
         "activityBar.activeBorder": "#60b6d6",

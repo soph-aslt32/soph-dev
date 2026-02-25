@@ -34,6 +34,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #190615
+>
 > 非常に暗い紫黒。UI 全体の統一背景色。
 
 | カテゴリ | 使用箇所 |
@@ -44,6 +45,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #3b51a0
+>
 > ダークネイビー。アクセント・境界・バッジ・インタラクション状態の基色。
 
 | カテゴリ | 使用箇所 |
@@ -54,6 +56,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #60b6d6
+>
 > スカイブルー。フォーカス・アクティブ状態・スクロールバー・ミニマップのメインアクセント色。
 
 | カテゴリ | 使用箇所 |
@@ -64,6 +67,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #b7c9c7
+>
 > 青みがかったライトグレー。エディタ・UI 全体のデフォルト文字色。
 
 | カテゴリ | 使用箇所 |
@@ -74,6 +78,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #687c69
+>
 > セージグリーン。コメント・非アクティブ・補助テキストの文字色。
 
 | カテゴリ | 使用箇所 |
@@ -84,6 +89,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #fffce5
+>
 > クリームホワイト。強調・選択状態のテキスト色。
 
 | カテゴリ | 使用箇所 |
@@ -94,6 +100,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #9a6ce2
+>
 > 紫。キーワード・ストレージ修飾子・ブラケット第1レイヤー。
 
 | カテゴリ | 使用箇所 |
@@ -104,6 +111,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #ef40ac
+>
 > ホットピンク。制御フロー演算子・マクロ・ブラケット第4レイヤー。
 
 | カテゴリ | 使用箇所 |
@@ -114,6 +122,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #84b5ff
+>
 > 淡青。変数・リンク・インレイパラメータ・ミニマップ選択。
 
 | カテゴリ | 使用箇所 |
@@ -124,6 +133,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #5ee0e0
+>
 > シアン。型・クラス・インターフェース・ブラケット第6レイヤー。
 
 | カテゴリ | 使用箇所 |
@@ -134,6 +144,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #5bd8c1
+>
 > ティール。言語組み込み定数・型キャスト・継承クラス・const変数。
 
 | カテゴリ | 使用箇所 |
@@ -144,6 +155,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #30cca2
+>
 > ミント。数値リテラル・単位・Git SHA。
 
 | カテゴリ | 使用箇所 |
@@ -154,6 +166,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #68ba4a
+>
 > 緑。文字列リテラル・差分追加・Gutterの追加行。
 
 | カテゴリ | 使用箇所 |
@@ -164,6 +177,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #24c955
+>
 > 鮮緑。enum メンバー・定数変数。
 
 | カテゴリ | 使用箇所 |
@@ -174,6 +188,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #7ce21d
+>
 > ライムグリーン。エスケープシーケンス。
 
 | カテゴリ | 使用箇所 |
@@ -184,6 +199,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #ffca3a
+>
 > 黄。関数・メソッド名・検索ハイライト・ブラケット第5レイヤー。
 
 | カテゴリ | 使用箇所 |
@@ -194,6 +210,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #bc053f
+>
 > ダークレッド。エラー・削除・正規表現。
 
 | カテゴリ | 使用箇所 |
@@ -204,6 +221,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #c9ae78
+>
 > ゴールデン。オブジェクトキー・属性名・プロパティ・デコレータ。
 
 | カテゴリ | 使用箇所 |
@@ -214,6 +232,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #74931f
+>
 > オリーブ。CSS 属性名（クラス・ID・疑似クラス等）・CSS カスタムプロパティ。
 
 | カテゴリ | 使用箇所 |
@@ -224,6 +243,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #825132
+>
 > ブラウン。テンプレートリテラル式の内部テキスト。
 
 | カテゴリ | 使用箇所 |
@@ -234,6 +254,7 @@ UI は `colors` セクション、Token は `tokenColors` / `semanticTokenColors
 ---
 
 ### #bab094
+>
 > ウォームグレー。演算子・関数パラメータ名。
 
 | カテゴリ | 使用箇所 |
