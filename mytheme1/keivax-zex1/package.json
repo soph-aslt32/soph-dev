@@ -1,0 +1,21 @@
+{
+  "name": "keivax-zex1",
+  "displayName": "keivax-zex1",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "label": "keivax",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-color-theme.json"
+      }
+    ]
+  }
+}
