@@ -1026,7 +1026,8 @@
         {
             "scope": "comment",
             "settings": {
-                "foreground": "#687c69"
+                "foreground": "#687c69",
+                "fontStyle": "italic"
             }
         },
         {
@@ -1576,23 +1577,23 @@
         "customLiteral": "#ffca3a",
         "numberLiteral": "#30cca2",
         "variable": "#84b5ff",
-        "variable.readonly": "#5bd8c1",
-        "parameter": "#bab094",
+        "variable.readonly": { "foreground": "#5bd8c1", "fontStyle": "italic" },
+        "parameter": { "foreground": "#bab094", "fontStyle": "italic" },
         "type": "#5ee0e0",
         "class": "#5ee0e0",
-        "interface": "#5ee0e0",
+        "interface": { "foreground": "#5ee0e0", "fontStyle": "italic" },
         "enum": "#5ee0e0",
         "enumMember": "#24c955",
-        "namespace": "#60b6d6",
+        "namespace": "#5bd8c1",
         "module": "#60b6d6",
         "function": "#ffca3a",
         "method": "#ffca3a",
         "property": "#c9ae78",
         "keyword": "#9a6ce2",
         "macro": "#ef40ac",
-        "decorator": "#c9ae78",
-        "typeParameter": "#5bd8c1",
-        "selfParameter": "#84b5ff",
-        "clsParameter": "#84b5ff"
+        "decorator": { "foreground": "#ef40ac", "fontStyle": "italic" },
+        "typeParameter": { "foreground": "#5bd8c1", "fontStyle": "italic" },
+        "selfParameter": { "foreground": "#84b5ff", "fontStyle": "italic" },
+        "clsParameter": { "foreground": "#84b5ff", "fontStyle": "italic" }
     }
 }
