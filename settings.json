@@ -210,9 +210,14 @@
         },
         "MARK": {
             "icon": "bookmark",
-            // DeepSkyBlue
-            "rulerColour": "#00BFFF",
-            "foreground": "#00BFFF",
+            // LightCoral
+            "rulerColour": "#F08080",
+            "rulerOpacity": 0,
+            "foreground": "#F08080",
+            // "background": "#F08080",
+            // "borderRadius": "1px",
+            "gutterIcon": false,
+            "fontWeight": "bold",
         },
         // Additional custom highlights
         "WIP:AS": {
