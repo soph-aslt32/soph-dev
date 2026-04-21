@@ -469,5 +469,8 @@
     "workbench.productIconTheme": "developer-icons",
     "chat.viewSessions.orientation": "stacked",
     "workbench.colorTheme": "keivax-zex1",
+
+    // AI設定
+    "chat.disableAIFeatures": true,
     // "workbench.colorTheme": "Jellyfish",
 }
