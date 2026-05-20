@@ -84,7 +84,8 @@
     "markdownlint.config": {
         "MD024": {
             "siblings_only": true
-        }
+        },
+        "MD060": false,
     },
     "markdown-preview-enhanced.previewTheme": "github-light.css",
     // ----------------------
