@@ -108,7 +108,8 @@
 
     // ----- `Todo Tree` -----
     // MARK: `Todo Tree`
-    "todo-tree.highlights.defaultHighlight": {
+    "better-todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^\\s*(-|\\d+.))\\s*($TAGS)",
+    "better-todo-tree.highlights.defaultHighlight": {
         // "fontWeight": "bold",
         // "fontStyle": "italic",
         // "textDecoration": "underline",
@@ -124,7 +125,7 @@
         // "background": "#6564DB",
         // "opacity": 100,
     },
-    "todo-tree.general.tags": [
+    "better-todo-tree.general.tags": [
         "TEST",
         "BUG",
         "HACK",
@@ -143,7 +144,7 @@
         "PEND:AS",
         "NOTE:AS",
     ],
-    "todo-tree.highlights.customHighlight": {
+    "better-todo-tree.highlights.customHighlight": {
         "BUG": {
             "icon": "bug",
             // GoldenRod
