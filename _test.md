@@ -1,5 +1,7 @@
 # test
 
+# MD025 TEST
+
 TEST
   BUG
     HACK

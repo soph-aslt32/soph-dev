@@ -76,6 +76,7 @@
     "python.analysis.completeFunctionParens": true,
 
     // ----- `Markdown` -----
+    // MARK: `Markdown`
     "[markdown]": {
         "editor.tabSize": 2,
         "editor.wordWrap": "on",
@@ -86,6 +87,7 @@
             "siblings_only": true
         },
         "MD060": false,
+        "MD025": false,
     },
     "markdown-preview-enhanced.previewTheme": "github-light.css",
     // ----------------------
@@ -109,6 +111,18 @@
     // ----- `Todo Tree` -----
     // MARK: `Todo Tree`
     "better-todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^\\s*(-|\\d+.))\\s*($TAGS)",
+    "better-todo-tree.filtering.excludeGlobs": [
+        // "**/node_modules/**",
+        // "**/dist/**",
+        "**/out/**",
+        // "**/build/**",
+        "**/.vscode/**",
+        // "**/.git/**",
+        // "**/.github/**",
+        // "**/.cache/**",
+        "**/.venv/**",
+        "**/__pycache__/**",
+    ],
     "better-todo-tree.highlights.defaultHighlight": {
         // "fontWeight": "bold",
         // "fontStyle": "italic",
