@@ -111,6 +111,7 @@
     // ----- `Todo Tree` -----
     // MARK: `Todo Tree`
     "better-todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^\\s*(-|\\d+.))\\s*($TAGS)",
+    "better-todo-tree.highlights.useColourScheme": false,
     "better-todo-tree.filtering.excludeGlobs": [
         // "**/node_modules/**",
         // "**/dist/**",
