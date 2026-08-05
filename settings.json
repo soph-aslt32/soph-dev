@@ -486,6 +486,7 @@
     "workbench.productIconTheme": "developer-icons",
     "chat.viewSessions.orientation": "stacked",
     "workbench.colorTheme": "keivax-zex1",
+    "workbench.experimental.modernUI": false,
 
     // AI設定
     "chat.disableAIFeatures": true,
