@@ -1,0 +1,21 @@
+{
+  "name": "keivax-zen2",
+  "displayName": "keivax-zen2",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Keivax-Zen2",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen2-theme.json"
+      }
+    ]
+  }
+}
