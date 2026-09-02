@@ -13,12 +13,12 @@
     "editor.scrollbar.verticalScrollbarSize": 25,
     "editor.scrollbar.horizontalScrollbarSize": 20,
     "workbench.colorCustomizations": {
-        "editorInlayHint.foreground": "#54a5d366",
-        "editorInlayHint.background": "#031e7520",
-        "editorInlayHint.parameterForeground": "#54a5d366",
-        "editorInlayHint.parameterBackground": "#031e7520",
-        "editorInlayHint.typeForeground": "#54a5d366",
-        "editorInlayHint.typeBackground": "#031e7520",
+        "editorInlayHint.foreground": "#3630e5",
+        "editorInlayHint.background": "#3b76bf10",
+        "editorInlayHint.parameterForeground": "#3630e5",
+        "editorInlayHint.parameterBackground": "#3b76bf10",
+        "editorInlayHint.typeForeground": "#3630e5",
+        "editorInlayHint.typeBackground": "#3b76bf10",
         // インデントガイドラインの設定
         // "editorIndentGuide.background1": "#ffffff33",
         // "editorIndentGuide.background2": "#ffffff33",
