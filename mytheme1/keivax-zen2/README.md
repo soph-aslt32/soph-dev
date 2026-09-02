@@ -109,7 +109,7 @@
 
 | 色 | 主な使用箇所 |
 |---|---|
-| `#0ccc82` | 成功・追加（Git ガター追加・diff 挿入・デバッグ開始/再開）・関数/メソッドシンボルアイコン |
+| `#0ccc82` | 成功・追加（Git ガター追加・diff 挿入・デバッグ開始/再開） |
 | `#e21bc1` | エラー・削除（エディタエラー波線・Git ガター削除・デバッグ停止） |
 | `#f4f116` | 警告・変更（エディタ警告・Git ガター変更・検索ハイライト・デバッグ一時停止） |
 | `#13a37c` | リモート接続・ステータスバー Remote ボタン |
@@ -123,13 +123,13 @@
 | 色 | 意味 |
 |---|---|
 | `#0ccc82` | 追加ファイル |
-| `#f4f116` | 変更ファイル |
-| `#e21bc1` | 削除ファイル |
+| `#efd39b` | 変更ファイル |
+| `#c6117b` | 削除ファイル |
 | `#4ecace` | リネームファイル |
 | `#56f725` | 未追跡ファイル |
 | `#647f6b` | 無視ファイル |
 | `#ef52f2` | コンフリクトファイル |
-| `#efd39b` | ステージ済み変更ファイル |
+| `#aff92f` | ステージ済み変更ファイル |
 | `#a38a96` | Git blame デコレーション |
 
 ### ガター（差分表示）
@@ -162,7 +162,7 @@
 |---|---|---|
 | `#647f6b` | italic | コメント |
 | `#a38a96` | *italic* | Docstring・ブロックドキュメントコメント（Python `"""`, `comment.block.documentation`）|
-| `#64af77` | — | 文字列（目立たない緑系、データとして認識） |
+| `#64af77` | *italic* | 文字列（非ロジックデータ=italic、ローカル変数 `#a4f96b` ノースタイルとの視認性差を確保） |
 | `#f4f116` | — | エスケープ文字・テンプレートリテラル補間 |
 | `#39d3c4` | — | 正規表現・名前空間・インターフェース |
 | `#91825e` | — | 数値・その他定数（落ち着いた色、値として認識） |
@@ -171,18 +171,19 @@
 | `#9ba9c6` | — | 演算子・句読点 |
 | `#3b76bf` | **bold** | 型・修飾子宣言（class / function / var / let / const） |
 | `#4ecace` | **bold** | クラス名・型名・構造体名 |
+| `#4ecace` | underline | 列挙型名（enum）（同色の class=bold / enum=underline / type=なし の階層） |
 | `#39d3c4` | *italic* | 継承クラス・外部ライブラリ型（スコープ外由来のためitalic） |
-| `#0ccc82` | **bold** | ユーザー定義関数名・メソッド名・HTML/XMLタグ |
+| `#e8e85c` | **bold** | ユーザー定義関数名・メソッド名・HTML/XMLタグ・CSSセレクター（黄系でシアン族から分離） |
 | `#13a37c` | *italic* underline | 外部ライブラリ関数（外部由来=italic、ファイル外定義=underline） |
 | `#13a37c` | underline | 外部ライブラリ変数・定数（ファイル外定義=underline） |
 | `#efd39b` | *italic* | 引数・パラメータ・型パラメータ（呼び出し元から来る=italic） |
-| `#aff92f` | — | ローカル変数 |
+| `#a4f96b` | underline | ローカル変数（文字列=italic・ readonly=italic+underlineとスタイル三者三様になり視認性最大化） |
 | `#31ea91` | *italic* underline | readonly ローカル変数 |
-| `#9ba9c6` | — | プロパティ・フィールド・モジュールレベル変数 |
-| `#d360e5` | — | デコレータ・アノテーション・イベント |
-| `#f15dfc` | — | 列挙型メンバー（boolean/null `#ef52f2` と区別） |
+| `#9ba9c6` | underline | プロパティ・フィールド・モジュールレベル変数（演算子 `#9ba9c6` 同色だが underline で区別） |
+| `#d360e5` | *italic* | デコレータ・アノテーション・イベント（関数に外から付与するメタ修飾） |
+| `#b50191` | *italic* | 列挙型メンバー（boolean bold とスタイル差で区別） |
 | `#4ecace` | **bold** underline | self / this キーワード（クラスと同色系で意味的一貫性、bold+underlineで最強調） |
-| `#c619b2` | — | マクロ |
+| `#7fa01b` | **bold** | マクロ（紫族から完全然層のオリーブ系、boldで文字列暗緑と区別） |
 | `#ba9593` | ~~取消線~~ | 非推奨（deprecated） |
 
 ### ブラケットペアカラー
@@ -215,8 +216,10 @@
 |---|---|
 | `#91825e` | Inlay hint パラメータ前景 |
 | `#8c6089` | Code Lens 前景 |
-| `#efd39b` | preformat テキスト・Inlay hint 型パラメータ |
+| `#efd39b` | preformat テキスト |
+| `#647f6b` | Inlay hint 型パラメータ |
 | `#ac17d6` | バッジ背景・プロファイルバッジ |
 | `#f4f116` | Light bulb（クイックフィックス）・拡張アイコン星 |
-| `#e8e85c` | 変数シンボルアイコン（symbolIcon.variableForeground）（変更なし・ターミナルBright Yellow） |
-| `#aff92f` | 変数シンボルアイコン（symbolIcon.variableForeground）・ブラケット2 |
+| `#e8e85c` | 関数シンボルアイコン（symbolIcon.functionForeground/methodForeground/constructorForeground） |
+| `#a4f96b` | 変数シンボルアイコン（symbolIcon.variableForeground） |
+| `#64af77` | デバッグ文字列表示（debugTokenExpression.string） |
