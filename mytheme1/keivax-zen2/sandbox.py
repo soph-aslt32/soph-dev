@@ -23,4 +23,4 @@ if __name__ == "__main__":
     print(hoge.greet())
     print("This is a sandbox file for testing code snippets.")
 
-    bracket = ((((((((2))))))))
+    bracket = ((((((((2))))))))  # noqa: UP034

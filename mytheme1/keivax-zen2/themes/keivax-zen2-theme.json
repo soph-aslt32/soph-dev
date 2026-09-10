@@ -736,8 +736,7 @@
                 "string.quoted"
             ],
             "settings": {
-                "foreground": "#64af77",
-                "fontStyle": "italic"
+                "foreground": "#64af77"
             }
         },
         {
@@ -790,13 +789,12 @@
             }
         },
         {
-            "name": "言語定数 (true / false / null / undefined)",
+            "name": "言語定数",
             "scope": [
                 "constant.language"
             ],
             "settings": {
-                "foreground": "#ef52f2",
-                "fontStyle": "bold"
+                "foreground": "#ef52f2"
             }
         },
         {
@@ -810,7 +808,7 @@
             }
         },
         {
-            "name": "制御キーワード (if / for / return ...)",
+            "name": "制御キーワード",
             "scope": [
                 "keyword.control",
                 "keyword.other"
@@ -830,7 +828,7 @@
             }
         },
         {
-            "name": "型・修飾子宣言 (class / function / var / let / const / type)",
+            "name": "型・修飾子宣言",
             "scope": [
                 "storage.type",
                 "storage.modifier"
@@ -859,8 +857,7 @@
                 "entity.other.inherited-class"
             ],
             "settings": {
-                "foreground": "#39d3c4",
-                "fontStyle": "italic"
+                "foreground": "#39d3c4"
             }
         },
         {
@@ -885,7 +882,7 @@
             }
         },
         {
-            "name": "引数 (パラメータ)",
+            "name": "引数・パラメータ",
             "scope": [
                 "variable.parameter"
             ],
@@ -897,7 +894,6 @@
         {
             "name": "ローカル変数",
             "scope": [
-                "variable",
                 "variable.other.local"
             ],
             "settings": {
@@ -906,25 +902,25 @@
             }
         },
         {
-            "name": "self / this / cls キーワード",
+            "name": "一般変数",
+            "scope": [
+                "variable",
+                "variable.other",
+                "variable.other.object"
+            ],
+            "settings": {
+                "foreground": "#dae5e4"
+            }
+        },
+        {
+            "name": "self / this / cls",
             "scope": [
                 "variable.language.special.self.python",
                 "variable.language.special.cls.python",
                 "variable.language.this"
             ],
             "settings": {
-                "foreground": "#4ecace",
-                "fontStyle": "bold underline"
-            }
-        },
-        {
-            "name": "その他変数・モジュールレベル変数",
-            "scope": [
-                "variable.other",
-                "variable.other.object"
-            ],
-            "settings": {
-                "foreground": "#9ba9c6"
+                "foreground": "#4ecace"
             }
         },
         {
@@ -934,8 +930,7 @@
                 "variable.other.member"
             ],
             "settings": {
-                "foreground": "#9ba9c6",
-                "fontStyle": "underline"
+                "foreground": "#9ba9c6"
             }
         },
         {
@@ -944,8 +939,7 @@
                 "support.function"
             ],
             "settings": {
-                "foreground": "#13a37c",
-                "fontStyle": "italic underline"
+                "foreground": "#13a37c"
             }
         },
         {
@@ -954,8 +948,7 @@
                 "support.class"
             ],
             "settings": {
-                "foreground": "#39d3c4",
-                "fontStyle": "bold underline"
+                "foreground": "#39d3c4"
             }
         },
         {
@@ -964,8 +957,7 @@
                 "support.type"
             ],
             "settings": {
-                "foreground": "#39d3c4",
-                "fontStyle": "italic underline"
+                "foreground": "#39d3c4"
             }
         },
         {
@@ -975,8 +967,7 @@
                 "support.constant"
             ],
             "settings": {
-                "foreground": "#13a37c",
-                "fontStyle": "underline"
+                "foreground": "#13a37c"
             }
         },
         {
@@ -1008,8 +999,7 @@
                 "storage.type.annotation"
             ],
             "settings": {
-                "foreground": "#d360e5",
-                "fontStyle": "italic"
+                "foreground": "#d360e5"
             }
         },
         {
@@ -1019,8 +1009,7 @@
                 "constant.other.enum"
             ],
             "settings": {
-                "foreground": "#b50191",
-                "fontStyle": "italic"
+                "foreground": "#b50191"
             }
         },
         {
@@ -1155,7 +1144,7 @@
             }
         },
         {
-            "name": "非推奨 (deprecated)",
+            "name": "非推奨",
             "scope": [
                 "invalid.deprecated"
             ],
@@ -1167,20 +1156,38 @@
     ],
     "semanticTokenColors": {
         "variable": {
-            "foreground": "#a4f96b",
-            "fontStyle": "underline"
-        },
-        "variable.readonly": {
-            "foreground": "#31ea91",
-            "fontStyle": "italic underline"
+            "foreground": "#a4f96b"
         },
         "variable.declaration": {
             "foreground": "#a4f96b",
             "fontStyle": "underline"
         },
+        "variable.readonly": {
+            "foreground": "#31ea91",
+            "fontStyle": "italic"
+        },
+        "variable.static": {
+            "foreground": "#7fa01b"
+        },
+        "variable.modification": {
+            "foreground": "#56f725",
+            "fontStyle": "underline"
+        },
         "parameter": {
             "foreground": "#efd39b",
             "fontStyle": "italic"
+        },
+        "parameter.declaration": {
+            "foreground": "#efd39b",
+            "fontStyle": "italic"
+        },
+        "parameter.readonly": {
+            "foreground": "#e5e3d7",
+            "fontStyle": "italic"
+        },
+        "parameter.modification": {
+            "foreground": "#f4f116",
+            "fontStyle": "italic underline"
         },
         "function": {
             "foreground": "#e8e85c",
@@ -1208,21 +1215,23 @@
         },
         "interface": {
             "foreground": "#39d3c4",
-            "fontStyle": "italic underline"
+            "fontStyle": "bold"
         },
         "enum": {
             "foreground": "#4ecace",
-            "fontStyle": "underline"
+            "fontStyle": "bold"
         },
         "enumMember": {
-            "foreground": "#b50191",
-            "fontStyle": "italic"
+            "foreground": "#b50191"
         },
         "struct": {
             "foreground": "#4ecace",
             "fontStyle": "bold"
         },
-        "type": "#4ecace",
+        "type": {
+            "foreground": "#4ecace",
+            "fontStyle": "bold"
+        },
         "typeParameter": {
             "foreground": "#efd39b",
             "fontStyle": "italic"
@@ -1230,12 +1239,14 @@
         "namespace": "#39d3c4",
         "module": "#39d3c4",
         "property": {
-            "foreground": "#9ba9c6",
-            "fontStyle": "underline"
+            "foreground": "#9ba9c6"
         },
         "property.readonly": {
-            "foreground": "#9ba9c6",
-            "fontStyle": "italic underline"
+            "foreground": "#766e7a",
+            "fontStyle": "italic"
+        },
+        "property.static": {
+            "foreground": "#3b76bf"
         },
         "keyword": {
             "foreground": "#ac17d6",
@@ -1245,20 +1256,15 @@
             "foreground": "#3b76bf",
             "fontStyle": "bold"
         },
-        "string": {
-            "foreground": "#64af77",
-            "fontStyle": "italic"
-        },
+        "string": "#64af77",
         "number": "#91825e",
         "regexp": "#39d3c4",
         "operator": "#9ba9c6",
         "decorator": {
-            "foreground": "#d360e5",
-            "fontStyle": "italic"
+            "foreground": "#d360e5"
         },
         "event": {
-            "foreground": "#d360e5",
-            "fontStyle": "italic"
+            "foreground": "#d360e5"
         },
         "comment": {
             "foreground": "#647f6b",
@@ -1270,16 +1276,38 @@
         },
         "label": "#9ba9c6",
         "selfKeyword": {
-            "foreground": "#4ecace",
-            "fontStyle": "bold underline"
+            "foreground": "#4ecace"
+        },
+        "selfKeyword:rust": {
+            "foreground": "#4ecace"
         },
         "builtinType": {
             "foreground": "#4ecace",
             "fontStyle": "bold"
         },
         "lifetime": {
-            "foreground": "#efd39b",
-            "fontStyle": "italic"
+            "foreground": "#efd39b"
+        },
+        "variable.defaultLibrary": {
+            "foreground": "#13a37c"
+        },
+        "function.defaultLibrary": {
+            "foreground": "#13a37c"
+        },
+        "method.defaultLibrary": {
+            "foreground": "#13a37c"
+        },
+        "class.defaultLibrary": {
+            "foreground": "#39d3c4",
+            "fontStyle": "bold"
+        },
+        "type.defaultLibrary": {
+            "foreground": "#39d3c4",
+            "fontStyle": "bold"
+        },
+        "deprecated": {
+            "foreground": "#ba9593",
+            "fontStyle": "strikethrough"
         }
     }
 }
