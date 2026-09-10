@@ -24,3 +24,5 @@ if __name__ == "__main__":
     print("This is a sandbox file for testing code snippets.")
 
     bracket = ((((((((2))))))))  # noqa: UP034
+
+    print(f"The value of bracket is {bracket}.")

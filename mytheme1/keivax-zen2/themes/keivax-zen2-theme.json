@@ -736,7 +736,7 @@
                 "string.quoted"
             ],
             "settings": {
-                "foreground": "#c619b2"
+                "foreground": "#8c6089"
             }
         },
         {
@@ -787,7 +787,7 @@
                 "constant.other"
             ],
             "settings": {
-                "foreground": "#91825e"
+                "foreground": "#3b76bf"
             }
         },
         {
@@ -868,7 +868,7 @@
                 "variable.parameter"
             ],
             "settings": {
-                "foreground": "#efd39b",
+                "foreground": "#a4f96b",
                 "fontStyle": "italic"
             }
         },
@@ -878,7 +878,7 @@
                 "variable.other.local"
             ],
             "settings": {
-                "foreground": "#56f725"
+                "foreground": "#efd39b"
             }
         },
         {
@@ -889,7 +889,7 @@
                 "variable.other.object"
             ],
             "settings": {
-                "foreground": "#dae5e4"
+                "foreground": "#efd39b"
             }
         },
         {
@@ -919,7 +919,7 @@
                 "support.function"
             ],
             "settings": {
-                "foreground": "#13a37c"
+                "foreground": "#c619b2"
             }
         },
         {
@@ -992,7 +992,7 @@
                 "support.function.macro"
             ],
             "settings": {
-                "foreground": "#7fa01b",
+                "foreground": "#13a37c",
                 "fontStyle": "bold"
             }
         },
@@ -1127,26 +1127,26 @@
         }
     ],
     "semanticTokenColors": {
-        "variable": "#56f725",
+        "variable": "#efd39b",
         "variable.declaration": {
-            "foreground": "#56f725",
+            "foreground": "#efd39b",
             "fontStyle": "underline"
         },
         "variable.readonly": {
             "foreground": "#31ea91",
             "fontStyle": "italic"
         },
-        "variable.static": "#7fa01b",
+        "variable.static": "#13a37c",
         "variable.modification": {
-            "foreground": "#56f725",
+            "foreground": "#efd39b",
             "fontStyle": "underline"
         },
         "parameter": {
-            "foreground": "#efd39b",
+            "foreground": "#a4f96b",
             "fontStyle": "italic"
         },
         "parameter.declaration": {
-            "foreground": "#efd39b",
+            "foreground": "#a4f96b",
             "fontStyle": "italic"
         },
         "parameter.readonly": {
@@ -1154,7 +1154,7 @@
             "fontStyle": "italic"
         },
         "parameter.modification": {
-            "foreground": "#efd39b",
+            "foreground": "#a4f96b",
             "fontStyle": "italic underline"
         },
         "function": "#f15dfc",
@@ -1198,7 +1198,7 @@
             "fontStyle": "italic"
         },
         "typeParameter": {
-            "foreground": "#efd39b",
+            "foreground": "#a4f96b",
             "fontStyle": "italic"
         },
         "namespace": "#39d3c4",
@@ -1210,8 +1210,8 @@
         },
         "property.static": "#ef52f2",
         "modifier": "#ac17d6",
-        "string": "#c619b2",
-        "number": "#91825e",
+        "string": "#8c6089",
+        "number": "#3b76bf",
         "regexp": "#39d3c4",
         "operator": "#9ba9c6",
         "decorator": {
@@ -1227,19 +1227,19 @@
             "fontStyle": "italic"
         },
         "macro": {
-            "foreground": "#7fa01b",
+            "foreground": "#13a37c",
             "fontStyle": "bold"
         },
         "label": "#766e7a",
         "selfKeyword": "#0ccc82",
         "selfKeyword:rust": "#0ccc82",
         "lifetime": {
-            "foreground": "#efd39b",
+            "foreground": "#a4f96b",
             "fontStyle": "italic"
         },
         "variable.defaultLibrary": "#0ccc82",
-        "function.defaultLibrary": "#13a37c",
-        "method.defaultLibrary": "#13a37c",
+        "function.defaultLibrary": "#c619b2",
+        "method.defaultLibrary": "#c619b2",
         "class.defaultLibrary": "#39d3c4",
         "type.defaultLibrary": "#39d3c4",
         "variable.deprecated": {

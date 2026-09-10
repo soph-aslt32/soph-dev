@@ -43,43 +43,43 @@
 
 【RED / MAGENTA】
 
-- #e21bc1
+- #e21bc1 error系
 - #bc0db9
-- #b50191
+- #b50191 enum
 - #c6117b
-- #c619b2
-- #dd06dd
+- #c619b2 外部関数系
+- #dd06dd 定数
 
 【PINK / VIOLET】
 
-- #ef52f2
-- #f15dfc
-- #d360e5
-- #ac17d6
-- #8c6089
+- #ef52f2 プロパティ
+- #f15dfc 関数・メソッド
+- #d360e5 デコレータ
+- #ac17d6 制御
+- #8c6089 文字列
 
 【BLUE / BLUE-VIOLET】
 
 - #3630e5
-- #3b76bf
-- #9ba9c6
+- #3b76bf 数値+HTMLタグ名など
+- #9ba9c6 演算子
 
 【CYAN / TEAL】
 
-- #4ecace
-- #39d3c4
-- #13a37c
+- #4ecace クラス系
+- #39d3c4 デフォルトクラス系
+- #13a37c マクロ
 
 【GREEN】
 
-- #0ccc82
-- #31ea91
-- #56f725
+- #0ccc82 self系
+- #31ea91 読み込み限定引数
+- #56f725 Markdownインラインコード
 - #64af77
 
 【YELLOW-GREEN / OLIVE】
 
-- #a4f96b
+- #a4f96b 引数系
 - #aff92f
 - #7fa01b
 - #3d6303
@@ -87,13 +87,13 @@
 
 【YELLOW】
 
-- #e8e85c
-- #f4f116
+- #e8e85c HTMLタグ系
+- #f4f116 文字列内エスケープ
 
 【BEIGE / BROWN】
 
-- #e5e3d7
-- #efd39b
+- #e5e3d7 読み込み限定パラメータ
+- #efd39b ローカル変数とその他変数
 - #91825e
 - #ba9593
 
@@ -110,6 +110,8 @@
 - #3a3738
 - #0a0411
 - #07040f
+
+---
 
 - #dae5e4
 - #5e4f3b
