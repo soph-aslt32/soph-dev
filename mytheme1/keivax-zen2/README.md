@@ -41,6 +41,76 @@
 
 ## ColorPalette
 
+【RED / MAGENTA】
+
+- #e21bc1
+- #bc0db9
+- #b50191
+- #c6117b
+- #c619b2
+- #dd06dd
+
+【PINK / VIOLET】
+
+- #ef52f2
+- #f15dfc
+- #d360e5
+- #ac17d6
+- #8c6089
+
+【BLUE / BLUE-VIOLET】
+
+- #3630e5
+- #3b76bf
+- #9ba9c6
+
+【CYAN / TEAL】
+
+- #4ecace
+- #39d3c4
+- #13a37c
+
+【GREEN】
+
+- #0ccc82
+- #31ea91
+- #56f725
+- #64af77
+
+【YELLOW-GREEN / OLIVE】
+
+- #a4f96b
+- #aff92f
+- #7fa01b
+- #3d6303
+- #2d560b
+
+【YELLOW】
+
+- #e8e85c
+- #f4f116
+
+【BEIGE / BROWN】
+
+- #e5e3d7
+- #efd39b
+- #91825e
+- #ba9593
+
+【GRAY / DESATURATED】
+
+- #a38a96
+- #766e7a
+- #dae5e4
+- #647f6b
+- #5e4f3b
+
+【DARK】
+
+- #3a3738
+- #0a0411
+- #07040f
+
 - #dae5e4
 - #5e4f3b
 - #3a3738

@@ -736,7 +736,7 @@
                 "string.quoted"
             ],
             "settings": {
-                "foreground": "#64af77"
+                "foreground": "#c619b2"
             }
         },
         {
@@ -780,31 +780,23 @@
             }
         },
         {
-            "name": "数値",
+            "name": "数値・その他定数",
             "scope": [
-                "constant.numeric"
-            ],
-            "settings": {
-                "foreground": "#91825e"
-            }
-        },
-        {
-            "name": "言語定数",
-            "scope": [
-                "constant.language"
-            ],
-            "settings": {
-                "foreground": "#ef52f2"
-            }
-        },
-        {
-            "name": "その他定数・文字定数",
-            "scope": [
+                "constant.numeric",
                 "constant.character",
                 "constant.other"
             ],
             "settings": {
                 "foreground": "#91825e"
+            }
+        },
+        {
+            "name": "言語定数 (true / false / null / undefined)",
+            "scope": [
+                "constant.language"
+            ],
+            "settings": {
+                "foreground": "#dd06dd"
             }
         },
         {
@@ -828,18 +820,17 @@
             }
         },
         {
-            "name": "型・修飾子宣言",
+            "name": "型・修飾子キーワード",
             "scope": [
                 "storage.type",
                 "storage.modifier"
             ],
             "settings": {
-                "foreground": "#3b76bf",
-                "fontStyle": "bold"
+                "foreground": "#ac17d6"
             }
         },
         {
-            "name": "クラス名・型名・名前空間",
+            "name": "クラス名・型名・構造体名・名前空間",
             "scope": [
                 "entity.name.type",
                 "entity.name.class",
@@ -847,8 +838,7 @@
                 "entity.name.struct"
             ],
             "settings": {
-                "foreground": "#4ecace",
-                "fontStyle": "bold"
+                "foreground": "#4ecace"
             }
         },
         {
@@ -857,32 +847,23 @@
                 "entity.other.inherited-class"
             ],
             "settings": {
-                "foreground": "#39d3c4"
+                "foreground": "#39d3c4",
+                "fontStyle": "italic"
             }
         },
         {
-            "name": "ユーザー定義関数名",
+            "name": "ユーザー定義関数名・関数呼び出し",
             "scope": [
-                "entity.name.function"
-            ],
-            "settings": {
-                "foreground": "#e8e85c",
-                "fontStyle": "bold"
-            }
-        },
-        {
-            "name": "関数呼び出し",
-            "scope": [
+                "entity.name.function",
                 "meta.function-call",
                 "meta.function-call entity.name.function"
             ],
             "settings": {
-                "foreground": "#e8e85c",
-                "fontStyle": "bold"
+                "foreground": "#f15dfc"
             }
         },
         {
-            "name": "引数・パラメータ",
+            "name": "引数 (パラメータ)",
             "scope": [
                 "variable.parameter"
             ],
@@ -897,12 +878,11 @@
                 "variable.other.local"
             ],
             "settings": {
-                "foreground": "#a4f96b",
-                "fontStyle": "underline"
+                "foreground": "#56f725"
             }
         },
         {
-            "name": "一般変数",
+            "name": "その他変数・モジュールレベル変数",
             "scope": [
                 "variable",
                 "variable.other",
@@ -920,7 +900,7 @@
                 "variable.language.this"
             ],
             "settings": {
-                "foreground": "#4ecace"
+                "foreground": "#0ccc82"
             }
         },
         {
@@ -930,7 +910,7 @@
                 "variable.other.member"
             ],
             "settings": {
-                "foreground": "#9ba9c6"
+                "foreground": "#ef52f2"
             }
         },
         {
@@ -943,17 +923,9 @@
             }
         },
         {
-            "name": "外部ライブラリクラス",
+            "name": "外部ライブラリクラス・型",
             "scope": [
-                "support.class"
-            ],
-            "settings": {
-                "foreground": "#39d3c4"
-            }
-        },
-        {
-            "name": "外部ライブラリ型",
-            "scope": [
+                "support.class",
                 "support.type"
             ],
             "settings": {
@@ -967,7 +939,7 @@
                 "support.constant"
             ],
             "settings": {
-                "foreground": "#13a37c"
+                "foreground": "#0ccc82"
             }
         },
         {
@@ -977,8 +949,7 @@
                 "entity.name.tag"
             ],
             "settings": {
-                "foreground": "#e8e85c",
-                "fontStyle": "bold"
+                "foreground": "#e8e85c"
             }
         },
         {
@@ -987,7 +958,7 @@
                 "entity.other.attribute-name"
             ],
             "settings": {
-                "foreground": "#efd39b"
+                "foreground": "#3b76bf"
             }
         },
         {
@@ -999,7 +970,8 @@
                 "storage.type.annotation"
             ],
             "settings": {
-                "foreground": "#d360e5"
+                "foreground": "#d360e5",
+                "fontStyle": "italic"
             }
         },
         {
@@ -1009,7 +981,8 @@
                 "constant.other.enum"
             ],
             "settings": {
-                "foreground": "#b50191"
+                "foreground": "#b50191",
+                "fontStyle": "italic"
             }
         },
         {
@@ -1052,7 +1025,7 @@
                 "support.type.property-name"
             ],
             "settings": {
-                "foreground": "#9ba9c6"
+                "foreground": "#3b76bf"
             }
         },
         {
@@ -1061,7 +1034,7 @@
                 "support.constant.property-value"
             ],
             "settings": {
-                "foreground": "#a4f96b"
+                "foreground": "#56f725"
             }
         },
         {
@@ -1072,8 +1045,7 @@
                 "entity.other.attribute-name.id.css"
             ],
             "settings": {
-                "foreground": "#e8e85c",
-                "fontStyle": "bold"
+                "foreground": "#e8e85c"
             }
         },
         {
@@ -1110,7 +1082,7 @@
                 "markup.inline.raw"
             ],
             "settings": {
-                "foreground": "#a4f96b"
+                "foreground": "#56f725"
             }
         },
         {
@@ -1144,7 +1116,7 @@
             }
         },
         {
-            "name": "非推奨",
+            "name": "非推奨 (deprecated)",
             "scope": [
                 "invalid.deprecated"
             ],
@@ -1155,20 +1127,16 @@
         }
     ],
     "semanticTokenColors": {
-        "variable": {
-            "foreground": "#a4f96b"
-        },
+        "variable": "#56f725",
         "variable.declaration": {
-            "foreground": "#a4f96b",
+            "foreground": "#56f725",
             "fontStyle": "underline"
         },
         "variable.readonly": {
             "foreground": "#31ea91",
             "fontStyle": "italic"
         },
-        "variable.static": {
-            "foreground": "#7fa01b"
-        },
+        "variable.static": "#7fa01b",
         "variable.modification": {
             "foreground": "#56f725",
             "fontStyle": "underline"
@@ -1186,51 +1154,48 @@
             "fontStyle": "italic"
         },
         "parameter.modification": {
-            "foreground": "#f4f116",
+            "foreground": "#efd39b",
             "fontStyle": "italic underline"
         },
-        "function": {
-            "foreground": "#e8e85c",
-            "fontStyle": "bold"
-        },
+        "function": "#f15dfc",
         "function.declaration": {
-            "foreground": "#e8e85c",
+            "foreground": "#f15dfc",
             "fontStyle": "bold"
         },
-        "method": {
-            "foreground": "#e8e85c",
-            "fontStyle": "bold"
-        },
+        "method": "#f15dfc",
         "method.declaration": {
-            "foreground": "#e8e85c",
+            "foreground": "#f15dfc",
             "fontStyle": "bold"
         },
-        "class": {
-            "foreground": "#4ecace",
-            "fontStyle": "bold"
-        },
+        "class": "#4ecace",
         "class.declaration": {
             "foreground": "#4ecace",
             "fontStyle": "bold"
         },
-        "interface": {
+        "struct": "#4ecace",
+        "struct.declaration": {
+            "foreground": "#4ecace",
+            "fontStyle": "bold"
+        },
+        "type": "#4ecace",
+        "type.declaration": {
+            "foreground": "#4ecace",
+            "fontStyle": "bold"
+        },
+        "builtinType": "#4ecace",
+        "interface": "#39d3c4",
+        "interface.declaration": {
             "foreground": "#39d3c4",
             "fontStyle": "bold"
         },
-        "enum": {
+        "enum": "#4ecace",
+        "enum.declaration": {
             "foreground": "#4ecace",
             "fontStyle": "bold"
         },
         "enumMember": {
-            "foreground": "#b50191"
-        },
-        "struct": {
-            "foreground": "#4ecace",
-            "fontStyle": "bold"
-        },
-        "type": {
-            "foreground": "#4ecace",
-            "fontStyle": "bold"
+            "foreground": "#b50191",
+            "fontStyle": "italic"
         },
         "typeParameter": {
             "foreground": "#efd39b",
@@ -1238,33 +1203,24 @@
         },
         "namespace": "#39d3c4",
         "module": "#39d3c4",
-        "property": {
-            "foreground": "#9ba9c6"
-        },
+        "property": "#ef52f2",
         "property.readonly": {
-            "foreground": "#766e7a",
+            "foreground": "#ef52f2",
             "fontStyle": "italic"
         },
-        "property.static": {
-            "foreground": "#3b76bf"
-        },
-        "keyword": {
-            "foreground": "#ac17d6",
-            "fontStyle": "bold"
-        },
-        "modifier": {
-            "foreground": "#3b76bf",
-            "fontStyle": "bold"
-        },
-        "string": "#64af77",
+        "property.static": "#ef52f2",
+        "modifier": "#ac17d6",
+        "string": "#c619b2",
         "number": "#91825e",
         "regexp": "#39d3c4",
         "operator": "#9ba9c6",
         "decorator": {
-            "foreground": "#d360e5"
+            "foreground": "#d360e5",
+            "fontStyle": "italic"
         },
         "event": {
-            "foreground": "#d360e5"
+            "foreground": "#d360e5",
+            "fontStyle": "italic"
         },
         "comment": {
             "foreground": "#647f6b",
@@ -1274,40 +1230,29 @@
             "foreground": "#7fa01b",
             "fontStyle": "bold"
         },
-        "label": "#9ba9c6",
-        "selfKeyword": {
-            "foreground": "#4ecace"
-        },
-        "selfKeyword:rust": {
-            "foreground": "#4ecace"
-        },
-        "builtinType": {
-            "foreground": "#4ecace",
-            "fontStyle": "bold"
-        },
+        "label": "#766e7a",
+        "selfKeyword": "#0ccc82",
+        "selfKeyword:rust": "#0ccc82",
         "lifetime": {
-            "foreground": "#efd39b"
+            "foreground": "#efd39b",
+            "fontStyle": "italic"
         },
-        "variable.defaultLibrary": {
-            "foreground": "#13a37c"
-        },
-        "function.defaultLibrary": {
-            "foreground": "#13a37c"
-        },
-        "method.defaultLibrary": {
-            "foreground": "#13a37c"
-        },
-        "class.defaultLibrary": {
-            "foreground": "#39d3c4",
-            "fontStyle": "bold"
-        },
-        "type.defaultLibrary": {
-            "foreground": "#39d3c4",
-            "fontStyle": "bold"
-        },
-        "deprecated": {
+        "variable.defaultLibrary": "#0ccc82",
+        "function.defaultLibrary": "#13a37c",
+        "method.defaultLibrary": "#13a37c",
+        "class.defaultLibrary": "#39d3c4",
+        "type.defaultLibrary": "#39d3c4",
+        "variable.deprecated": {
             "foreground": "#ba9593",
             "fontStyle": "strikethrough"
+        },
+        "property.deprecated": {
+            "foreground": "#ba9593",
+            "fontStyle": "strikethrough"
+        },
+        "keyword": {
+            "foreground": "#ac17d6",
+            "fontStyle": "bold"
         }
     }
 }
