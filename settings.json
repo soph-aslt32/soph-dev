@@ -13,6 +13,7 @@
     "editor.scrollbar.verticalScrollbarSize": 25,
     "editor.scrollbar.horizontalScrollbarSize": 20,
     "workbench.colorCustomizations": {
+        "sash.hoverBorder": "#f15dfc",
         "editorInlayHint.foreground": "#3630e5",
         "editorInlayHint.background": "#3b76bf10",
         "editorInlayHint.parameterForeground": "#3630e5",
@@ -485,9 +486,6 @@
     "workbench.iconTheme": "developer-icon-theme",
     "workbench.productIconTheme": "developer-icons",
     "chat.viewSessions.orientation": "stacked",
-
-    // AI設定
-    "chat.disableAIFeatures": true,
     "workbench.colorTheme": "Keivax-Zen2",
     // "workbench.colorTheme": "Jellyfish",
 }
