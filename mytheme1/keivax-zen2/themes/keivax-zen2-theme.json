@@ -185,7 +185,7 @@
         "editorStickyScroll.shadow": "#07040f50",
         "editorStickyScrollGutter.background": "#07040f",
         "editorPane.background": "#07040f",
-        "editorGroup.border": "#3a373835",
+        "editorGroup.border": "#07040f",
         "editorGroup.dropBackground": "#3b76bf20",
         "editorGroup.emptyBackground": "#07040f",
         "editorGroup.focusedEmptyBorder": "#07040f00",
@@ -869,7 +869,7 @@
             ],
             "settings": {
                 "foreground": "#a4f96b",
-                "fontStyle": "italic"
+                "fontStyle": "italic underline"
             }
         },
         {
@@ -1129,8 +1129,7 @@
     "semanticTokenColors": {
         "variable": "#efd39b",
         "variable.declaration": {
-            "foreground": "#efd39b",
-            "fontStyle": "underline"
+            "foreground": "#efd39b"
         },
         "variable.readonly": {
             "foreground": "#31ea91",
@@ -1138,16 +1137,15 @@
         },
         "variable.static": "#13a37c",
         "variable.modification": {
-            "foreground": "#efd39b",
-            "fontStyle": "underline"
+            "foreground": "#efd39b"
         },
         "parameter": {
             "foreground": "#a4f96b",
-            "fontStyle": "italic"
+            "fontStyle": "italic underline"
         },
         "parameter.declaration": {
             "foreground": "#a4f96b",
-            "fontStyle": "italic"
+            "fontStyle": "italic underline"
         },
         "parameter.readonly": {
             "foreground": "#e5e3d7",
