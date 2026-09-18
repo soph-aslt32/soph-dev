@@ -19,7 +19,7 @@ def test_hoge(a: int, b: int):
     return x
 
 if __name__ == "__main__":
-    hoge  = Hoge("World")
+    hoge  = Hoge(name = "World")
     print(hoge.greet())
     print("This is a sandbox file for testing code snippets.")
 

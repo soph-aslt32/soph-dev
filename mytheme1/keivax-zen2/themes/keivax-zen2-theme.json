@@ -1155,6 +1155,10 @@
             "foreground": "#a4f96b",
             "fontStyle": "italic underline"
         },
+        "parameter.keywordArgument": {
+            "foreground": "#a4f96b",
+            "fontStyle": "italic"
+        },
         "function": "#f15dfc",
         "function.declaration": {
             "foreground": "#f15dfc",
