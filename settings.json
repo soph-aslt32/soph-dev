@@ -10,8 +10,9 @@
     // ---- workbench の設定 ----
     "workbench.editor.wrapTabs": true,
     "workbench.sash.size": 20,
-    "editor.scrollbar.verticalScrollbarSize": 25,
-    "editor.scrollbar.horizontalScrollbarSize": 20,
+    "editor.scrollbar.verticalScrollbarSize": 20,
+    "editor.scrollbar.horizontalScrollbarSize": 15,
+    "editor.scrollbar.horizontal": "hidden",
     "workbench.colorCustomizations": {
         "sash.hoverBorder": "#f15dfc",
         "editorInlayHint.foreground": "#3630e5",
@@ -487,5 +488,4 @@
     "workbench.productIconTheme": "developer-icons",
     "chat.viewSessions.orientation": "stacked",
     "workbench.colorTheme": "Keivax-Zen2",
-    // "workbench.colorTheme": "Jellyfish",
 }
