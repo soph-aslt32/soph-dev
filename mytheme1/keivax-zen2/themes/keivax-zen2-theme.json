@@ -715,7 +715,8 @@
         "scmGraph.historyItemHoverAdditionsForeground": "#0ccc82",
         "scmGraph.historyItemHoverDeletionsForeground": "#e21bc1",
         "surface.border": "#07040f00",
-        "mcpIcon.starForeground": "#f4f116"
+        "mcpIcon.starForeground": "#f4f116",
+        "agentsPanel.border": "#07040f00"
     },
     "tokenColors": [
         {
