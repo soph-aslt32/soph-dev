@@ -488,4 +488,7 @@
     "workbench.productIconTheme": "developer-icons",
     "chat.viewSessions.orientation": "stacked",
     "workbench.colorTheme": "Keivax-Zen2",
+
+    // MARK: AgentWindow
+    "sessions.layout.singlePaneDetailPanel": false,
 }
