@@ -483,12 +483,15 @@
     "powershell.integratedConsole.showOnStartup": false,
     "github.copilot.nextEditSuggestions.enabled": true,
 
-    // アイコンテーマとカラーテーマの設定
+    // アイコンテーマ
     "workbench.iconTheme": "developer-icon-theme",
     "workbench.productIconTheme": "developer-icons",
     "chat.viewSessions.orientation": "stacked",
-    "workbench.colorTheme": "Keivax-Zen2",
 
     // MARK: AgentWindow
     "sessions.layout.singlePaneDetailPanel": false,
+
+    // カラーテーマ関係
+    "workbench.colorTheme": "Keivax-Zen2",
+    "workbench.experimental.modernUIEditorTabStyle": "pill",
 }

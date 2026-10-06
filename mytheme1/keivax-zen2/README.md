@@ -1,5 +1,8 @@
 # Keivax-zen2
 
+modernUI + `"workbench.experimental.modernUIEditorTabStyle": "pill"` を前提にしたカラーテーマです．
+`"connected"`の場合の見た目については現状保守されていません．
+
 ## Rule
 
 変更内容は必ずこのREADMEに反映すること．
