@@ -3,6 +3,8 @@
 modernUI + `"workbench.experimental.modernUIEditorTabStyle": "pill"` を前提にしたカラーテーマです．
 `"connected"`の場合の見た目については現状保守されていません．
 
+APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
+
 ## Rule
 
 変更内容は必ずこのREADMEに反映すること．
