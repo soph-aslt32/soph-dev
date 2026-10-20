@@ -7,7 +7,7 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 
 ## Prompt
 
-- 使用できる色はColorPaletteからのみ選択可能（透明度の変更は可能）
+- 使用できる色はNewColorPaletteからのみ選択可能（透明度の変更は可能）
 - 全てのセクションの枠線が透明で，全体が一色で統一感がある
 - 背景色は暗い色で，微妙に寒色寄りの方がよい
 - 選択，マウスホバー等で，特定のものを選択しようとしているときは，わかりやすく色が変わる．（読みづらくなったりするのはNG）
@@ -42,6 +42,7 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 
 ## Prompt zen3 1
 
+- 色は必ずNewColorPaletteから選ぶ
 - 背景色以外には青系の採用率を増やす
 - 本項目の要求以外を優先しつつも，目に優しいカラーテーマを目指す
 - ユーザーからの指示を「## Prompt zen3 N」という形で追加していく
