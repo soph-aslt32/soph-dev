@@ -1,0 +1,15 @@
+﻿{
+  "name": "demo",
+  "foreground": "#07040f",
+  "background": "#0a0411",
+  "accent": "#4ecace",
+  "secondary": "#56f725",
+  "other": "#333333",
+  "note": "keep this text",
+  "colors": [
+    "#3b76bf",
+    "#ef52f2",
+    "#3b76bf",
+    "#ffffff"
+  ]
+}
