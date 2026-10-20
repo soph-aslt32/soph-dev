@@ -14,7 +14,7 @@
       {
         "label": "Keivax-zen3",
         "uiTheme": "vs-dark",
-        "path": "./themes/keivax-zen3-theme.json"
+        "path": "./themes/keivax-zen3-alpha-theme.json"
       }
     ]
   }
