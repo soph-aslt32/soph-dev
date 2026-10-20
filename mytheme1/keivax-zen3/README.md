@@ -5,46 +5,6 @@ modernUI + `"workbench.experimental.modernUIEditorTabStyle": "pill"` を前提�
 
 APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 
-## Rule
-
-変更内容は必ずこのREADMEに反映すること．
-
-## JSON color replacement utility
-
-`replace_json_colors.py` は、JSON ファイル中の `#RRGGBB` のみを対象に置換するためのスクリプトです。置換設定は次の形式を使います。
-
-```json
-[
-  {"from": "#07040f", "to": "#0a0411"},
-  {"from": "#0a0411", "to": "#07040f"}
-]
-```
-
-- `from` / `to` のペアを任意個数書ける
-- 置換対象は JSON の値だけで、キー名や `#RGB` / `rgb(...)` などの非 `#RRGGBB` 形式は変更しない
-- 置換は一括マッピングで適用するため、A→B と B→A を同時に指定しても順序依存の問題が起きない
-
-使用例:
-
-```bash
-python replace_json_colors.py theme.json replacements.json --output converted-theme.json
-python replace_json_colors.py theme.json replacements.json --in-place
-python replace_json_colors.py theme.json replacements.md --output converted-theme.json
-```
-
-Markdown 形式の置換設定ファイルは次のように書けます。
-
-```md
-#07040f: #0a0411
-#0a0411: #07040f
-#4ecace: #56f725
-#56f725: #4ecace
-```
-
-- 形式が `#RRGGBB: #RRGGBB` の行だけが有効
-- それ以外の行は無視される
-- `.md` / `.markdown` ファイルが指定された場合は自動で JSON 形式に変換してから置換を実行する
-
 ## Prompt
 
 - 使用できる色はColorPaletteからのみ選択可能（透明度の変更は可能）
@@ -79,49 +39,6 @@ Markdown 形式の置換設定ファイルは次のように書けます。
 
 - ルーラー部分に表示される色，変更・追加・削除された行をハイライトする色，警告の色，エラーの色，変数選択時のハイライト色と対応するルーラーハイライト色，について，似通った色の採用を避けたい．警告は黄色系，エラーは赤色系，それ以外は赤色系でも黄色系でもないうえに，互いに見分けがつきやすい色，が望ましい．（当然，例えば警告が含まれるファイルは，タブ上でのファイル名部分も同じ色に，なるため，タブ上での見分けも付きやすくなる．）
   - タブ上での各ファイルの変更が含まれるなどによるハイライト表示をする際に，ファイルの文字部分の色を変更するだけでなく，タブ部分の背景色を，各要素に対応するハイライトなどにできるのであれば，それらの工夫を盛り込んでもよい．
-
-## ColorPalette
-
-- #dae5e4
-- #5e4f3b
-- #3a3738
-- #b50191
-- #c619b2
-- #64af77
-- #2d560b
-- #647f6b
-- #91825e
-- #e5e3d7
-- #a38a96
-- #ba9593
-- #8c6089
-- #3d6303
-- #3630e5
-- #07040f
-- #0a0411
-- #efd39b
-- #766e7a
-- #9ba9c6
-- #dd06dd
-- #56f725
-- #13a37c
-- #ef52f2
-- #ac17d6
-- #3b76bf
-- #f15dfc
-- #aff92f
-- #4ecace
-- #d360e5
-- #7fa01b
-- #0ccc82
-- #f4f116
-- #a4f96b
-- #39d3c4
-- #e21bc1
-- #e8e85c
-- #31ea91
-- #bc0db9
-- #c6117b
 
 ## NewColorPalette
 
