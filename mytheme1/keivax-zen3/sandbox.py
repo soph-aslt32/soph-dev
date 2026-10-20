@@ -26,3 +26,9 @@ if __name__ == "__main__":
     bracket = ((((((((2))))))))  # noqa: UP034
 
     print(f"The value of bracket is {bracket}.")
+
+    for i in range(5):
+        if i % 2 == 0:
+            print(f"{i} is even.")
+        else:
+            print(f"{i} is odd.")
