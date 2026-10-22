@@ -22,11 +22,24 @@ DST = ROOT / "themes" / "keivax-zen3-alpha-theme.json"
 # ---------------------------------------------------------------------------
 # 役割 → パレット色
 # ---------------------------------------------------------------------------
+class Tone(str):
+    """パレット色に透明度を掛けた色。a() で更に透明度を重ねられる。"""
+
+    base: str
+    alpha: int
+
+    def __new__(cls, base: str, alpha: int) -> "Tone":
+        obj = super().__new__(cls, f"{base}{alpha:02x}")
+        obj.base, obj.alpha = base, alpha
+        return obj
+
+
 BG = "#1e2323"  # 全セクション共通の背景
 FG = "#e8f7f0"  # 通常テキスト
 FG2 = "#979ac4"  # 二次テキスト・アイコン・キーワード
-DIM = "#7a6a64"  # 非活性・コメント・句読点
-SOFT = "#a08e96"  # Docstring・演算子・プレースホルダ
+DIM = Tone(FG2, 0xB0)  # 寒色の静かな文字・線・コメント・行番号（FG2 の透明度違い）
+MUTED = Tone(FG2, 0xD8)  # DIM より明るい寒色（非アクティブのアイコン・ラベル）
+DOC = "#a08e96"  # Docstring 専用の暖灰（コメント・キーワードと色相で区別する）
 GRAY = "#323233"  # 中立の暗灰
 
 BLUE = "#4470ff"  # 鮮やかな青: アクセント・クラス/型・変更
@@ -50,6 +63,8 @@ T = BG + "00"  # 透明（枠線など）
 
 
 def a(color: str, alpha: int) -> str:
+    if isinstance(color, Tone):  # 透明度つきの色には透明度を掛け合わせる
+        return f"{color.base}{round(color.alpha * alpha / 255):02x}"
     return f"{color}{alpha:02x}"
 
 
@@ -66,7 +81,7 @@ COLORS_SPEC = """
 foreground                      FG
 descriptionForeground           FG2
 disabledForeground              DIM
-errorForeground                 ERR
+errorForeground                 ROSE
 focusBorder                     BLUE
 selection.background            a(BLUE_M, 0x90)
 icon.foreground                 FG2
@@ -172,7 +187,7 @@ editorWarning.background        a(WARN, 0x10)
 editorInfo.foreground           FG2
 editorInfo.border               T
 editorInfo.background           a(FG2, 0x10)
-editorHint.foreground           a(SOFT, 0xc8)
+editorHint.foreground           MUTED
 editorHint.border               T
 editorUnnecessaryCode.opacity   a(FG, 0x70)
 editorUnnecessaryCode.border    T
@@ -201,7 +216,7 @@ editorSuggestWidget.border                      T
 editorSuggestWidget.foreground                  FG
 editorSuggestWidget.highlightForeground         LAV
 editorSuggestWidget.focusHighlightForeground    LAV
-editorSuggestWidget.selectedBackground          a(BLUE_M, 0x60)
+editorSuggestWidget.selectedBackground          a(BLUE, 0x50)
 editorSuggestWidget.selectedForeground          FG
 editorSuggestWidget.selectedIconForeground      FG2
 editorSuggestWidgetStatus.foreground            DIM
@@ -227,7 +242,7 @@ editorCodeLens.foreground               DIM
 editorInlayHint.background              T
 editorInlayHint.foreground              DIM
 editorInlayHint.parameterBackground     T
-editorInlayHint.parameterForeground     SOFT
+editorInlayHint.parameterForeground     MUTED
 editorInlayHint.typeBackground          T
 editorInlayHint.typeForeground          DIM
 editorLightBulb.foreground              WARN
@@ -259,9 +274,9 @@ tab.activeBorder                        T
 tab.activeBorderTop                     BLUE
 tab.activeModifiedBorder                PALEGREEN
 tab.inactiveBackground                  BG
-tab.inactiveForeground                  SOFT
+tab.inactiveForeground                  FG2
 tab.inactiveModifiedBorder              a(PALEGREEN, 0x70)
-tab.hoverBackground                     a(INDIGO, 0x50)
+tab.hoverBackground                     a(INDIGO, 0x80)
 tab.hoverForeground                     FG
 tab.hoverBorder                         T
 tab.unfocusedActiveBackground           BG
@@ -270,7 +285,7 @@ tab.unfocusedActiveBorder               T
 tab.unfocusedActiveBorderTop            a(BLUE, 0x60)
 tab.unfocusedActiveModifiedBorder       a(PALEGREEN, 0x50)
 tab.unfocusedInactiveBackground         BG
-tab.unfocusedInactiveForeground         DIM
+tab.unfocusedInactiveForeground         MUTED
 tab.unfocusedInactiveModifiedBorder     a(PALEGREEN, 0x30)
 tab.unfocusedHoverBackground            a(INDIGO, 0x30)
 tab.unfocusedHoverForeground            FG2
@@ -280,21 +295,21 @@ tab.selectedForeground                  FG
 tab.selectedBorderTop                   BLUE
 tab.lastPinnedBorder                    T
 tab.dragAndDropBorder                   BLUE
-modernTab.activeBackground              a(BLUE_M, 0x60)
+modernTab.activeBackground              a(BLUE, 0x70)
 modernTab.activeForeground              FG
-modernTab.hoverBackground               a(INDIGO, 0x70)
+modernTab.hoverBackground               a(INDIGO, 0xa0)
 modernTab.hoverForeground               FG
-modernEditorTab.activeBackground        a(BLUE_M, 0x80)
+modernEditorTab.activeBackground        a(BLUE, 0x80)
 modernEditorTab.activeForeground        FG
 modernEditorTab.inactiveBackground      BG
-modernEditorTab.hoverBackground         a(INDIGO, 0x90)
+modernEditorTab.hoverBackground         a(INDIGO, 0xb0)
 modernEditorTab.hoverForeground         FG
-modernEditorTab.activeHoverBackground   a(BLUE_M, 0xa0)
+modernEditorTab.activeHoverBackground   a(BLUE, 0xa0)
 
 # --- アクティビティバー ---
 activityBar.background              BG
 activityBar.foreground              FG
-activityBar.inactiveForeground      DIM
+activityBar.inactiveForeground      MUTED
 activityBar.border                  T
 activityBar.activeBorder            BLUE
 activityBar.activeFocusBorder       BLUE
@@ -304,7 +319,7 @@ activityBarBadge.background         BLUE_M
 activityBarBadge.foreground         FG
 activityBarTop.background           BG
 activityBarTop.foreground           FG
-activityBarTop.inactiveForeground   DIM
+activityBarTop.inactiveForeground   MUTED
 activityBarTop.activeBorder         BLUE
 activityBarTop.activeBackground     T
 activityBarTop.dropBorder           BLUE
@@ -316,8 +331,8 @@ actionBar.toggledBackground         a(BLUE_M, 0x60)
 
 # --- サイドバー ---
 sideBar.background                  BG
-sideBar.foreground                  FG
-sideBar.border                      T
+sideBar.foreground                  FG2
+sideBar.border                     T
 sideBar.dropBackground              a(BLUE_M, 0x30)
 sideBarTitle.foreground             FG
 sideBarTitle.background             BG
@@ -371,31 +386,31 @@ statusBarItem.prominentHoverForeground  BG
 titleBar.activeBackground       BG
 titleBar.activeForeground       FG
 titleBar.inactiveBackground     BG
-titleBar.inactiveForeground     DIM
+titleBar.inactiveForeground     MUTED
 titleBar.border                 T
 menubar.selectionBackground     a(BLUE_M, 0x50)
 menubar.selectionForeground     FG
 menubar.selectionBorder         T
 menu.background                 BG
 menu.foreground                 FG
-menu.selectionBackground        a(BLUE_M, 0x70)
+menu.selectionBackground        a(BLUE, 0x60)
 menu.selectionForeground        FG
 menu.selectionBorder            T
 menu.separatorBackground        a(DIM, 0x50)
 menu.border                     T
 commandCenter.background        BG
 commandCenter.foreground        FG2
-commandCenter.border            a(DIM, 0x50)
+commandCenter.border            a(DIM, 0xe8)
 commandCenter.activeBackground  a(BLUE_M, 0x30)
 commandCenter.activeBorder      BLUE
 commandCenter.activeForeground  FG
 commandCenter.inactiveBorder    a(DIM, 0x30)
-commandCenter.inactiveForeground    DIM
+commandCenter.inactiveForeground    MUTED
 
 # --- クイック入力・入力部品 ---
 quickInput.background               BG
 quickInput.foreground               FG
-quickInputList.focusBackground      a(BLUE_M, 0x70)
+quickInputList.focusBackground      a(BLUE, 0x60)
 quickInputList.focusForeground      FG
 quickInputList.focusIconForeground  FG2
 quickInputTitle.background          BG
@@ -403,7 +418,7 @@ pickerGroup.border                  a(DIM, 0x40)
 pickerGroup.foreground              FG2
 input.background                    BG
 input.foreground                    FG
-input.border                        a(DIM, 0x90)
+input.border                        a(DIM, 0xe8)
 input.placeholderForeground         DIM
 inputOption.activeBackground        a(BLUE_M, 0x60)
 inputOption.activeBorder            BLUE
@@ -420,7 +435,7 @@ inputValidation.infoBorder          FG2
 inputValidation.infoForeground      FG2
 dropdown.background                 BG
 dropdown.foreground                 FG
-dropdown.border                     a(DIM, 0x90)
+dropdown.border                     a(DIM, 0xe8)
 dropdown.listBackground             BG
 button.background                   BLUE_M
 button.foreground                   FG
@@ -449,17 +464,17 @@ badge.background                    BLUE_M
 badge.foreground                    FG
 
 # --- リスト・ツリー ---
-list.activeSelectionBackground          a(BLUE_M, 0x70)
+list.activeSelectionBackground          a(BLUE, 0x60)
 list.activeSelectionForeground          FG
 list.activeSelectionIconForeground      FG
-list.inactiveSelectionBackground        a(BLUE_M, 0x40)
-list.inactiveSelectionForeground        FG2
-list.inactiveSelectionIconForeground    DIM
-list.inactiveFocusBackground            a(INDIGO, 0x40)
+list.inactiveSelectionBackground        a(BLUE, 0x40)
+list.inactiveSelectionForeground        FG
+list.inactiveSelectionIconForeground    FG2
+list.inactiveFocusBackground            a(INDIGO, 0x50)
 list.inactiveFocusOutline               T
-list.hoverBackground                    a(INDIGO, 0x50)
+list.hoverBackground                    a(INDIGO, 0x70)
 list.hoverForeground                    FG
-list.focusBackground                    a(BLUE_M, 0x60)
+list.focusBackground                    a(BLUE, 0x50)
 list.focusForeground                    FG
 list.focusOutline                       T
 list.focusAndSelectionOutline           T
@@ -467,7 +482,7 @@ list.focusHighlightForeground           LAV
 list.highlightForeground                LAV
 list.dropBackground                     a(BLUE_M, 0x40)
 list.dropBetweenBackground              BLUE
-list.errorForeground                    ERR
+list.errorForeground                    ROSE
 list.warningForeground                  WARN
 list.deemphasizedForeground             DIM
 list.invalidItemForeground              ERR
@@ -489,7 +504,7 @@ panel.dropBorder                    BLUE
 panelInput.border                   a(DIM, 0x60)
 panelTitle.activeForeground         FG
 panelTitle.activeBorder             BLUE
-panelTitle.inactiveForeground       DIM
+panelTitle.inactiveForeground       MUTED
 panelTitle.border                   T
 panelTitleBadge.background          BLUE_M
 panelTitleBadge.foreground          FG
@@ -516,8 +531,8 @@ terminal.ansiYellow                 WARN
 terminal.ansiBlue                   BLUE
 terminal.ansiMagenta                PURP
 terminal.ansiCyan                   FG2
-terminal.ansiWhite                  SOFT
-terminal.ansiBrightBlack            DIM
+terminal.ansiWhite                  DOC
+terminal.ansiBrightBlack            #7a6a64
 terminal.ansiBrightRed              ROSE
 terminal.ansiBrightGreen            PALEGREEN
 terminal.ansiBrightYellow           KHAKI
@@ -598,17 +613,17 @@ merge.commonContentBackground       a(DIM, 0x20)
 merge.border                        T
 
 # --- Git 装飾 (ファイル名の色) ---
-gitDecoration.addedResourceForeground           GREEN
-gitDecoration.modifiedResourceForeground        BLUE
-gitDecoration.deletedResourceForeground         PURP
-gitDecoration.renamedResourceForeground         EXTERN
-gitDecoration.untrackedResourceForeground       PALEGREEN
+gitDecoration.addedResourceForeground           PALEGREEN
+gitDecoration.modifiedResourceForeground        FG
+gitDecoration.deletedResourceForeground         EXTERN
+gitDecoration.renamedResourceForeground         PALEGREEN
+gitDecoration.untrackedResourceForeground       GREEN
 gitDecoration.ignoredResourceForeground         DIM
 gitDecoration.conflictingResourceForeground     MAG
-gitDecoration.stageModifiedResourceForeground   FG2
-gitDecoration.stageDeletedResourceForeground    PURP
-gitDecoration.submoduleResourceForeground       SOFT
-git.blame.editorDecorationForeground            a(SOFT, 0xb0)
+gitDecoration.stageModifiedResourceForeground   PALEGREEN
+gitDecoration.stageDeletedResourceForeground    EXTERN
+gitDecoration.submoduleResourceForeground       MUTED
+git.blame.editorDecorationForeground            DIM
 
 # --- 通知・問題 ---
 notificationLink.foreground         FG2
@@ -645,7 +660,7 @@ peekViewResult.background               BG
 peekViewResult.fileForeground           FG
 peekViewResult.lineForeground           FG2
 peekViewResult.matchHighlightBackground a(LAV, 0x50)
-peekViewResult.selectionBackground      a(BLUE_M, 0x70)
+peekViewResult.selectionBackground      a(BLUE, 0x60)
 peekViewResult.selectionForeground      FG
 peekViewTitle.background                BG
 peekViewTitleDescription.foreground     FG2
@@ -744,8 +759,8 @@ symbolIcon.numberForeground             GREEN
 symbolIcon.stringForeground             GREEN
 symbolIcon.booleanForeground            MAG
 symbolIcon.nullForeground               MAG
-symbolIcon.arrayForeground              SOFT
-symbolIcon.objectForeground             SOFT
+symbolIcon.arrayForeground              MUTED
+symbolIcon.objectForeground             MUTED
 symbolIcon.operatorForeground           FG2
 symbolIcon.typeForeground               BLUE
 symbolIcon.typeParameterForeground      BLUE
@@ -859,7 +874,7 @@ def S(fg: str | None = None, style: str | None = None) -> dict[str, str]:
 TOKEN_SETTINGS: dict[str, dict[str, str]] = {
     "comment": S(DIM, "italic"),
     "string": S(GREEN),
-    "string.quoted.docstring.multi.python": S(a(SOFT, 0xE0), "italic"),
+    "string.quoted.docstring.multi.python": S(a(DOC, 0xF0), "italic"),
     "constant.character.escape": S(KHAKI),
     "punctuation.definition.template-expression": S(FG2),
     "string.regexp": S(GREEN, "italic"),
@@ -896,7 +911,7 @@ TOKEN_SETTINGS: dict[str, dict[str, str]] = {
     "markup.underline.link": S(FG2),
     "markup.quote": S(DIM, "italic"),
     "invalid": S(ERR, "underline"),
-    "invalid.deprecated": S(SOFT, "strikethrough"),
+    "invalid.deprecated": S(MUTED, "strikethrough"),
 }
 
 # ---------------------------------------------------------------------------
@@ -954,8 +969,8 @@ SEMANTIC_SETTINGS: dict[str, dict[str, str]] = {
     "method.defaultLibrary": S(EXTERN, "italic"),
     "class.defaultLibrary": S(EXTERN, "italic"),
     "type.defaultLibrary": S(EXTERN, "italic"),
-    "variable.deprecated": S(SOFT, "strikethrough"),
-    "property.deprecated": S(SOFT, "strikethrough"),
+    "variable.deprecated": S(MUTED, "strikethrough"),
+    "property.deprecated": S(MUTED, "strikethrough"),
     "keyword": S(FG2, "bold"),
 }
 
