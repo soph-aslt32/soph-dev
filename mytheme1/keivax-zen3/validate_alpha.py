@@ -229,7 +229,7 @@ closest(
     8.0,
     show=8,
     same_ok=(
-        ("keyword", "operator"),
+        ("function", "external lib"),  # 外部由来は斜体で区別する
         ("string/number", "regexp"),
         ("local variable", "parameter"),  # 引数は下線で区別する
         ("comment", "docstring"),

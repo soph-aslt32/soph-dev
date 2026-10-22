@@ -11,17 +11,13 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # パイプ経由でも日本語・記号を文字化けさせない
 
 ROOT = Path(__file__).parent
 SRC = ROOT / "themes" / "keivax-zen3-theme.json"
-# 出力ファイル -> 背景色。背景違いを見比べたいときはエントリを足す（package.json にも登録する）。
-VARIANTS = {
-    ROOT / "themes" / "keivax-zen3-alpha-theme.json": "#201d33",  # 青紫寄り
-}
-
 # ---------------------------------------------------------------------------
 # 役割 → パレット色
 # ---------------------------------------------------------------------------
@@ -76,12 +72,40 @@ def a(color: str, alpha: int) -> str:
     return f"{color}{alpha:02x}"
 
 
-def make_namespace(bg: str) -> dict[str, object]:
-    """割り当て表の式を評価する名前空間。背景色 BG と透明色 T は variant ごとに差し替える。"""
+@dataclass(frozen=True)
+class Roles:
+    """コードのトークン色の役割。色=種類，斜体=外部由来，で表すので外部ライブラリ専用の色は持たない。"""
+
+    keyword: str  # キーワード・self・デコレータ・HTML タグ
+    operator: str  # 演算子・句読点
+    variable: str  # 変数（ローカル・引数・プロパティ）・属性・モジュール
+    function: str  # 関数・メソッド・マクロ
+    type: str  # クラス・型・列挙型メンバー
+    value: str  # 文字列・数値・正規表現・None/True/False
+    comment: str  # コメント・Docstring
+    accent: str  # 注意色（グローバル/定数など希少で重要なもの）
+
+
+ROLES_MAIN = Roles(
+    keyword=BLUE, operator=MUTED, variable=FG2, function=EXTERN,
+    type=PURP, value=GREEN, comment=DIM, accent=MAG,
+)  # fmt: skip
+ROLES_PALE = replace(ROLES_MAIN, type=FG)  # 型だけ淡い色（コントラスト 3.6 -> 14.8）
+
+# 出力ファイル -> (背景色, 役割の色)。見比べたいときはエントリを足す（package.json にも登録する）。
+VARIANTS = {
+    ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN),
+    ROOT / "themes" / "keivax-zen3-alpha-pale-theme.json": ("#201d33", ROLES_PALE),
+}
+
+
+def make_namespace(bg: str, roles: Roles) -> dict[str, object]:
+    """割り当て表の式を評価する名前空間。BG・T と R_* （役割の色）は variant ごとに差し替える。"""
     ns: dict[str, object] = {
         k: v for k, v in globals().items() if k.isupper() and isinstance(v, str)
     }
     ns.update({"a": a, "BG": bg, "T": bg + "00"})
+    ns.update({f"R_{f.name.upper()}": getattr(roles, f.name) for f in fields(roles)})
     return ns
 
 BRACKETS = [BLUE, GREEN, MAG, KHAKI, FG2, ROSE]
@@ -718,13 +742,13 @@ debugIcon.stepIntoForeground        BLUE
 debugIcon.stepOutForeground         BLUE
 debugIcon.stepBackForeground        FG2
 debugIcon.restartForeground         GREEN
-debugTokenExpression.name           KHAKI
+debugTokenExpression.name           R_VARIABLE
 debugTokenExpression.value          FG
-debugTokenExpression.string         GREEN
-debugTokenExpression.boolean        MAG
-debugTokenExpression.number         GREEN
+debugTokenExpression.string         R_VALUE
+debugTokenExpression.boolean        R_VALUE
+debugTokenExpression.number         R_VALUE
 debugTokenExpression.error          ROSE
-debugTokenExpression.type           BLUE
+debugTokenExpression.type           R_TYPE
 
 # --- 設定画面 ---
 settings.headerForeground               FG
@@ -750,35 +774,35 @@ settings.numberInputBorder              a(DIM, 0x80)
 settings.sashBorder                     BLUE
 
 # --- シンボルアイコン (トークン色と対応) ---
-symbolIcon.classForeground              BLUE
-symbolIcon.interfaceForeground          BLUE
-symbolIcon.structForeground             BLUE
-symbolIcon.enumForeground               BLUE
-symbolIcon.enumeratorForeground         BLUE
-symbolIcon.enumeratorMemberForeground   MAG
-symbolIcon.functionForeground           ROSE
-symbolIcon.methodForeground             ROSE
-symbolIcon.constructorForeground        ROSE
-symbolIcon.variableForeground           KHAKI
-symbolIcon.fieldForeground              KHAKI
-symbolIcon.propertyForeground           KHAKI
-symbolIcon.keyForeground                KHAKI
-symbolIcon.keywordForeground            FG2
-symbolIcon.moduleForeground             EXTERN
-symbolIcon.namespaceForeground          EXTERN
-symbolIcon.packageForeground            EXTERN
-symbolIcon.constantForeground           MAG
-symbolIcon.numberForeground             GREEN
-symbolIcon.stringForeground             GREEN
-symbolIcon.booleanForeground            MAG
-symbolIcon.nullForeground               MAG
+symbolIcon.classForeground              R_TYPE
+symbolIcon.interfaceForeground          R_TYPE
+symbolIcon.structForeground             R_TYPE
+symbolIcon.enumForeground               R_TYPE
+symbolIcon.enumeratorForeground         R_TYPE
+symbolIcon.enumeratorMemberForeground   R_TYPE
+symbolIcon.functionForeground           R_FUNCTION
+symbolIcon.methodForeground             R_FUNCTION
+symbolIcon.constructorForeground        R_FUNCTION
+symbolIcon.variableForeground           R_VARIABLE
+symbolIcon.fieldForeground              R_VARIABLE
+symbolIcon.propertyForeground           R_VARIABLE
+symbolIcon.keyForeground                R_VARIABLE
+symbolIcon.keywordForeground            R_KEYWORD
+symbolIcon.moduleForeground             R_VARIABLE
+symbolIcon.namespaceForeground          R_VARIABLE
+symbolIcon.packageForeground            R_VARIABLE
+symbolIcon.constantForeground           R_ACCENT
+symbolIcon.numberForeground             R_VALUE
+symbolIcon.stringForeground             R_VALUE
+symbolIcon.booleanForeground            R_VALUE
+symbolIcon.nullForeground               R_VALUE
 symbolIcon.arrayForeground              MUTED
 symbolIcon.objectForeground             MUTED
-symbolIcon.operatorForeground           FG2
-symbolIcon.typeForeground               BLUE
-symbolIcon.typeParameterForeground      BLUE
+symbolIcon.operatorForeground           R_OPERATOR
+symbolIcon.typeForeground               R_TYPE
+symbolIcon.typeParameterForeground      R_TYPE
 symbolIcon.colorForeground              ROSE
-symbolIcon.eventForeground              PURP
+symbolIcon.eventForeground              R_FUNCTION
 symbolIcon.fileForeground               FG2
 symbolIcon.folderForeground             FG2
 symbolIcon.referenceForeground          FG2
@@ -884,119 +908,123 @@ def S(fg: str | None = None, style: str | None = None) -> dict[str, str]:
     return d
 
 
-# 方針: 色は 構造=FG2 / 型=BLUE / 関数=ROSE / 変数=KHAKI / 外部=EXTERN / 値=GREEN / コメント=DIM / 注意=MAG の8色．
-# 太字=宣言，斜体=自分のコードではないもの（外部ライブラリ・コメント），下線=引数（変数と同色なので全使用箇所），取り消し線=非推奨．
-TOKEN_SETTINGS: dict[str, dict[str, str]] = {
-    "comment": S(DIM, "italic"),
-    "string": S(GREEN),
-    "string.quoted.docstring.multi.python": S(DIM, "italic"),
-    "constant.character.escape": S(KHAKI),
-    "punctuation.definition.template-expression": S(FG2),
-    "string.regexp": S(GREEN),
-    "constant.numeric": S(GREEN),
-    "constant.language": S(GREEN),
-    "keyword.control": S(FG2),
-    "keyword.operator": S(FG2),
-    "storage.type": S(FG2),
-    "entity.name.type": S(BLUE),
-    "entity.other.inherited-class": S(BLUE),
-    "entity.name.function": S(ROSE),
-    "variable.parameter": S(KHAKI, "underline"),
-    "variable.other.local": S(KHAKI),
-    "variable": S(KHAKI),
-    "variable.language.special.self.python": S(FG2),
-    "variable.other.property": S(KHAKI),
-    "support.function": S(EXTERN, "italic"),
-    "support.class": S(EXTERN, "italic"),
-    "support.variable": S(EXTERN, "italic"),
-    "meta.tag": S(BLUE),
-    "entity.other.attribute-name": S(KHAKI),
-    "meta.decorator": S(FG2),
-    "variable.other.enummember": S(BLUE),
-    "entity.name.function.macro": S(ROSE),
-    "meta.import": S(EXTERN),
-    "punctuation": S(MUTED),
-    "support.type.property-name": S(FG2),
-    "support.constant.property-value": S(GREEN),
-    "entity.name.tag.css": S(BLUE),
-    "markup.heading": S(BLUE, "bold"),
-    "markup.bold": S(None, "bold"),
-    "markup.italic": S(None, "italic"),
-    "markup.inline.raw": S(GREEN),
-    "markup.underline.link": S(FG2),
-    "markup.quote": S(DIM, "italic"),
-    "invalid": S(ERR, "underline"),
-    "invalid.deprecated": S(MUTED, "strikethrough"),
-}
+# 方針: 色は 役割（Roles）で決める．色=種類，斜体=外部由来（外部ライブラリ・コメント），太字=宣言，
+# 下線=引数（変数と同色なので全使用箇所），取り消し線=非推奨．外部ライブラリ専用の色は持たない．
+def token_settings(r: Roles) -> dict[str, dict[str, str]]:
+    return {
+        "comment": S(r.comment, "italic"),
+        "string": S(r.value),
+        "string.quoted.docstring.multi.python": S(r.comment, "italic"),
+        "constant.character.escape": S(r.variable),
+        "punctuation.definition.template-expression": S(r.operator),
+        "string.regexp": S(r.value),
+        "constant.numeric": S(r.value),
+        "constant.language": S(r.value),
+        "keyword.control": S(r.keyword),
+        "keyword.operator": S(r.operator),
+        "storage.type": S(r.keyword),
+        "entity.name.type": S(r.type),
+        "entity.other.inherited-class": S(r.type),
+        "entity.name.function": S(r.function),
+        "variable.parameter": S(r.variable, "underline"),
+        "variable.other.local": S(r.variable),
+        "variable": S(r.variable),
+        "variable.language.special.self.python": S(r.keyword),
+        "variable.other.property": S(r.variable),
+        "support.function": S(r.function, "italic"),
+        "support.class": S(r.type, "italic"),
+        "support.variable": S(r.variable, "italic"),
+        "meta.tag": S(r.keyword),
+        "entity.other.attribute-name": S(r.variable),
+        "meta.decorator": S(r.keyword),
+        "variable.other.enummember": S(r.type),
+        "entity.name.function.macro": S(r.function),
+        "meta.import": S(r.variable, "italic"),
+        "punctuation": S(r.operator),
+        "support.type.property-name": S(r.variable),
+        "support.constant.property-value": S(r.value),
+        "entity.name.tag.css": S(r.keyword),
+        "markup.heading": S(r.keyword, "bold"),
+        "markup.bold": S(None, "bold"),
+        "markup.italic": S(None, "italic"),
+        "markup.inline.raw": S(r.value),
+        "markup.underline.link": S(r.variable),
+        "markup.quote": S(r.comment, "italic"),
+        "invalid": S(ERR, "underline"),
+        "invalid.deprecated": S(MUTED, "strikethrough"),
+    }
 
 # ---------------------------------------------------------------------------
 # semanticTokenColors: 元のキー -> settings
 # ---------------------------------------------------------------------------
-SEMANTIC_SETTINGS: dict[str, dict[str, str]] = {
-    "variable": S(KHAKI),
-    "variable.declaration": S(KHAKI),
-    "variable.readonly": S(MAG),
-    "variable.static": S(MAG),
-    "variable.modification": S(KHAKI),
-    "parameter": S(KHAKI, "underline"),
-    "parameter.declaration": S(KHAKI, "underline"),
-    "parameter.readonly": S(KHAKI, "underline"),
-    "parameter.modification": S(KHAKI, "underline"),
-    "parameter.keywordArgument": S(KHAKI, "underline"),
-    "function": S(ROSE),
-    "function.declaration": S(ROSE, "bold"),
-    "method": S(ROSE),
-    "method.declaration": S(ROSE, "bold"),
-    "class": S(BLUE),
-    "class.declaration": S(BLUE, "bold"),
-    "struct": S(BLUE),
-    "struct.declaration": S(BLUE, "bold"),
-    "type": S(BLUE),
-    "type.declaration": S(BLUE, "bold"),
-    "builtinType": S(EXTERN, "italic"),
-    "interface": S(BLUE),
-    "interface.declaration": S(BLUE, "bold"),
-    "enum": S(BLUE),
-    "enum.declaration": S(BLUE, "bold"),
-    "enumMember": S(BLUE),
-    "typeParameter": S(BLUE),
-    "namespace": S(EXTERN),
-    "module": S(EXTERN),
-    "property": S(KHAKI),
-    "property.readonly": S(KHAKI),
-    "property.static": S(MAG),
-    "modifier": S(FG2),
-    "string": S(GREEN),
-    "number": S(GREEN),
-    "regexp": S(GREEN),
-    "operator": S(FG2),
-    "decorator": S(FG2),
-    "event": S(ROSE),
-    "comment": S(DIM, "italic"),
-    "macro": S(ROSE),
-    "label": S(DIM),
-    "selfKeyword": S(FG2),
-    "selfKeyword:rust": S(FG2),
-    "selfKeyword:rust.mutable": S(FG2),
-    "lifetime": S(BLUE),
-    "variable.defaultLibrary": S(EXTERN, "italic"),
-    "function.defaultLibrary": S(EXTERN, "italic"),
-    "method.defaultLibrary": S(EXTERN, "italic"),
-    "class.defaultLibrary": S(EXTERN, "italic"),
-    "type.defaultLibrary": S(EXTERN, "italic"),
-    "variable.deprecated": S(MUTED, "strikethrough"),
-    "property.deprecated": S(MUTED, "strikethrough"),
-    "keyword": S(FG2),
-}
+def semantic_settings(r: Roles) -> dict[str, dict[str, str]]:
+    return {
+        "variable": S(r.variable),
+        "variable.declaration": S(r.variable),
+        "variable.readonly": S(r.accent),
+        "variable.static": S(r.accent),
+        "variable.modification": S(r.variable),
+        "parameter": S(r.variable, "underline"),
+        "parameter.declaration": S(r.variable, "underline"),
+        "parameter.readonly": S(r.variable, "underline"),
+        "parameter.modification": S(r.variable, "underline"),
+        "parameter.keywordArgument": S(r.variable, "underline"),
+        "function": S(r.function),
+        "function.declaration": S(r.function, "bold"),
+        "method": S(r.function),
+        "method.declaration": S(r.function, "bold"),
+        "class": S(r.type),
+        "class.declaration": S(r.type, "bold"),
+        "struct": S(r.type),
+        "struct.declaration": S(r.type, "bold"),
+        "type": S(r.type),
+        "type.declaration": S(r.type, "bold"),
+        "builtinType": S(r.type, "italic"),
+        "interface": S(r.type),
+        "interface.declaration": S(r.type, "bold"),
+        "enum": S(r.type),
+        "enum.declaration": S(r.type, "bold"),
+        "enumMember": S(r.type),
+        "typeParameter": S(r.type),
+        "namespace": S(r.variable, "italic"),
+        "module": S(r.variable, "italic"),
+        "property": S(r.variable),
+        "property.readonly": S(r.variable),
+        "property.static": S(r.accent),
+        "modifier": S(r.keyword),
+        "string": S(r.value),
+        "number": S(r.value),
+        "regexp": S(r.value),
+        "operator": S(r.operator),
+        "decorator": S(r.keyword),
+        "event": S(r.function),
+        "comment": S(r.comment, "italic"),
+        "macro": S(r.function),
+        "label": S(r.comment),
+        "selfKeyword": S(r.keyword),
+        "selfKeyword:rust": S(r.keyword),
+        "selfKeyword:rust.mutable": S(r.keyword),
+        "lifetime": S(r.type),
+        "variable.defaultLibrary": S(r.variable, "italic"),
+        "function.defaultLibrary": S(r.function, "italic"),
+        "method.defaultLibrary": S(r.function, "italic"),
+        "class.defaultLibrary": S(r.type, "italic"),
+        "type.defaultLibrary": S(r.type, "italic"),
+        "variable.deprecated": S(MUTED, "strikethrough"),
+        "property.deprecated": S(MUTED, "strikethrough"),
+        "keyword": S(r.keyword),
+    }
 
-# 元テーマに無い追加項目（末尾に追加．元の項目の name/scope・順序は変えない）
-EXTRA_TOKEN_COLORS: list[dict] = [
-    {
-        "name": "定数 (大文字の名前) ※注意色",
-        "scope": ["variable.other.constant"],
-        "settings": S(MAG),
-    },
-]
+
+def extra_token_colors(r: Roles) -> list[dict]:
+    """元テーマに無い追加項目（末尾に追加．元の項目の name/scope・順序は変えない）。"""
+    return [
+        {
+            "name": "定数 (大文字の名前) ※注意色",
+            "scope": ["variable.other.constant"],
+            "settings": S(r.accent),
+        },
+    ]
 
 
 def check_keys(label: str, expected: list[str], actual: set[str]) -> None:
@@ -1011,16 +1039,18 @@ def check_keys(label: str, expected: list[str], actual: set[str]) -> None:
         raise SystemExit("\n".join(msg))
 
 
-def build(bg: str, dst: Path) -> None:
+def build(bg: str, roles: Roles, dst: Path) -> None:
     src = json.loads(SRC.read_text(encoding="utf-8-sig"))
 
-    colors_new = parse_colors_spec(make_namespace(bg))
+    colors_new = parse_colors_spec(make_namespace(bg, roles))
     check_keys("colors", list(src["colors"]), set(colors_new))
 
+    token_map = token_settings(roles)
+    semantic_map = semantic_settings(roles)
     token_keys = [t["scope"][0] for t in src["tokenColors"]]
-    check_keys("tokenColors(scope[0])", token_keys, set(TOKEN_SETTINGS))
+    check_keys("tokenColors(scope[0])", token_keys, set(token_map))
 
-    check_keys("semanticTokenColors", list(src["semanticTokenColors"]), set(SEMANTIC_SETTINGS))
+    check_keys("semanticTokenColors", list(src["semanticTokenColors"]), set(semantic_map))
 
     out: dict = {}
     for k, v in src.items():
@@ -1028,13 +1058,13 @@ def build(bg: str, dst: Path) -> None:
             out[k] = {key: colors_new[key] for key in src["colors"]}
         elif k == "tokenColors":
             out[k] = [
-                {"name": t["name"], "scope": t["scope"], "settings": TOKEN_SETTINGS[t["scope"][0]]}
+                {"name": t["name"], "scope": t["scope"], "settings": token_map[t["scope"][0]]}
                 for t in src["tokenColors"]
-            ] + [dict(extra) for extra in EXTRA_TOKEN_COLORS]
+            ] + extra_token_colors(roles)
         elif k == "semanticTokenColors":
             sem: dict = {}
             for key, orig in src["semanticTokenColors"].items():
-                spec = SEMANTIC_SETTINGS[key]
+                spec = semantic_map[key]
                 if "fontStyle" in spec or isinstance(orig, dict):
                     sem[key] = spec
                 else:
@@ -1052,8 +1082,8 @@ def build(bg: str, dst: Path) -> None:
 
 
 def main() -> None:
-    for dst, bg in VARIANTS.items():
-        build(bg, dst)
+    for dst, (bg, roles) in VARIANTS.items():
+        build(bg, roles, dst)
 
 
 if __name__ == "__main__":
