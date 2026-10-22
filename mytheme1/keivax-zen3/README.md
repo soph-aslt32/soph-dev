@@ -76,6 +76,12 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 - Git 装飾: 無視ファイルは灰色系にする．変更はもっと明るい色にする
 - 灰青の文字が見づらい場合に備え，背景をより深くした比較用テーマ「Keivax-zen3 Deep」（`#0f0514`）を並置する
 
+## Prompt zen3 6
+
+- 透明度の変更は文字色を含めて可
+- 背景は Deep ではなく標準の `#201d33` を採用する（Deep は削除）
+- Git 装飾で変更と追加は別の色にする．明るいピンクなど，パレットから使えるものを再検討する
+
 ## NewColorPalette
 
 - #7a6a64
