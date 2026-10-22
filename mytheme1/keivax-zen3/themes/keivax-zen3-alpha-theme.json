@@ -1143,16 +1143,6 @@
             "settings": {
                 "foreground": "#f411e1"
             }
-        },
-        {
-            "name": "コメント内のタグ (TODO / FIXME など) ※注意色",
-            "scope": [
-                "keyword.codetag"
-            ],
-            "settings": {
-                "foreground": "#f411e1",
-                "fontStyle": "bold"
-            }
         }
     ],
     "semanticTokenColors": {

@@ -53,7 +53,7 @@ VIOLET_B = "#5f47cc"  # 青紫: デバッグ・マージ
 LAV = "#9b7dc6"  # 藤色: 検索一致・各種マッチ強調
 EXTERN = "#b075d8"  # 明るい紫: 外部ライブラリ・ビルトイン・モジュール
 PURP = "#ae47d1"  # 紫: Git の削除・差分（トークンには使わない）
-MAG = "#f411e1"  # マゼンタ: 注意色（グローバル/定数・TODO など希少で重要なもの）・変数ハイライト
+MAG = "#f411e1"  # マゼンタ: 注意色（グローバル/定数など希少で重要なもの）・変数ハイライト
 ROSE = "#dd949e"  # バラ色: 関数・Git の変更・エラー文字
 GREEN = "#7ea033"  # オリーブ緑: 文字列・数値・正規表現・None/True/False・未追跡
 PALEGREEN = "#c4e5ac"  # 淡緑: Git の追加・ステージ済み・書込ハイライトの縁
@@ -995,11 +995,6 @@ EXTRA_TOKEN_COLORS: list[dict] = [
         "name": "定数 (大文字の名前) ※注意色",
         "scope": ["variable.other.constant"],
         "settings": S(MAG),
-    },
-    {
-        "name": "コメント内のタグ (TODO / FIXME など) ※注意色",
-        "scope": ["keyword.codetag"],
-        "settings": S(MAG, "bold"),
     },
 ]
 
