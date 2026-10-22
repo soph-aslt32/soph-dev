@@ -639,9 +639,9 @@
         "symbolIcon.enumForeground": "#ae47d1",
         "symbolIcon.enumeratorForeground": "#ae47d1",
         "symbolIcon.enumeratorMemberForeground": "#ae47d1",
-        "symbolIcon.functionForeground": "#b075d8",
-        "symbolIcon.methodForeground": "#b075d8",
-        "symbolIcon.constructorForeground": "#b075d8",
+        "symbolIcon.functionForeground": "#dd949e",
+        "symbolIcon.methodForeground": "#dd949e",
+        "symbolIcon.constructorForeground": "#dd949e",
         "symbolIcon.variableForeground": "#979ac4",
         "symbolIcon.fieldForeground": "#979ac4",
         "symbolIcon.propertyForeground": "#979ac4",
@@ -661,7 +661,7 @@
         "symbolIcon.typeForeground": "#ae47d1",
         "symbolIcon.typeParameterForeground": "#ae47d1",
         "symbolIcon.colorForeground": "#dd949e",
-        "symbolIcon.eventForeground": "#b075d8",
+        "symbolIcon.eventForeground": "#dd949e",
         "symbolIcon.fileForeground": "#979ac4",
         "symbolIcon.folderForeground": "#979ac4",
         "symbolIcon.referenceForeground": "#979ac4",
@@ -869,7 +869,7 @@
                 "meta.function-call entity.name.function"
             ],
             "settings": {
-                "foreground": "#b075d8"
+                "foreground": "#dd949e"
             }
         },
         {
@@ -929,7 +929,7 @@
                 "support.function"
             ],
             "settings": {
-                "foreground": "#b075d8",
+                "foreground": "#dd949e",
                 "fontStyle": "italic"
             }
         },
@@ -1003,7 +1003,7 @@
                 "support.function.macro"
             ],
             "settings": {
-                "foreground": "#b075d8"
+                "foreground": "#dd949e"
             }
         },
         {
@@ -1178,14 +1178,14 @@
             "foreground": "#979ac4",
             "fontStyle": "underline"
         },
-        "function": "#b075d8",
+        "function": "#dd949e",
         "function.declaration": {
-            "foreground": "#b075d8",
+            "foreground": "#dd949e",
             "fontStyle": "bold"
         },
-        "method": "#b075d8",
+        "method": "#dd949e",
         "method.declaration": {
-            "foreground": "#b075d8",
+            "foreground": "#dd949e",
             "fontStyle": "bold"
         },
         "class": "#ae47d1",
@@ -1245,14 +1245,14 @@
             "foreground": "#4470ff"
         },
         "event": {
-            "foreground": "#b075d8"
+            "foreground": "#dd949e"
         },
         "comment": {
             "foreground": "#979ac4b0",
             "fontStyle": "italic"
         },
         "macro": {
-            "foreground": "#b075d8"
+            "foreground": "#dd949e"
         },
         "label": "#979ac4b0",
         "selfKeyword": "#4470ff",
@@ -1270,11 +1270,11 @@
             "fontStyle": "italic"
         },
         "function.defaultLibrary": {
-            "foreground": "#b075d8",
+            "foreground": "#dd949e",
             "fontStyle": "italic"
         },
         "method.defaultLibrary": {
-            "foreground": "#b075d8",
+            "foreground": "#dd949e",
             "fontStyle": "italic"
         },
         "class.defaultLibrary": {
