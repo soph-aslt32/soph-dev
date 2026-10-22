@@ -619,15 +619,15 @@ merge.border                        T
 
 # --- Git 装飾 (ファイル名の色) ---
 gitDecoration.addedResourceForeground           PALEGREEN
-gitDecoration.modifiedResourceForeground        FG
-gitDecoration.deletedResourceForeground         EXTERN
+gitDecoration.modifiedResourceForeground        EXTERN
+gitDecoration.deletedResourceForeground         PURP
 gitDecoration.renamedResourceForeground         PALEGREEN
 gitDecoration.untrackedResourceForeground       GREEN
-gitDecoration.ignoredResourceForeground         DIM
+gitDecoration.ignoredResourceForeground         VIOLET_B
 gitDecoration.conflictingResourceForeground     MAG
 gitDecoration.stageModifiedResourceForeground   PALEGREEN
-gitDecoration.stageDeletedResourceForeground    EXTERN
-gitDecoration.submoduleResourceForeground       MUTED
+gitDecoration.stageDeletedResourceForeground    PURP
+gitDecoration.submoduleResourceForeground       BLUE
 git.blame.editorDecorationForeground            DIM
 
 # --- 通知・問題 ---
