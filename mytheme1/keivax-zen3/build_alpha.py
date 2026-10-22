@@ -488,7 +488,7 @@ list.focusHighlightForeground           LAV
 list.highlightForeground                LAV
 list.dropBackground                     a(BLUE_M, 0x40)
 list.dropBetweenBackground              BLUE
-list.errorForeground                    ROSE
+list.errorForeground                    ERR
 list.warningForeground                  WARN
 list.deemphasizedForeground             DIM
 list.invalidItemForeground              ERR
@@ -620,7 +620,7 @@ merge.border                        T
 
 # --- Git 装飾 (ファイル名の色) ---
 gitDecoration.addedResourceForeground           PALEGREEN
-gitDecoration.modifiedResourceForeground        PALEGREEN
+gitDecoration.modifiedResourceForeground        ROSE
 gitDecoration.deletedResourceForeground         PURP
 gitDecoration.renamedResourceForeground         PALEGREEN
 gitDecoration.untrackedResourceForeground       GREEN
