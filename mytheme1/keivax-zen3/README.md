@@ -47,6 +47,13 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 - 本項目の要求以外を優先しつつも，目に優しいカラーテーマを目指す
 - ユーザーからの指示を「## Prompt zen3 N」という形で追加していく
 
+## Prompt zen3 2
+
+- `themes/keivax-zen3-theme.json` のキー構成を引き継ぎ，色は置換ではなく本 README の要求に合わせて NewColorPalette から新たに割り当て，`themes/keivax-zen3-alpha-theme.json` に出力する
+- 背景は `#1e2323` に統一する．サジェスト・ホバー・メニュー・通知なども同色にして，影のみで分離する
+- エラー `#dd2a57`・警告 `#fcb346` は診断専用とし，シンタックスでは使わない
+- `build_alpha.py` で生成し，`validate_alpha.py` と `check_palette.py` で検証する
+
 ## NewColorPalette
 
 - #7a6a64
