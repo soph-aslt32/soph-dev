@@ -42,6 +42,7 @@ FG = "#e8f7f0"  # 通常テキスト
 FG2 = "#979ac4"  # 二次テキスト・アイコン・キーワード
 DIM = Tone(FG2, 0xB0)  # 寒色の静かな文字・線・コメント・行番号（FG2 の透明度違い）
 MUTED = Tone(FG2, 0xD8)  # DIM より明るい寒色（非アクティブのアイコン・ラベル）
+FG_SOFT = Tone(FG, 0xCC)  # 読みやすい二次テキスト（FG の透明度違い。青紫の背景と色相が離れて埋もれない）
 DOC = "#a08e96"  # Docstring 専用の暖灰（コメント・キーワードと色相で区別する）
 GRAY = "#323233"  # 中立の暗灰
 
@@ -84,12 +85,12 @@ BRACKETS = [BLUE, GREEN, MAG, KHAKI, FG2, ROSE]
 COLORS_SPEC = """
 # --- 基本 ---
 foreground                      FG
-descriptionForeground           FG2
+descriptionForeground           FG_SOFT
 disabledForeground              DIM
 errorForeground                 ROSE
 focusBorder                     BLUE
 selection.background            a(BLUE_M, 0x90)
-icon.foreground                 FG2
+icon.foreground                 FG_SOFT
 progressBar.background          BLUE
 textBlockQuote.background       a(INDIGO, 0x30)
 textBlockQuote.border           INDIGO
@@ -104,7 +105,7 @@ textSeparator.foreground        a(DIM, 0x70)
 # --- エディタ本体 ---
 editor.background                       BG
 editor.foreground                       FG
-editor.lineHighlightBackground          a(INDIGO, 0x20)
+editor.lineHighlightBackground          a(INDIGO, 0x40)
 editor.lineHighlightBorder              T
 editor.selectionBackground              a(BLUE_M, 0x90)
 editor.selectionForeground              FG
@@ -152,7 +153,7 @@ editorMultiCursor.secondary.background      BG
 
 # --- 行番号・インデント ---
 editorLineNumber.foreground             DIM
-editorLineNumber.activeForeground       FG2
+editorLineNumber.activeForeground       FG
 editorLineNumber.dimmedForeground       a(DIM, 0x80)
 editorIndentGuide.background1           a(DIM, 0x40)
 editorIndentGuide.background2           a(DIM, 0x30)
@@ -279,7 +280,7 @@ tab.activeBorder                        T
 tab.activeBorderTop                     BLUE
 tab.activeModifiedBorder                PALEGREEN
 tab.inactiveBackground                  BG
-tab.inactiveForeground                  FG2
+tab.inactiveForeground                  FG_SOFT
 tab.inactiveModifiedBorder              a(PALEGREEN, 0x70)
 tab.hoverBackground                     a(INDIGO, 0x80)
 tab.hoverForeground                     FG
@@ -290,7 +291,7 @@ tab.unfocusedActiveBorder               T
 tab.unfocusedActiveBorderTop            a(BLUE, 0x60)
 tab.unfocusedActiveModifiedBorder       a(PALEGREEN, 0x50)
 tab.unfocusedInactiveBackground         BG
-tab.unfocusedInactiveForeground         MUTED
+tab.unfocusedInactiveForeground         FG2
 tab.unfocusedInactiveModifiedBorder     a(PALEGREEN, 0x30)
 tab.unfocusedHoverBackground            a(INDIGO, 0x30)
 tab.unfocusedHoverForeground            FG2
@@ -314,7 +315,7 @@ modernEditorTab.activeHoverBackground   a(BLUE, 0xa0)
 # --- アクティビティバー ---
 activityBar.background              BG
 activityBar.foreground              FG
-activityBar.inactiveForeground      MUTED
+activityBar.inactiveForeground      FG2
 activityBar.border                  T
 activityBar.activeBorder            BLUE
 activityBar.activeFocusBorder       BLUE
@@ -324,7 +325,7 @@ activityBarBadge.background         BLUE_M
 activityBarBadge.foreground         FG
 activityBarTop.background           BG
 activityBarTop.foreground           FG
-activityBarTop.inactiveForeground   MUTED
+activityBarTop.inactiveForeground   FG2
 activityBarTop.activeBorder         BLUE
 activityBarTop.activeBackground     T
 activityBarTop.dropBorder           BLUE
@@ -336,14 +337,14 @@ actionBar.toggledBackground         a(BLUE_M, 0x60)
 
 # --- サイドバー ---
 sideBar.background                  BG
-sideBar.foreground                  FG2
+sideBar.foreground                  FG
 sideBar.border                     T
 sideBar.dropBackground              a(BLUE_M, 0x30)
 sideBarTitle.foreground             FG
 sideBarTitle.background             BG
 sideBarTitle.border                 T
 sideBarSectionHeader.background     BG
-sideBarSectionHeader.foreground     FG2
+sideBarSectionHeader.foreground     FG_SOFT
 sideBarSectionHeader.border         T
 sideBarActivityBarTop.border        T
 sideBarStickyScroll.background      BG
@@ -352,14 +353,14 @@ sideBarStickyScroll.shadow          a(SHADOW, 0x80)
 
 # --- ステータスバー ---
 statusBar.background                BG
-statusBar.foreground                FG2
+statusBar.foreground                FG_SOFT
 statusBar.border                    T
 statusBar.focusBorder               BLUE
 statusBar.debuggingBackground       VIOLET_B
 statusBar.debuggingForeground       FG
 statusBar.debuggingBorder           T
 statusBar.noFolderBackground        BG
-statusBar.noFolderForeground        FG2
+statusBar.noFolderForeground        FG_SOFT
 statusBar.noFolderBorder            T
 statusBarItem.hoverBackground       a(BLUE_M, 0x50)
 statusBarItem.hoverForeground       FG
@@ -391,7 +392,7 @@ statusBarItem.prominentHoverForeground  BG
 titleBar.activeBackground       BG
 titleBar.activeForeground       FG
 titleBar.inactiveBackground     BG
-titleBar.inactiveForeground     MUTED
+titleBar.inactiveForeground     FG2
 titleBar.border                 T
 menubar.selectionBackground     a(BLUE_M, 0x50)
 menubar.selectionForeground     FG
@@ -404,13 +405,13 @@ menu.selectionBorder            T
 menu.separatorBackground        a(DIM, 0x50)
 menu.border                     T
 commandCenter.background        BG
-commandCenter.foreground        FG2
+commandCenter.foreground        FG_SOFT
 commandCenter.border            a(DIM, 0xe8)
 commandCenter.activeBackground  a(BLUE_M, 0x30)
 commandCenter.activeBorder      BLUE
 commandCenter.activeForeground  FG
 commandCenter.inactiveBorder    a(DIM, 0x30)
-commandCenter.inactiveForeground    MUTED
+commandCenter.inactiveForeground    FG2
 
 # --- クイック入力・入力部品 ---
 quickInput.background               BG
@@ -509,14 +510,14 @@ panel.dropBorder                    BLUE
 panelInput.border                   a(DIM, 0x60)
 panelTitle.activeForeground         FG
 panelTitle.activeBorder             BLUE
-panelTitle.inactiveForeground       MUTED
+panelTitle.inactiveForeground       FG2
 panelTitle.border                   T
 panelTitleBadge.background          BLUE_M
 panelTitleBadge.foreground          FG
 panelSection.border                 T
 panelSection.dropBackground         a(BLUE_M, 0x30)
 panelSectionHeader.background       BG
-panelSectionHeader.foreground       FG2
+panelSectionHeader.foreground       FG_SOFT
 panelSectionHeader.border           T
 panelStickyScroll.background        BG
 panelStickyScroll.border            T
@@ -585,7 +586,7 @@ scrollbar.shadow                    a(SHADOW, 0x80)
 scrollbarSlider.background          a(INDIGO, 0x90)
 scrollbarSlider.hoverBackground     a(INDIGO, 0x70)
 scrollbarSlider.activeBackground    a(INDIGO, 0x80)
-breadcrumb.foreground               DIM
+breadcrumb.foreground               MUTED
 breadcrumb.focusForeground          FG
 breadcrumb.activeSelectionForeground    FG2
 breadcrumb.background               BG
@@ -637,7 +638,7 @@ notifications.foreground            FG
 notifications.border                T
 notificationCenter.border           T
 notificationCenterHeader.background BG
-notificationCenterHeader.foreground FG2
+notificationCenterHeader.foreground FG_SOFT
 notificationToast.border            T
 notificationsErrorIcon.foreground   ERR
 notificationsWarningIcon.foreground WARN
