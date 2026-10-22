@@ -133,6 +133,15 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 - 変数選択時のハイライト（同じ変数の強調）を調整する．第一に目立つこと，次に参照（読取）と代入など値の変更（書込）の区別がつきやすいこと
 - 塗りは読取・書込とも同じ色にして，縁取りで目立たせる．区別は縁取りの色で行う
 
+## Prompt zen3 15
+
+- 現在のバージョンを一旦の完成とする（背景 `#201d33`，トークン色は案D，同一変数ハイライトは共通の塗り＋縁取り）
+- 未対応（完成後に必要なら着手する）
+  - 実機で未確認のトークン: `HOGE_GLOBAL`，`self`，`name` 引数，`print(...)` 内の変数，`global` / `nonlocal`，Rust の `MAX_ITER` / `mut` / `unsafe`
+  - Pylance / rust-analyzer が読取・書込のハイライトを実際に分けるか（`editor.occurrencesHighlight` が `off` でないことも確認）
+  - 未設定キー（`chat.*` など205個）の追加，`build_alpha.py` の古い `BG` 定数・コメントの整理
+  - カーソル色・入力欄の薄い文字（3.59）・ゴーストテキスト（3.6）・ミニマップのハイライト（2.0〜2.2）の調整
+
 ## NewColorPalette
 
 - #7a6a64
