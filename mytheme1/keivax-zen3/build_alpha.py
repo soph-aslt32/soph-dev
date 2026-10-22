@@ -1,5 +1,5 @@
 """keivax-zen3-theme.json のキー構成を引き継ぎ、NewColorPalette から色を割り当て直して
-keivax-zen3-alpha-theme.json を生成する。
+keivax-zen3-alpha-theme.json（と背景違いの比較版 VARIANTS）を生成する。
 
 - 色は README の NewColorPalette のみ（透明度の付加は可）。
 - colors は「キー名  色の式」の表(COLORS_SPEC)で全キーを明示的に割り当てる。
@@ -17,7 +17,11 @@ sys.stdout.reconfigure(encoding="utf-8")  # パイプ経由でも日本語・記
 
 ROOT = Path(__file__).parent
 SRC = ROOT / "themes" / "keivax-zen3-theme.json"
-DST = ROOT / "themes" / "keivax-zen3-alpha-theme.json"
+# 出力ファイル -> 背景色。同じ割り当て表から背景違いを生成して見比べる（package.json に両方登録）。
+VARIANTS = {
+    ROOT / "themes" / "keivax-zen3-alpha-theme.json": "#1e2323",  # 寒色寄りの灰
+    ROOT / "themes" / "keivax-zen3-alpha-blue-theme.json": "#201d33",  # 青紫寄り
+}
 
 # ---------------------------------------------------------------------------
 # 役割 → パレット色
@@ -59,17 +63,19 @@ ERR = "#dd2a57"  # エラー専有
 WARN = "#fcb346"  # 警告専有
 SHADOW = "#070606"  # 影
 
-T = BG + "00"  # 透明（枠線など）
-
-
 def a(color: str, alpha: int) -> str:
     if isinstance(color, Tone):  # 透明度つきの色には透明度を掛け合わせる
         return f"{color.base}{round(color.alpha * alpha / 255):02x}"
     return f"{color}{alpha:02x}"
 
 
-NAMESPACE = {k: v for k, v in globals().items() if k.isupper() and isinstance(v, str)}
-NAMESPACE.update({"a": a, "T": T})
+def make_namespace(bg: str) -> dict[str, object]:
+    """割り当て表の式を評価する名前空間。背景色 BG と透明色 T は variant ごとに差し替える。"""
+    ns: dict[str, object] = {
+        k: v for k, v in globals().items() if k.isupper() and isinstance(v, str)
+    }
+    ns.update({"a": a, "BG": bg, "T": bg + "00"})
+    return ns
 
 BRACKETS = [BLUE, GREEN, MAG, KHAKI, FG2, ROSE]
 
@@ -837,7 +843,7 @@ agentsPanel.border                  T
 """
 
 
-def parse_colors_spec() -> dict[str, str]:
+def parse_colors_spec(ns: dict[str, object]) -> dict[str, str]:
     colors: dict[str, str] = {}
     for lineno, raw in enumerate(COLORS_SPEC.splitlines(), start=1):
         line = raw.strip()
@@ -848,7 +854,7 @@ def parse_colors_spec() -> dict[str, str]:
         if key in colors:
             raise ValueError(f"COLORS_SPEC: キー重複 {key!r} (spec 行 {lineno})")
         # 生の hex は直接指定可
-        value = expr if expr.startswith("#") else eval(expr, {}, NAMESPACE)  # noqa: S307
+        value = expr if expr.startswith("#") else eval(expr, {}, ns)  # noqa: S307
         colors[key] = value
 
     # 括弧(1〜6)
@@ -987,10 +993,10 @@ def check_keys(label: str, expected: list[str], actual: set[str]) -> None:
         raise SystemExit("\n".join(msg))
 
 
-def main() -> None:
+def build(bg: str, dst: Path) -> None:
     src = json.loads(SRC.read_text(encoding="utf-8-sig"))
 
-    colors_new = parse_colors_spec()
+    colors_new = parse_colors_spec(make_namespace(bg))
     check_keys("colors", list(src["colors"]), set(colors_new))
 
     token_keys = [t["scope"][0] for t in src["tokenColors"]]
@@ -1019,12 +1025,17 @@ def main() -> None:
         else:
             out[k] = v
 
-    DST.write_text(json.dumps(out, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
-    print(f"✓ 生成: {DST.relative_to(ROOT)}")
+    dst.write_text(json.dumps(out, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+    print(f"✓ 生成: {dst.relative_to(ROOT)} (背景 {bg})")
     print(
         f"  colors={len(out['colors'])} tokenColors={len(out['tokenColors'])} "
         f"semanticTokenColors={len(out['semanticTokenColors'])}"
     )
+
+
+def main() -> None:
+    for dst, bg in VARIANTS.items():
+        build(bg, dst)
 
 
 if __name__ == "__main__":
