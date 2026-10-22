@@ -17,10 +17,9 @@ sys.stdout.reconfigure(encoding="utf-8")  # パイプ経由でも日本語・記
 
 ROOT = Path(__file__).parent
 SRC = ROOT / "themes" / "keivax-zen3-theme.json"
-# 出力ファイル -> 背景色。同じ割り当て表から背景違いを生成して見比べる（package.json に両方登録）。
+# 出力ファイル -> 背景色。背景違いを見比べたいときはエントリを足す（package.json にも登録する）。
 VARIANTS = {
-    ROOT / "themes" / "keivax-zen3-alpha-theme.json": "#1e2323",  # 寒色寄りの灰
-    ROOT / "themes" / "keivax-zen3-alpha-blue-theme.json": "#201d33",  # 青紫寄り
+    ROOT / "themes" / "keivax-zen3-alpha-theme.json": "#201d33",  # 青紫寄り
 }
 
 # ---------------------------------------------------------------------------

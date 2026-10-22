@@ -6,24 +6,24 @@ VS Code カラーテーマ（modernUI + `"pill"` タブ前提）．要求仕様�
 
 - `themes/keivax-zen3-theme.json` は元テーマ．alpha のキー構成の参照元なので編集しない．
 - `themes/keivax-zen3-alpha-theme.json` は `build_alpha.py` の生成物（`package.json` が参照）．直接編集せず，`build_alpha.py` の `COLORS_SPEC` / `TOKEN_SETTINGS` / `SEMANTIC_SETTINGS` を編集して再生成する．
-- 背景違いの比較版 `themes/keivax-zen3-alpha-blue-theme.json`（テーマ名「Keivax-zen3 Blue」）も同じ表から生成する（`VARIANTS`）．背景色以外の割り当ては両版で共通．
+- 背景は `#201d33`（青紫寄り）を標準とする．背景違いを見比べたいときは `VARIANTS` にエントリ（出力ファイルと背景色）を追加し，`package.json` にも登録する．
 - 色は README の NewColorPalette のみ（透明度の付加は可）．`#rrggbb` の直書きは避け，`build_alpha.py` 冒頭の役割名定数を使う．新しい色が必要ならパレット内から定数を追加する．
 - 元JSONのキー・`tokenColors` の name/scope・順序は変えない（`validate_alpha.py` が検査する）．
 - ユーザーからの新しい指示は README に `## Prompt zen3 N` として追記する．
 
 ## 変更後の検証
 
-変更のたびに次の順で実行する．引数なしの `check_palette.py` / `validate_alpha.py` は alpha（標準版）が対象で，Blue 版はファイルを引数に渡す．
+変更のたびに次の順で実行する（いずれも引数なしで alpha が対象．比較版を作った場合はファイルを引数に渡す）．
 
-1. `python build_alpha.py`（両版を生成）
-2. `python check_palette.py` と `python check_palette.py themes/keivax-zen3-alpha-blue-theme.json`
-3. `python validate_alpha.py` と `python validate_alpha.py themes/keivax-zen3-alpha-blue-theme.json`
+1. `python build_alpha.py`
+2. `python check_palette.py`
+3. `python validate_alpha.py`
 
 目視確認は F5（`Extension` 起動構成）で開発ホストを開き，`sandbox.py` と `sandbox.rs` を見る．トークンの色の原因は `Developer: Inspect Editor Tokens and Scopes` で確認する．
 
 ## 設計方針（合意済み）
 
-- 背景は `#1e2323` に厳密統一する．サジェスト・ホバー・メニュー・通知などのポップアップも同色にし，`widget.shadow` などの影のみで分離する．
+- 背景は `#201d33` に厳密統一する．サジェスト・ホバー・メニュー・通知などのポップアップも同色にし，`widget.shadow` などの影のみで分離する．
 - 枠線は透明が基本．フォーカス・アクティブ表示・入力欄・ハイライト枠など機能的なものだけ残す．
 - エラー `#dd2a57`・警告 `#fcb346` は診断専用．シンタックスでは使わない．
 - ルーラー・ガター・ハイライト・ファイル名の色は，赤系と黄系を避けて互いに区別できるようにする（追加=緑，変更=青，削除=紫）．
