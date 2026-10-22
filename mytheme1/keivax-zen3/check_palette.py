@@ -1,7 +1,10 @@
 """カラーパレット外の色がテーマファイルに使われていないかチェックする。"""
 
 import re
+import sys
 from pathlib import Path
+
+sys.stdout.reconfigure(encoding="utf-8")  # パイプ経由でも日本語・記号を文字化けさせない
 
 PALETTE = {
     "#7a6a64",
@@ -58,8 +61,13 @@ PALETTE = {
 # 6桁または8桁(透明度付き)の hex カラーコードを検出
 HEX_RE = re.compile(r'"(#[0-9a-fA-F]{6,8})"')
 
-theme_path = Path(__file__).parent / "themes" / "keivax-zen3-theme.json"
-lines = theme_path.read_text(encoding="utf-8").splitlines()
+# 引数でテーマファイルを指定可能（省略時は alpha）
+theme_path = (
+    Path(sys.argv[1])
+    if len(sys.argv) > 1
+    else Path(__file__).parent / "themes" / "keivax-zen3-alpha-theme.json"
+)
+lines = theme_path.read_text(encoding="utf-8-sig").splitlines()
 
 # { ベース色: [(行番号, 出現形式), ...] }
 violations: dict[str, list[tuple[int, str]]] = {}
