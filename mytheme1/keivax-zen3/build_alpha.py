@@ -57,8 +57,8 @@ KHAKI = "#d6d595"  # カーキ: 変数（ローカル・引数・プロパティ
 
 # 背景用の濃い色。明るさが背景並みなので，どのトークン色の上でもコントラストを保てる（彩度で目立たせる）
 DEEP_BLUE = "#0d00a3"  # 濃い青: 選択・ホバー・アクティブタブ
-DEEP_WINE = "#4f122f"  # 暗いワイン色: 単語ハイライト（読取）
-DEEP_GREEN = "#002319"  # 暗い緑: 単語ハイライト（書込）・差分の追加
+DEEP_WINE = "#4f122f"  # 暗いワイン色: 単語ハイライト（読取・書込に共通の塗り．区別は縁取りだけで行う）
+DEEP_GREEN = "#002319"  # 暗い緑: 差分の追加
 DEEP_VIOLET = "#231663"  # 暗い青紫: 検索一致
 DEEP_PURPLE = "#421949"  # 暗い紫: 差分の削除
 
@@ -143,7 +143,7 @@ editor.selectionHighlightBackground     a(DEEP_BLUE, 0x70)
 editor.selectionHighlightBorder         a(FG, 0x60)
 editor.wordHighlightBackground          DEEP_WINE
 editor.wordHighlightBorder              MAG
-editor.wordHighlightStrongBackground    DEEP_GREEN
+editor.wordHighlightStrongBackground    DEEP_WINE
 editor.wordHighlightStrongBorder        PALEGREEN
 editor.wordHighlightTextBackground      a(DEEP_WINE, 0xb0)
 editor.wordHighlightTextBorder          a(MAG, 0x70)
