@@ -20,6 +20,7 @@ SRC = ROOT / "themes" / "keivax-zen3-theme.json"
 # 出力ファイル -> 背景色。背景違いを見比べたいときはエントリを足す（package.json にも登録する）。
 VARIANTS = {
     ROOT / "themes" / "keivax-zen3-alpha-theme.json": "#201d33",  # 青紫寄り
+    ROOT / "themes" / "keivax-zen3-alpha-deep-theme.json": "#0f0514",  # より深い暗紫（文字のコントラストが上がる）
 }
 
 # ---------------------------------------------------------------------------
