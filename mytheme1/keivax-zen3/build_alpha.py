@@ -59,6 +59,13 @@ GREEN = "#7ea033"  # オリーブ緑: 文字列/数値・追加
 PALEGREEN = "#c4e5ac"  # 淡緑: 正規表現・未追跡・書込ハイライト
 KHAKI = "#d6d595"  # カーキ: ローカル変数
 
+# 背景用の濃い色。明るさが背景並みなので，どのトークン色の上でもコントラストを保てる（彩度で目立たせる）
+DEEP_BLUE = "#0d00a3"  # 濃い青: 選択・ホバー・アクティブタブ
+DEEP_WINE = "#4f122f"  # 暗いワイン色: 単語ハイライト（読取）
+DEEP_GREEN = "#002319"  # 暗い緑: 単語ハイライト（書込）・差分の追加
+DEEP_VIOLET = "#231663"  # 暗い青紫: 検索一致
+DEEP_PURPLE = "#421949"  # 暗い紫: 差分の削除
+
 ERR = "#dd2a57"  # エラー専有
 WARN = "#fcb346"  # 警告専有
 SHADOW = "#070606"  # 影
@@ -89,7 +96,7 @@ descriptionForeground           CHROME
 disabledForeground              DIM
 errorForeground                 ROSE
 focusBorder                     BLUE
-selection.background            a(BLUE_M, 0x90)
+selection.background            a(DEEP_BLUE, 0xc0)
 icon.foreground                 CHROME
 progressBar.background          BLUE
 textBlockQuote.background       a(INDIGO, 0x30)
@@ -107,27 +114,27 @@ editor.background                       BG
 editor.foreground                       FG
 editor.lineHighlightBackground          a(INDIGO, 0x40)
 editor.lineHighlightBorder              T
-editor.selectionBackground              a(BLUE_M, 0x90)
+editor.selectionBackground              a(DEEP_BLUE, 0xc0)
 editor.selectionForeground              FG
-editor.inactiveSelectionBackground      a(BLUE_M, 0x50)
-editor.selectionHighlightBackground     a(FG, 0x20)
+editor.inactiveSelectionBackground      a(DEEP_BLUE, 0x80)
+editor.selectionHighlightBackground     a(DEEP_BLUE, 0x70)
 editor.selectionHighlightBorder         a(FG, 0x60)
-editor.wordHighlightBackground          a(MAG, 0x38)
+editor.wordHighlightBackground          DEEP_WINE
 editor.wordHighlightBorder              MAG
-editor.wordHighlightStrongBackground    a(PALEGREEN, 0x40)
+editor.wordHighlightStrongBackground    DEEP_GREEN
 editor.wordHighlightStrongBorder        PALEGREEN
-editor.wordHighlightTextBackground      a(MAG, 0x24)
+editor.wordHighlightTextBackground      a(DEEP_WINE, 0xb0)
 editor.wordHighlightTextBorder          a(MAG, 0x70)
-editor.findMatchBackground              a(LAV, 0x70)
+editor.findMatchBackground              DEEP_VIOLET
 editor.findMatchBorder                  LAV
-editor.findMatchHighlightBackground     a(LAV, 0x40)
+editor.findMatchHighlightBackground     a(DEEP_VIOLET, 0xc0)
 editor.findMatchHighlightBorder         T
 editor.findRangeHighlightBackground     a(INDIGO, 0x30)
 editor.findRangeHighlightBorder         T
-editor.hoverHighlightBackground         a(INDIGO, 0x50)
+editor.hoverHighlightBackground         a(DEEP_BLUE, 0x60)
 editor.rangeHighlightBackground         a(INDIGO, 0x30)
 editor.rangeHighlightBorder             T
-editor.symbolHighlightBackground        a(INDIGO, 0x50)
+editor.symbolHighlightBackground        a(DEEP_BLUE, 0x60)
 editor.symbolHighlightBorder            T
 editor.inlineValuesBackground           a(BG, 0xcc)
 editor.inlineValuesForeground           DIM
@@ -135,12 +142,12 @@ editor.linkedEditingBackground          a(PURP, 0x30)
 editor.foldBackground                   a(INDIGO, 0x30)
 editor.foldPlaceholderForeground        DIM
 editor.placeholder.foreground           DIM
-editor.snippetTabstopHighlightBackground        a(FG2, 0x30)
+editor.snippetTabstopHighlightBackground        a(DEEP_BLUE, 0x70)
 editor.snippetTabstopHighlightBorder            a(FG2, 0x60)
 editor.snippetFinalTabstopHighlightBackground   a(LAV, 0x30)
 editor.snippetFinalTabstopHighlightBorder       LAV
-editor.stackFrameHighlightBackground            a(INDIGO, 0x50)
-editor.focusedStackFrameHighlightBackground     a(BLUE, 0x40)
+editor.stackFrameHighlightBackground            a(DEEP_BLUE, 0x80)
+editor.focusedStackFrameHighlightBackground     a(DEEP_BLUE, 0xe0)
 editor.compositionBorder                BLUE
 
 # --- カーソル ---
@@ -169,7 +176,7 @@ editorIndentGuide.activeBackground5     a(DIM, 0xb0)
 editorIndentGuide.activeBackground6     a(DIM, 0xb0)
 
 # --- 括弧 (1〜6 は BRACKETS から生成) ---
-editorBracketMatch.background                       a(FG2, 0x30)
+editorBracketMatch.background                       a(DEEP_BLUE, 0x80)
 editorBracketMatch.border                           FG2
 editorBracketHighlight.unexpectedBracket.foreground ERR
 
@@ -222,13 +229,13 @@ editorSuggestWidget.border                      T
 editorSuggestWidget.foreground                  FG
 editorSuggestWidget.highlightForeground         LAV
 editorSuggestWidget.focusHighlightForeground    LAV
-editorSuggestWidget.selectedBackground          a(BLUE, 0x50)
+editorSuggestWidget.selectedBackground          a(DEEP_BLUE, 0xc0)
 editorSuggestWidget.selectedForeground          FG
 editorSuggestWidget.selectedIconForeground      FG2
 editorSuggestWidgetStatus.foreground            DIM
 editorActionList.background             BG
 editorActionList.foreground             FG
-editorActionList.focusBackground        a(BLUE_M, 0x60)
+editorActionList.focusBackground        a(DEEP_BLUE, 0xc0)
 editorActionList.focusForeground        FG
 editorHoverWidget.background            BG
 editorHoverWidget.border                T
@@ -282,7 +289,7 @@ tab.activeModifiedBorder                PALEGREEN
 tab.inactiveBackground                  BG
 tab.inactiveForeground                  CHROME
 tab.inactiveModifiedBorder              a(PALEGREEN, 0x70)
-tab.hoverBackground                     a(INDIGO, 0x80)
+tab.hoverBackground                     a(DEEP_BLUE, 0x80)
 tab.hoverForeground                     FG
 tab.hoverBorder                         T
 tab.unfocusedActiveBackground           BG
@@ -301,16 +308,16 @@ tab.selectedForeground                  FG
 tab.selectedBorderTop                   BLUE
 tab.lastPinnedBorder                    T
 tab.dragAndDropBorder                   BLUE
-modernTab.activeBackground              a(BLUE, 0x70)
+modernTab.activeBackground              a(DEEP_BLUE, 0xe0)
 modernTab.activeForeground              FG
-modernTab.hoverBackground               a(INDIGO, 0xa0)
+modernTab.hoverBackground               a(DEEP_BLUE, 0x80)
 modernTab.hoverForeground               FG
-modernEditorTab.activeBackground        a(BLUE, 0x80)
+modernEditorTab.activeBackground        a(DEEP_BLUE, 0xe0)
 modernEditorTab.activeForeground        FG
 modernEditorTab.inactiveBackground      BG
-modernEditorTab.hoverBackground         a(INDIGO, 0xb0)
+modernEditorTab.hoverBackground         a(DEEP_BLUE, 0x80)
 modernEditorTab.hoverForeground         FG
-modernEditorTab.activeHoverBackground   a(BLUE, 0xa0)
+modernEditorTab.activeHoverBackground   DEEP_BLUE
 
 # --- アクティビティバー ---
 activityBar.background              BG
@@ -394,12 +401,12 @@ titleBar.activeForeground       FG
 titleBar.inactiveBackground     BG
 titleBar.inactiveForeground     FG2
 titleBar.border                 T
-menubar.selectionBackground     a(BLUE_M, 0x50)
+menubar.selectionBackground     a(DEEP_BLUE, 0x90)
 menubar.selectionForeground     FG
 menubar.selectionBorder         T
 menu.background                 BG
 menu.foreground                 FG
-menu.selectionBackground        a(BLUE, 0x60)
+menu.selectionBackground        a(DEEP_BLUE, 0xc0)
 menu.selectionForeground        FG
 menu.selectionBorder            T
 menu.separatorBackground        a(DIM, 0x50)
@@ -416,7 +423,7 @@ commandCenter.inactiveForeground    FG2
 # --- クイック入力・入力部品 ---
 quickInput.background               BG
 quickInput.foreground               FG
-quickInputList.focusBackground      a(BLUE, 0x60)
+quickInputList.focusBackground      a(DEEP_BLUE, 0xc0)
 quickInputList.focusForeground      FG
 quickInputList.focusIconForeground  FG2
 quickInputTitle.background          BG
@@ -470,17 +477,17 @@ badge.background                    BLUE_M
 badge.foreground                    FG
 
 # --- リスト・ツリー ---
-list.activeSelectionBackground          a(BLUE, 0x60)
+list.activeSelectionBackground          a(DEEP_BLUE, 0xc0)
 list.activeSelectionForeground          FG
 list.activeSelectionIconForeground      FG
-list.inactiveSelectionBackground        a(BLUE, 0x40)
+list.inactiveSelectionBackground        a(DEEP_BLUE, 0x80)
 list.inactiveSelectionForeground        FG
 list.inactiveSelectionIconForeground    FG2
-list.inactiveFocusBackground            a(INDIGO, 0x50)
+list.inactiveFocusBackground            a(DEEP_BLUE, 0x60)
 list.inactiveFocusOutline               T
-list.hoverBackground                    a(INDIGO, 0x70)
+list.hoverBackground                    a(DEEP_BLUE, 0x60)
 list.hoverForeground                    FG
-list.focusBackground                    a(BLUE, 0x50)
+list.focusBackground                    a(DEEP_BLUE, 0xa0)
 list.focusForeground                    FG
 list.focusOutline                       T
 list.focusAndSelectionOutline           T
@@ -527,9 +534,9 @@ outputViewStickyScroll.background   BG
 terminal.background                 BG
 terminal.foreground                 FG
 terminal.border                     T
-terminal.selectionBackground        a(BLUE_M, 0x70)
+terminal.selectionBackground        a(DEEP_BLUE, 0xc0)
 terminal.selectionForeground        FG
-terminal.inactiveSelectionBackground    a(BLUE_M, 0x40)
+terminal.inactiveSelectionBackground    a(DEEP_BLUE, 0x80)
 terminal.ansiBlack                  GRAY
 terminal.ansiRed                    ERR
 terminal.ansiGreen                  GREEN
@@ -593,11 +600,11 @@ breadcrumb.background               BG
 breadcrumbPicker.background         BG
 
 # --- Diff・マージ ---
-diffEditor.insertedLineBackground   a(GREEN, 0x20)
-diffEditor.insertedTextBackground   a(GREEN, 0x38)
+diffEditor.insertedLineBackground   a(DEEP_GREEN, 0xc0)
+diffEditor.insertedTextBackground   DEEP_GREEN
 diffEditor.insertedTextBorder       T
-diffEditor.removedLineBackground    a(PURP, 0x20)
-diffEditor.removedTextBackground    a(PURP, 0x38)
+diffEditor.removedLineBackground    a(DEEP_PURPLE, 0xc0)
+diffEditor.removedTextBackground    DEEP_PURPLE
 diffEditor.removedTextBorder        T
 diffEditor.border                   T
 diffEditor.diagonalFill             a(DIM, 0x40)
@@ -666,7 +673,7 @@ peekViewResult.background               BG
 peekViewResult.fileForeground           FG
 peekViewResult.lineForeground           FG2
 peekViewResult.matchHighlightBackground a(LAV, 0x50)
-peekViewResult.selectionBackground      a(BLUE, 0x60)
+peekViewResult.selectionBackground      a(DEEP_BLUE, 0xc0)
 peekViewResult.selectionForeground      FG
 peekViewTitle.background                BG
 peekViewTitleDescription.foreground     FG2
