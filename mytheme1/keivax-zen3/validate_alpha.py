@@ -87,15 +87,23 @@ def dist(a: str, b: str) -> float:
     return 100 * math.dist(oklab(a), oklab(b))
 
 
-def closest(label: str, items: dict[str, str], limit: float, show: int = 6) -> None:
+def closest(
+    label: str, items: dict[str, str], limit: float, show: int = 6, same_ok: tuple = ()
+) -> None:
+    """same_ok: 同色にする意図がある組。距離の比較から除外する。"""
     section(label)
+    ok = {frozenset(pair) for pair in same_ok}
     pairs = sorted(
-        (dist(blend(items[x]), blend(items[y])), x, y) for x, y in itertools.combinations(items, 2)
+        (dist(blend(items[x]), blend(items[y])), x, y)
+        for x, y in itertools.combinations(items, 2)
+        if frozenset((x, y)) not in ok
     )
     for d, x, y in pairs[:show]:
         flag = "  <-- 近い" if d < limit else ""
         print(f"  {d:5.1f}  {x} ({blend(items[x])}) <-> {y} ({blend(items[y])}){flag}")
     print(f"  最小距離: {pairs[0][0]:.1f} / 閾値 {limit}")
+    if same_ok:
+        print("  同色にする意図のため除外: " + ", ".join(f"{x}={y}" for x, y in same_ok))
 
 
 # --- 1. キー構成 -------------------------------------------------------------
@@ -107,12 +115,17 @@ for k in ("schema", "name", "type", "semanticHighlighting"):
         fail(f"{k} が元と異なる")
 if list(colors) != list(orig["colors"]):
     fail("colors のキー/順序が不一致")
-if [(t["name"], t["scope"]) for t in alpha["tokenColors"]] != [
-    (t["name"], t["scope"]) for t in orig["tokenColors"]
-]:
-    fail("tokenColors の name/scope が不一致")
-if list(alpha["semanticTokenColors"]) != list(orig["semanticTokenColors"]):
-    fail("semanticTokenColors のキー/順序が不一致")
+orig_tc = [(t["name"], t["scope"]) for t in orig["tokenColors"]]
+alpha_tc = [(t["name"], t["scope"]) for t in alpha["tokenColors"]]
+if alpha_tc[: len(orig_tc)] != orig_tc:
+    fail("tokenColors の元の name/scope が不一致（追加は末尾のみ可）")
+orig_sem = list(orig["semanticTokenColors"])
+if list(alpha["semanticTokenColors"])[: len(orig_sem)] != orig_sem:
+    fail("semanticTokenColors の元のキー/順序が不一致（追加は末尾のみ可）")
+extra_tc = len(alpha_tc) - len(orig_tc)
+extra_sem = len(alpha["semanticTokenColors"]) - len(orig_sem)
+if extra_tc or extra_sem:
+    print(f"  追加項目: tokenColors +{extra_tc} / semanticTokenColors +{extra_sem}")
 print(
     f"  colors={len(colors)} tokenColors={len(alpha['tokenColors'])} "
     f"semantic={len(alpha['semanticTokenColors'])}"
@@ -210,7 +223,18 @@ for name, hv in ROLES.items():
     print(f"  {name:16s} {hv}  {contrast(hv, BG):5.2f}")
 
 # --- 6. 色の近さ -------------------------------------------------------------
-closest("トークン役割どうしの色の近さ（OKLab x100）", ROLES, 8.0, show=8)
+closest(
+    "トークン役割どうしの色の近さ（OKLab x100）",
+    ROLES,
+    8.0,
+    show=8,
+    same_ok=(
+        ("keyword", "operator"),
+        ("string/number", "regexp"),
+        ("local variable", "parameter"),  # 引数は下線で区別する
+        ("comment", "docstring"),
+    ),
+)
 
 MARKERS = {
     "git added": colors["editorGutter.addedBackground"],
@@ -240,7 +264,17 @@ FILES = {
     "warning file": colors["list.warningForeground"],
     "default text": colors["sideBar.foreground"],
 }
-closest("ファイル名の色の近さ（Add1/Add6）", FILES, 10.0, show=8)
+closest(
+    "ファイル名の色の近さ（Add1/Add6）",
+    FILES,
+    10.0,
+    show=8,
+    same_ok=(
+        ("added", "renamed"),
+        ("added", "staged modified"),
+        ("renamed", "staged modified"),
+    ),
+)
 
 # --- 7. 文字と背景の組 -------------------------------------------------------
 PAIRS = [
