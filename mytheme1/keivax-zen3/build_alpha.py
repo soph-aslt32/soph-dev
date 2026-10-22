@@ -43,21 +43,21 @@ FG2 = "#979ac4"  # 二次テキスト・アイコン・キーワード
 DIM = Tone(FG2, 0xB0)  # 寒色の静かな文字・線・コメント・行番号（FG2 の透明度違い）
 MUTED = Tone(FG2, 0xD8)  # DIM より明るい寒色（非アクティブのアイコン・ラベル）
 CHROME = FG2  # UI の文字（エクスプローラー・サイドバー・ステータスバー・非アクティブタブなど）．明るくしたい場合は FG に差し替える
-DOC = "#a08e96"  # Docstring 専用の暖灰（コメント・キーワードと色相で区別する）
+DOC = "#a08e96"  # ターミナルの ANSI 白にだけ使う暖灰
 GRAY = "#323233"  # 中立の暗灰
 
-BLUE = "#4470ff"  # 鮮やかな青: アクセント・クラス/型・変更
+BLUE = "#4470ff"  # 鮮やかな青: クラス/型・アクセント
 BLUE_M = "#1761aa"  # 中間の青: 選択背景・ボタン
 INDIGO = "#4a4d91"  # ホバー・淡い強調背景
 VIOLET_B = "#5f47cc"  # 青紫: デバッグ・マージ
 LAV = "#9b7dc6"  # 藤色: 検索一致・各種マッチ強調
 EXTERN = "#b075d8"  # 明るい紫: 外部ライブラリ・ビルトイン・モジュール
-PURP = "#ae47d1"  # 紫: 引数・削除
-MAG = "#f411e1"  # マゼンタ: グローバル/定数・変数ハイライト
-ROSE = "#dd949e"  # バラ色: 関数
-GREEN = "#7ea033"  # オリーブ緑: 文字列/数値・追加
-PALEGREEN = "#c4e5ac"  # 淡緑: 正規表現・未追跡・書込ハイライト
-KHAKI = "#d6d595"  # カーキ: ローカル変数
+PURP = "#ae47d1"  # 紫: Git の削除・差分（トークンには使わない）
+MAG = "#f411e1"  # マゼンタ: 注意色（グローバル/定数・TODO など希少で重要なもの）・変数ハイライト
+ROSE = "#dd949e"  # バラ色: 関数・Git の変更・エラー文字
+GREEN = "#7ea033"  # オリーブ緑: 文字列・数値・正規表現・None/True/False・未追跡
+PALEGREEN = "#c4e5ac"  # 淡緑: Git の追加・ステージ済み・書込ハイライトの縁
+KHAKI = "#d6d595"  # カーキ: 変数（ローカル・引数・プロパティ）
 
 # 背景用の濃い色。明るさが背景並みなので，どのトークン色の上でもコントラストを保てる（彩度で目立たせる）
 DEEP_BLUE = "#0d00a3"  # 濃い青: 選択・ホバー・アクティブタブ
@@ -884,36 +884,38 @@ def S(fg: str | None = None, style: str | None = None) -> dict[str, str]:
     return d
 
 
+# 方針: 色は 構造=FG2 / 型=BLUE / 関数=ROSE / 変数=KHAKI / 外部=EXTERN / 値=GREEN / コメント=DIM / 注意=MAG の8色．
+# 太字=宣言，斜体=自分のコードではないもの（外部ライブラリ・コメント），下線=引数（変数と同色なので全使用箇所），取り消し線=非推奨．
 TOKEN_SETTINGS: dict[str, dict[str, str]] = {
     "comment": S(DIM, "italic"),
     "string": S(GREEN),
-    "string.quoted.docstring.multi.python": S(a(DOC, 0xF0), "italic"),
+    "string.quoted.docstring.multi.python": S(DIM, "italic"),
     "constant.character.escape": S(KHAKI),
     "punctuation.definition.template-expression": S(FG2),
-    "string.regexp": S(GREEN, "italic"),
+    "string.regexp": S(GREEN),
     "constant.numeric": S(GREEN),
-    "constant.language": S(MAG),
-    "keyword.control": S(FG2, "bold"),
+    "constant.language": S(GREEN),
+    "keyword.control": S(FG2),
     "keyword.operator": S(FG2),
     "storage.type": S(FG2),
     "entity.name.type": S(BLUE),
-    "entity.other.inherited-class": S(BLUE, "italic"),
+    "entity.other.inherited-class": S(BLUE),
     "entity.name.function": S(ROSE),
-    "variable.parameter": S(PURP, "italic underline"),
+    "variable.parameter": S(KHAKI, "underline"),
     "variable.other.local": S(KHAKI),
     "variable": S(KHAKI),
-    "variable.language.special.self.python": S(FG2, "italic"),
-    "variable.other.property": S(KHAKI, "italic"),
+    "variable.language.special.self.python": S(FG2),
+    "variable.other.property": S(KHAKI),
     "support.function": S(EXTERN, "italic"),
     "support.class": S(EXTERN, "italic"),
     "support.variable": S(EXTERN, "italic"),
     "meta.tag": S(BLUE),
-    "entity.other.attribute-name": S(KHAKI, "italic"),
-    "meta.decorator": S(FG2, "italic"),
-    "variable.other.enummember": S(MAG, "italic"),
-    "entity.name.function.macro": S(ROSE, "bold"),
+    "entity.other.attribute-name": S(KHAKI),
+    "meta.decorator": S(FG2),
+    "variable.other.enummember": S(BLUE),
+    "entity.name.function.macro": S(ROSE),
     "meta.import": S(EXTERN),
-    "punctuation": S(DIM),
+    "punctuation": S(MUTED),
     "support.type.property-name": S(FG2),
     "support.constant.property-value": S(GREEN),
     "entity.name.tag.css": S(BLUE),
@@ -933,14 +935,14 @@ TOKEN_SETTINGS: dict[str, dict[str, str]] = {
 SEMANTIC_SETTINGS: dict[str, dict[str, str]] = {
     "variable": S(KHAKI),
     "variable.declaration": S(KHAKI),
-    "variable.readonly": S(MAG, "italic"),
-    "variable.static": S(MAG, "bold"),
+    "variable.readonly": S(MAG),
+    "variable.static": S(MAG),
     "variable.modification": S(KHAKI),
-    "parameter": S(PURP, "italic underline"),
-    "parameter.declaration": S(PURP, "italic underline"),
-    "parameter.readonly": S(PURP, "italic"),
-    "parameter.modification": S(PURP, "italic underline"),
-    "parameter.keywordArgument": S(PURP, "italic"),
+    "parameter": S(KHAKI, "underline"),
+    "parameter.declaration": S(KHAKI, "underline"),
+    "parameter.readonly": S(KHAKI, "underline"),
+    "parameter.modification": S(KHAKI, "underline"),
+    "parameter.keywordArgument": S(KHAKI, "underline"),
     "function": S(ROSE),
     "function.declaration": S(ROSE, "bold"),
     "method": S(ROSE),
@@ -952,31 +954,31 @@ SEMANTIC_SETTINGS: dict[str, dict[str, str]] = {
     "type": S(BLUE),
     "type.declaration": S(BLUE, "bold"),
     "builtinType": S(EXTERN, "italic"),
-    "interface": S(BLUE, "italic"),
-    "interface.declaration": S(BLUE, "bold italic"),
+    "interface": S(BLUE),
+    "interface.declaration": S(BLUE, "bold"),
     "enum": S(BLUE),
     "enum.declaration": S(BLUE, "bold"),
-    "enumMember": S(MAG, "italic"),
-    "typeParameter": S(BLUE, "italic"),
+    "enumMember": S(BLUE),
+    "typeParameter": S(BLUE),
     "namespace": S(EXTERN),
     "module": S(EXTERN),
-    "property": S(KHAKI, "italic"),
-    "property.readonly": S(KHAKI, "italic"),
-    "property.static": S(MAG, "italic"),
+    "property": S(KHAKI),
+    "property.readonly": S(KHAKI),
+    "property.static": S(MAG),
     "modifier": S(FG2),
     "string": S(GREEN),
     "number": S(GREEN),
-    "regexp": S(GREEN, "italic"),
+    "regexp": S(GREEN),
     "operator": S(FG2),
-    "decorator": S(FG2, "italic"),
-    "event": S(PURP, "italic"),
+    "decorator": S(FG2),
+    "event": S(ROSE),
     "comment": S(DIM, "italic"),
-    "macro": S(ROSE, "bold"),
+    "macro": S(ROSE),
     "label": S(DIM),
-    "selfKeyword": S(FG2, "italic"),
-    "selfKeyword:rust": S(FG2, "italic"),
-    "selfKeyword:rust.mutable": S(FG2, "italic underline"),
-    "lifetime": S(BLUE, "italic"),
+    "selfKeyword": S(FG2),
+    "selfKeyword:rust": S(FG2),
+    "selfKeyword:rust.mutable": S(FG2),
+    "lifetime": S(BLUE),
     "variable.defaultLibrary": S(EXTERN, "italic"),
     "function.defaultLibrary": S(EXTERN, "italic"),
     "method.defaultLibrary": S(EXTERN, "italic"),
@@ -984,8 +986,22 @@ SEMANTIC_SETTINGS: dict[str, dict[str, str]] = {
     "type.defaultLibrary": S(EXTERN, "italic"),
     "variable.deprecated": S(MUTED, "strikethrough"),
     "property.deprecated": S(MUTED, "strikethrough"),
-    "keyword": S(FG2, "bold"),
+    "keyword": S(FG2),
 }
+
+# 元テーマに無い追加項目（末尾に追加．元の項目の name/scope・順序は変えない）
+EXTRA_TOKEN_COLORS: list[dict] = [
+    {
+        "name": "定数 (大文字の名前) ※注意色",
+        "scope": ["variable.other.constant"],
+        "settings": S(MAG),
+    },
+    {
+        "name": "コメント内のタグ (TODO / FIXME など) ※注意色",
+        "scope": ["keyword.codetag"],
+        "settings": S(MAG, "bold"),
+    },
+]
 
 
 def check_keys(label: str, expected: list[str], actual: set[str]) -> None:
@@ -1019,7 +1035,7 @@ def build(bg: str, dst: Path) -> None:
             out[k] = [
                 {"name": t["name"], "scope": t["scope"], "settings": TOKEN_SETTINGS[t["scope"][0]]}
                 for t in src["tokenColors"]
-            ]
+            ] + [dict(extra) for extra in EXTRA_TOKEN_COLORS]
         elif k == "semanticTokenColors":
             sem: dict = {}
             for key, orig in src["semanticTokenColors"].items():
