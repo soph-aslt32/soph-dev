@@ -242,5 +242,152 @@ FILES = {
 }
 closest("ファイル名の色の近さ（Add1/Add6）", FILES, 10.0, show=8)
 
+# --- 7. 文字と背景の組 -------------------------------------------------------
+PAIRS = [
+    ("button", "button.foreground", "button.background"),
+    ("button hover", "button.foreground", "button.hoverBackground"),
+    ("button secondary", "button.secondaryForeground", "button.secondaryBackground"),
+    ("button secondary hover", "button.secondaryForeground", "button.secondaryHoverBackground"),
+    ("extensionButton", "extensionButton.foreground", "extensionButton.background"),
+    ("extensionButton hover", "extensionButton.foreground", "extensionButton.hoverBackground"),
+    ("badge", "badge.foreground", "badge.background"),
+    ("activityBarBadge", "activityBarBadge.foreground", "activityBarBadge.background"),
+    ("panelTitleBadge", "panelTitleBadge.foreground", "panelTitleBadge.background"),
+    ("profileBadge", "profileBadge.foreground", "profileBadge.background"),
+    ("extensionBadge.remote", "extensionBadge.remoteForeground", "extensionBadge.remoteBackground"),
+    ("activityErrorBadge", "activityErrorBadge.foreground", "activityErrorBadge.background"),
+    ("activityWarningBadge", "activityWarningBadge.foreground", "activityWarningBadge.background"),
+    ("statusBar debugging", "statusBar.debuggingForeground", "statusBar.debuggingBackground"),
+    ("statusBarItem hover", "statusBarItem.hoverForeground", "statusBarItem.hoverBackground"),
+    ("statusBarItem active", "statusBarItem.hoverForeground", "statusBarItem.activeBackground"),
+    ("statusBarItem remote", "statusBarItem.remoteForeground", "statusBarItem.remoteBackground"),
+    ("statusBarItem remote hover", "statusBarItem.remoteHoverForeground", "statusBarItem.remoteHoverBackground"),
+    ("statusBarItem error", "statusBarItem.errorForeground", "statusBarItem.errorBackground"),
+    ("statusBarItem error hover", "statusBarItem.errorHoverForeground", "statusBarItem.errorHoverBackground"),
+    ("statusBarItem warning", "statusBarItem.warningForeground", "statusBarItem.warningBackground"),
+    ("statusBarItem warning hover", "statusBarItem.warningHoverForeground", "statusBarItem.warningHoverBackground"),
+    ("statusBarItem offline", "statusBarItem.offlineForeground", "statusBarItem.offlineBackground"),
+    ("statusBarItem offline hover", "statusBarItem.offlineHoverForeground", "statusBarItem.offlineHoverBackground"),
+    ("statusBarItem prominent", "statusBarItem.prominentForeground", "statusBarItem.prominentBackground"),
+    ("statusBarItem prominent hover", "statusBarItem.prominentHoverForeground", "statusBarItem.prominentHoverBackground"),
+    ("list active selection", "list.activeSelectionForeground", "list.activeSelectionBackground"),
+    ("list inactive selection", "list.inactiveSelectionForeground", "list.inactiveSelectionBackground"),
+    ("list hover", "list.hoverForeground", "list.hoverBackground"),
+    ("list focus", "list.focusForeground", "list.focusBackground"),
+    ("menu selection", "menu.selectionForeground", "menu.selectionBackground"),
+    ("menubar selection", "menubar.selectionForeground", "menubar.selectionBackground"),
+    ("quickInput focus", "quickInputList.focusForeground", "quickInputList.focusBackground"),
+    ("suggest selected", "editorSuggestWidget.selectedForeground", "editorSuggestWidget.selectedBackground"),
+    ("actionList focus", "editorActionList.focusForeground", "editorActionList.focusBackground"),
+    ("peek selection", "peekViewResult.selectionForeground", "peekViewResult.selectionBackground"),
+    ("tab active (modern)", "modernEditorTab.activeForeground", "modernEditorTab.activeBackground"),
+    ("tab active hover (modern)", "modernEditorTab.activeForeground", "modernEditorTab.activeHoverBackground"),
+    ("tab hover (modern)", "modernEditorTab.hoverForeground", "modernEditorTab.hoverBackground"),
+    ("tab active (modernTab)", "modernTab.activeForeground", "modernTab.activeBackground"),
+    ("tab hover (modernTab)", "modernTab.hoverForeground", "modernTab.hoverBackground"),
+    ("tab inactive", "tab.inactiveForeground", "tab.inactiveBackground"),
+    ("terminal selection", "terminal.selectionForeground", "terminal.selectionBackground"),
+    ("debug exception label", "debugView.exceptionLabelForeground", "debugView.exceptionLabelBackground"),
+    ("debug state label", "debugView.stateLabelForeground", "debugView.stateLabelBackground"),
+    ("input", "input.foreground", "input.background"),
+    ("input placeholder", "input.placeholderForeground", "input.background"),
+    ("keybindingLabel", "keybindingLabel.foreground", "keybindingLabel.background"),
+    ("scmGraph hover label", "scmGraph.historyItemHoverDefaultLabelForeground", "scmGraph.historyItemHoverDefaultLabelBackground"),
+]
+section("文字と背景の組のコントラスト（4.5 未満を表示。背景は BG と合成した実効色）")
+low_pairs = []
+for label, fk, bk in PAIRS:
+    if fk not in colors or bk not in colors:
+        fail(f"PAIRS のキーが存在しない: {fk} / {bk}")
+        continue
+    bgc = blend(colors[bk])
+    cr = contrast(blend(colors[fk], bgc), bgc)
+    if cr < 4.5:
+        low_pairs.append((cr, label, colors[fk], colors[bk]))
+for cr, label, fv, bv in sorted(low_pairs):
+    print(f"  {cr:4.2f}  {label:30s} fg {fv} / bg {bv}")
+print(f"  検査 {len(PAIRS)} 組中 4.5 未満: {len(low_pairs)} 組")
+
+# --- 8. ハイライト・選択の上でコードの色が読めるか -----------------------------
+HIGHLIGHTS = [
+    "editor.selectionBackground", "editor.inactiveSelectionBackground",
+    "editor.selectionHighlightBackground", "editor.wordHighlightBackground",
+    "editor.wordHighlightStrongBackground", "editor.wordHighlightTextBackground",
+    "editor.findMatchBackground", "editor.findMatchHighlightBackground",
+    "editor.lineHighlightBackground", "editor.hoverHighlightBackground",
+    "editor.rangeHighlightBackground", "editor.symbolHighlightBackground",
+    "editor.stackFrameHighlightBackground", "editor.focusedStackFrameHighlightBackground",
+    "editor.snippetTabstopHighlightBackground", "editorBracketMatch.background",
+    "diffEditor.insertedTextBackground", "diffEditor.removedTextBackground",
+]
+section("ハイライト・選択の上でのコード色（最も低い役割を表示。3.0 未満は要注意）")
+for hk in HIGHLIGHTS:
+    bgc = blend(colors[hk])
+    worst = min(
+        ((contrast(blend(hv, bgc), bgc), name) for name, hv in ROLES.items() if name != "comment"),
+        key=lambda t: t[0],
+    )
+    cm = contrast(ROLES["comment"], bgc)
+    flag = "  <-- 要注意" if worst[0] < 3.0 or cm < 2.5 else ""
+    print(f"  {hk:50s} 最低 {worst[0]:4.2f} ({worst[1]}) / コメント {cm:4.2f}{flag}")
+
+# --- 9. Git 装飾・診断のファイル名色が選択行・タブの上で読めるか ----------------
+DECOR = [
+    "gitDecoration.addedResourceForeground", "gitDecoration.modifiedResourceForeground",
+    "gitDecoration.deletedResourceForeground", "gitDecoration.untrackedResourceForeground",
+    "gitDecoration.ignoredResourceForeground", "gitDecoration.conflictingResourceForeground",
+    "gitDecoration.submoduleResourceForeground", "list.errorForeground", "list.warningForeground",
+    "sideBar.foreground",
+]
+DECOR_BGS = [
+    "list.activeSelectionBackground", "list.inactiveSelectionBackground", "list.hoverBackground",
+    "modernEditorTab.activeBackground", "modernEditorTab.hoverBackground",
+]
+section("ファイル名の色 × 選択行/タブ背景のコントラスト（3.0 未満を表示）")
+low_decor = []
+for dk in DECOR:
+    for bk in DECOR_BGS:
+        bgc = blend(colors[bk])
+        cr = contrast(blend(colors[dk], bgc), bgc)
+        if cr < 3.0:
+            low_decor.append((cr, dk, bk))
+for cr, dk, bk in sorted(low_decor):
+    print(f"  {cr:4.2f}  {dk:46s} on {bk}")
+print(f"  合計 {len(low_decor)} 件")
+
+# --- 10. 色相ファミリー別の使用数（青系の採用率の目安） ---------------------------
+def hue_family(h: str) -> str:
+    r, g, b, _ = parse(h)
+    mx, mn = max(r, g, b), min(r, g, b)
+    if mx == mn or (mx - mn) / 255 < 0.12:
+        return "無彩色寄り"
+    import colorsys
+
+    hh = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)[0] * 360
+    if 200 <= hh < 270:
+        return "青〜青紫"
+    if 270 <= hh < 340:
+        return "紫〜マゼンタ"
+    if hh >= 340 or hh < 15:
+        return "赤〜ピンク"
+    if 15 <= hh < 70:
+        return "橙〜黄"
+    if 70 <= hh < 170:
+        return "緑"
+    return "青緑"
+
+
+section("色相ファミリー別の使用数（colors の値。背景 BG・透明を除く）")
+from collections import Counter
+
+fam = Counter()
+for v in colors.values():
+    if v[:7] == BG:
+        continue
+    fam[hue_family(v)] += 1
+total = sum(fam.values())
+for name, n in fam.most_common():
+    print(f"  {name:10s} {n:4d} ({n / total:5.1%})")
+
 print(f"\n結果: {'問題なし' if problems == 0 else f'NG {problems} 件'}")
 sys.exit(1 if problems else 0)
