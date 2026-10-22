@@ -42,7 +42,7 @@ FG = "#e8f7f0"  # 通常テキスト
 FG2 = "#979ac4"  # 二次テキスト・アイコン・キーワード
 DIM = Tone(FG2, 0xB0)  # 寒色の静かな文字・線・コメント・行番号（FG2 の透明度違い）
 MUTED = Tone(FG2, 0xD8)  # DIM より明るい寒色（非アクティブのアイコン・ラベル）
-FG_SOFT = Tone(FG, 0xCC)  # 読みやすい二次テキスト（FG の透明度違い。青紫の背景と色相が離れて埋もれない）
+CHROME = FG2  # UI の文字（エクスプローラー・サイドバー・ステータスバー・非アクティブタブなど）．明るくしたい場合は FG に差し替える
 DOC = "#a08e96"  # Docstring 専用の暖灰（コメント・キーワードと色相で区別する）
 GRAY = "#323233"  # 中立の暗灰
 
@@ -85,12 +85,12 @@ BRACKETS = [BLUE, GREEN, MAG, KHAKI, FG2, ROSE]
 COLORS_SPEC = """
 # --- 基本 ---
 foreground                      FG
-descriptionForeground           FG_SOFT
+descriptionForeground           CHROME
 disabledForeground              DIM
 errorForeground                 ROSE
 focusBorder                     BLUE
 selection.background            a(BLUE_M, 0x90)
-icon.foreground                 FG_SOFT
+icon.foreground                 CHROME
 progressBar.background          BLUE
 textBlockQuote.background       a(INDIGO, 0x30)
 textBlockQuote.border           INDIGO
@@ -280,7 +280,7 @@ tab.activeBorder                        T
 tab.activeBorderTop                     BLUE
 tab.activeModifiedBorder                PALEGREEN
 tab.inactiveBackground                  BG
-tab.inactiveForeground                  FG_SOFT
+tab.inactiveForeground                  CHROME
 tab.inactiveModifiedBorder              a(PALEGREEN, 0x70)
 tab.hoverBackground                     a(INDIGO, 0x80)
 tab.hoverForeground                     FG
@@ -337,14 +337,14 @@ actionBar.toggledBackground         a(BLUE_M, 0x60)
 
 # --- サイドバー ---
 sideBar.background                  BG
-sideBar.foreground                  FG
-sideBar.border                     T
+sideBar.foreground                  CHROME
+sideBar.border                    T
 sideBar.dropBackground              a(BLUE_M, 0x30)
 sideBarTitle.foreground             FG
 sideBarTitle.background             BG
 sideBarTitle.border                 T
 sideBarSectionHeader.background     BG
-sideBarSectionHeader.foreground     FG_SOFT
+sideBarSectionHeader.foreground     CHROME
 sideBarSectionHeader.border         T
 sideBarActivityBarTop.border        T
 sideBarStickyScroll.background      BG
@@ -353,14 +353,14 @@ sideBarStickyScroll.shadow          a(SHADOW, 0x80)
 
 # --- ステータスバー ---
 statusBar.background                BG
-statusBar.foreground                FG_SOFT
+statusBar.foreground                CHROME
 statusBar.border                    T
 statusBar.focusBorder               BLUE
 statusBar.debuggingBackground       VIOLET_B
 statusBar.debuggingForeground       FG
 statusBar.debuggingBorder           T
 statusBar.noFolderBackground        BG
-statusBar.noFolderForeground        FG_SOFT
+statusBar.noFolderForeground        CHROME
 statusBar.noFolderBorder            T
 statusBarItem.hoverBackground       a(BLUE_M, 0x50)
 statusBarItem.hoverForeground       FG
@@ -405,7 +405,7 @@ menu.selectionBorder            T
 menu.separatorBackground        a(DIM, 0x50)
 menu.border                     T
 commandCenter.background        BG
-commandCenter.foreground        FG_SOFT
+commandCenter.foreground        CHROME
 commandCenter.border            a(DIM, 0xe8)
 commandCenter.activeBackground  a(BLUE_M, 0x30)
 commandCenter.activeBorder      BLUE
@@ -517,7 +517,7 @@ panelTitleBadge.foreground          FG
 panelSection.border                 T
 panelSection.dropBackground         a(BLUE_M, 0x30)
 panelSectionHeader.background       BG
-panelSectionHeader.foreground       FG_SOFT
+panelSectionHeader.foreground       CHROME
 panelSectionHeader.border           T
 panelStickyScroll.background        BG
 panelStickyScroll.border            T
@@ -638,7 +638,7 @@ notifications.foreground            FG
 notifications.border                T
 notificationCenter.border           T
 notificationCenterHeader.background BG
-notificationCenterHeader.foreground FG_SOFT
+notificationCenterHeader.foreground CHROME
 notificationToast.border            T
 notificationsErrorIcon.foreground   ERR
 notificationsWarningIcon.foreground WARN
