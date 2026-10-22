@@ -135,5 +135,13 @@
         "key": "ctrl+enter",
         "command": "-workbench.action.chat.submitWithCodebase",
         "when": "chatInputHasText && inChatInput && !chatSessionRequestInProgress"
+    },
+    {
+        "key": "shift+enter",
+        "command": "workbench.action.terminal.sendSequence",
+        "args": {
+            "text": "\u001b\r"
+        },
+        "when": "terminalFocus"
     }
 ]
