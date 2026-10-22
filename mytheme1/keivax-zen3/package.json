@@ -17,19 +17,14 @@
         "path": "./themes/keivax-zen3-alpha-theme.json"
       },
       {
-        "label": "Keivax-zen3 Option A",
+        "label": "Keivax-zen3 Option D",
         "uiTheme": "vs-dark",
-        "path": "./themes/keivax-zen3-alpha-a-theme.json"
+        "path": "./themes/keivax-zen3-alpha-d-theme.json"
       },
       {
-        "label": "Keivax-zen3 Option B",
+        "label": "Keivax-zen3 Option E",
         "uiTheme": "vs-dark",
-        "path": "./themes/keivax-zen3-alpha-b-theme.json"
-      },
-      {
-        "label": "Keivax-zen3 Option C",
-        "uiTheme": "vs-dark",
-        "path": "./themes/keivax-zen3-alpha-c-theme.json"
+        "path": "./themes/keivax-zen3-alpha-e-theme.json"
       }
     ]
   }

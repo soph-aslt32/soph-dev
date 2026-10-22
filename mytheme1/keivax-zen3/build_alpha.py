@@ -90,17 +90,15 @@ ROLES_MAIN = Roles(
     keyword=BLUE, operator=MUTED, variable=FG2, function=EXTERN,
     type=PURP, value=GREEN, comment=DIM, accent=MAG,
 )  # fmt: skip
-# 型・関数・変数の主要3者を離すための比較案（型は青に戻す．型・関数は淡い色にしない）
-ROLES_A = replace(ROLES_MAIN, keyword=FG2, variable=FG, function=EXTERN, type=BLUE)  # 全寒色・変数は淡色
-ROLES_B = replace(ROLES_MAIN, keyword=EXTERN, variable=FG, function=ROSE, type=BLUE)  # 関数だけピンク
-ROLES_C = replace(ROLES_MAIN, keyword=EXTERN, variable=FG2, function=PURP, type=BLUE)  # 変数は灰青のまま
+# 型・関数・変数の主要3者を離すための比較案（型・関数は淡い色にしない．ピンクまで可）
+ROLES_D = replace(ROLES_MAIN, function=ROSE)  # 関数だけバラ色（キーワード青・変数灰青・型濃い紫）
+ROLES_E = replace(ROLES_D, type=EXTERN)  # D の型を紫に（コントラスト 3.6 -> 5.0）
 
 # 出力ファイル -> (背景色, 役割の色)。見比べたいときはエントリを足す（package.json にも登録する）。
 VARIANTS = {
     ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN),
-    ROOT / "themes" / "keivax-zen3-alpha-a-theme.json": ("#201d33", ROLES_A),
-    ROOT / "themes" / "keivax-zen3-alpha-b-theme.json": ("#201d33", ROLES_B),
-    ROOT / "themes" / "keivax-zen3-alpha-c-theme.json": ("#201d33", ROLES_C),
+    ROOT / "themes" / "keivax-zen3-alpha-d-theme.json": ("#201d33", ROLES_D),
+    ROOT / "themes" / "keivax-zen3-alpha-e-theme.json": ("#201d33", ROLES_E),
 }
 
 
