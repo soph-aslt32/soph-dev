@@ -376,7 +376,7 @@ statusBarItem.focusBorder           BLUE
 statusBarItem.compactHoverBackground    a(BLUE_M, 0x60)
 statusBarItem.remoteBackground      BLUE_M
 statusBarItem.remoteForeground      FG
-statusBarItem.remoteHoverBackground BLUE
+statusBarItem.remoteHoverBackground VIOLET_B
 statusBarItem.remoteHoverForeground FG
 statusBarItem.errorBackground       ERR
 statusBarItem.errorForeground       FG
@@ -439,7 +439,7 @@ inputOption.activeForeground        FG
 inputOption.hoverBackground         a(INDIGO, 0x50)
 inputValidation.errorBackground     BG
 inputValidation.errorBorder         ERR
-inputValidation.errorForeground     ERR
+inputValidation.errorForeground     ROSE
 inputValidation.warningBackground   BG
 inputValidation.warningBorder       WARN
 inputValidation.warningForeground   WARN
@@ -452,7 +452,7 @@ dropdown.border                     a(DIM, 0xe8)
 dropdown.listBackground             BG
 button.background                   BLUE_M
 button.foreground                   FG
-button.hoverBackground              BLUE
+button.hoverBackground              VIOLET_B
 button.border                       T
 button.separator                    a(FG, 0x40)
 button.secondaryBackground          GRAY
@@ -537,7 +537,7 @@ terminal.border                     T
 terminal.selectionBackground        a(DEEP_BLUE, 0xc0)
 terminal.selectionForeground        FG
 terminal.inactiveSelectionBackground    a(DEEP_BLUE, 0x80)
-terminal.ansiBlack                  GRAY
+terminal.ansiBlack                  INDIGO
 terminal.ansiRed                    ERR
 terminal.ansiGreen                  GREEN
 terminal.ansiYellow                 WARN
@@ -545,7 +545,7 @@ terminal.ansiBlue                   BLUE
 terminal.ansiMagenta                PURP
 terminal.ansiCyan                   FG2
 terminal.ansiWhite                  DOC
-terminal.ansiBrightBlack            #7a6a64
+terminal.ansiBrightBlack            FG2
 terminal.ansiBrightRed              ROSE
 terminal.ansiBrightGreen            PALEGREEN
 terminal.ansiBrightYellow           KHAKI
@@ -696,7 +696,7 @@ debugView.exceptionLabelForeground  FG
 debugView.stateLabelBackground      a(BLUE_M, 0x60)
 debugView.stateLabelForeground      FG
 debugView.valueChangedHighlight     a(PALEGREEN, 0x50)
-debugConsole.errorForeground        ERR
+debugConsole.errorForeground        ROSE
 debugConsole.warningForeground      WARN
 debugConsole.infoForeground         FG2
 debugConsole.sourceForeground       FG2
@@ -723,7 +723,7 @@ debugTokenExpression.value          FG
 debugTokenExpression.string         GREEN
 debugTokenExpression.boolean        MAG
 debugTokenExpression.number         GREEN
-debugTokenExpression.error          ERR
+debugTokenExpression.error          ROSE
 debugTokenExpression.type           BLUE
 
 # --- 設定画面 ---
@@ -804,10 +804,10 @@ extensionBadge.remoteBackground     BLUE_M
 extensionBadge.remoteForeground     FG
 extensionButton.prominentBackground BLUE_M
 extensionButton.prominentForeground FG
-extensionButton.prominentHoverBackground    BLUE
+extensionButton.prominentHoverBackground    VIOLET_B
 extensionButton.background          BLUE_M
 extensionButton.foreground          FG
-extensionButton.hoverBackground     BLUE
+extensionButton.hoverBackground     VIOLET_B
 extensionButton.separator           a(FG, 0x40)
 extensionButton.border              T
 ports.iconRunningProcessForeground  GREEN
