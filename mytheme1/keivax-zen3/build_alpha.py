@@ -144,6 +144,14 @@ SURFACES_SOFT2 = replace(
     mark=a(INDIGO, 0x26), hover=a(INDIGO, 0x1C), tab_hover=a(INDIGO, 0x1C), tab_active_hover=a(INDIGO, 0x44),
     hover_editor=a(INDIGO, 0x24), line=a(INDIGO, 0x1C), toolbar_hover=a(INDIGO, 0x20),
 )  # fmt: skip
+# Soft2b: Soft2 の基底を INDIGO → VIOLET_B（色味を少し足す）にし，同じ読みやすさ（コード色・ファイル名 3.0 以上）で
+# 選択を ΔE 5.4 → 6.8 に強める．ホバーは 2.5 → 3.7 に上げ，各段の差を約1ずつ取る．現在行は Soft2 のまま
+SURFACES_SOFT2B = replace(
+    SURFACES_SOFT2,
+    sel=a(VIOLET_B, 0x35), sel_sub=a(VIOLET_B, 0x26), sel_focus=a(VIOLET_B, 0x30), sel_strong=a(VIOLET_B, 0x35),
+    mark=a(VIOLET_B, 0x22), hover=a(VIOLET_B, 0x1C), tab_hover=a(VIOLET_B, 0x1C), tab_active_hover=a(VIOLET_B, 0x35),
+    hover_editor=a(VIOLET_B, 0x19), toolbar_hover=a(VIOLET_B, 0x20),
+)  # fmt: skip
 # Soft3: 背景より暗い NIGHT を重ねて「沈み込み」で示す（ほぼ無彩色．文字のコントラストは上がる）
 SURFACES_SOFT3 = replace(
     SURFACES_QUIET_BARS,
@@ -158,6 +166,7 @@ VARIANTS = {
     ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN, SURFACES_MAIN),
     ROOT / "themes" / "keivax-zen3-soft1-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT1),
     ROOT / "themes" / "keivax-zen3-soft2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2),
+    ROOT / "themes" / "keivax-zen3-soft2b-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2B),
     ROOT / "themes" / "keivax-zen3-soft3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT3),
 }
 
