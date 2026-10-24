@@ -44,12 +44,11 @@ GRAY = "#323233"  # 中立の暗灰
 
 BLUE = "#4470ff"  # 鮮やかな青: クラス/型・アクセント
 BLUE_M = "#1761aa"  # 中間の青: 選択背景・ボタン
-INDIGO = "#4a4d91"  # ホバー・淡い強調背景
+INDIGO = "#4a4d91"  # 現在行・スクロールバーなどの淡い強調背景
 VIOLET_B = "#5f47cc"  # 青紫: デバッグ・マージ
 LAV = "#9b7dc6"  # 藤色: 検索一致・各種マッチ強調
 EXTERN = "#b075d8"  # 明るい紫: 外部ライブラリ・ビルトイン・モジュール
 PURP = "#ae47d1"  # 紫: Git の削除・差分（トークンには使わない）
-PLUM = "#6c1d91"  # 中紫: 選択・ホバーに色味を足す（比較用）
 MAG = "#f411e1"  # マゼンタ: 注意色（グローバル/定数など希少で重要なもの）・変数ハイライト
 ROSE = "#dd949e"  # バラ色: 関数・Git の変更・エラー文字
 GREEN = "#7ea033"  # オリーブ緑: 文字列・数値・正規表現・None/True/False・未追跡
@@ -57,14 +56,10 @@ PALEGREEN = "#c4e5ac"  # 淡緑: Git の追加・ステージ済み・書込ハ�
 KHAKI = "#d6d595"  # カーキ: 変数（ローカル・引数・プロパティ）
 
 # 背景用の濃い色。明るさが背景並みなので，どのトークン色の上でもコントラストを保てる（彩度で目立たせる）
-DEEP_BLUE = "#0d00a3"  # 濃い青: 選択・ホバー・アクティブタブ
 DEEP_WINE = "#4f122f"  # 暗いワイン色: 単語ハイライト（読取・書込に共通の塗り．区別は縁取りだけで行う）
 DEEP_GREEN = "#002319"  # 暗い緑: 差分の追加
 DEEP_VIOLET = "#231663"  # 暗い青紫: 検索一致
 DEEP_PURPLE = "#421949"  # 暗い紫: 差分の削除
-NIGHT = "#0f0514"  # 背景より暗い青紫: 沈み込み型の選択・ホバー（比較用）
-NAVY = "#081a56"  # 濃紺: 選択（比較用）
-TEAL = "#113f56"  # 暗い青緑がかった青: ホバー（比較用）
 
 ERR = "#dd2a57"  # エラー専有
 WARN = "#fcb346"  # 警告専有
@@ -118,137 +113,24 @@ class Surfaces:
     title_fg_inactive: str  # ウィンドウが非アクティブなときのタイトルバーの文字
 
 
+# 選択・ホバーは BLUE_M（中間の青）をほぼ不透明のまま使う（Prompt zen3 22: 比較用 Dense2c を採用）．
+# 選択（アクティブ・タブ）は不透明度 0.85，フォーカス・非アクティブ・同じ文字列の強調は 0.10 / 0.20 / 0.30 薄く，ホバーは 0.55．
+# エディタ上のホバー強調は以前「きつい」と指摘があったので，同じ色の薄い版（0.33，ΔE 約 9）．
+# 選択上のコード色（コメント・型・キーワード）のコントラストは 3.0 を下回る（実機で見て採用した）．
+# 上のバー（メニュー・コマンドセンター・ステータスバー）のホバーは塗りをなくし，文字の明暗で示す．
 SURFACES_MAIN = Surfaces(
-    sel=a(DEEP_BLUE, 0xC0), sel_sub=a(DEEP_BLUE, 0x80), sel_focus=a(DEEP_BLUE, 0xA0), sel_strong=a(DEEP_BLUE, 0xE0),
-    mark=a(DEEP_BLUE, 0x70), hover=a(DEEP_BLUE, 0x60), tab_hover=a(DEEP_BLUE, 0x80), tab_active_hover=DEEP_BLUE,
-    hover_editor=a(DEEP_BLUE, 0x60), find=DEEP_VIOLET, line=a(INDIGO, 0x40),
-    toolbar_hover=a(INDIGO, 0x50), menubar_hover=a(DEEP_BLUE, 0x90), command_active=a(BLUE_M, 0x30),
-    status_hover=a(BLUE_M, 0x50), status_compact_hover=a(BLUE_M, 0x60),
-    title_fg=FG, title_fg_inactive=FG2,
-)  # fmt: skip
-# --- 比較用（Prompt zen3 16: 選択・ホバーの純青が強い）。3案とも上のバーは塗りをなくし，文字の明暗で示す ---
-SURFACES_QUIET_BARS = replace(
-    SURFACES_MAIN,
-    menubar_hover=None, command_active=None, status_hover=None, status_compact_hover=None,
+    sel=a(BLUE_M, 0xD9), sel_sub=a(BLUE_M, 0xA6), sel_focus=a(BLUE_M, 0xBF), sel_strong=a(BLUE_M, 0xD9),
+    mark=a(BLUE_M, 0x8C), hover=a(BLUE_M, 0x8C), tab_hover=a(BLUE_M, 0x8C), tab_active_hover=a(BLUE_M, 0xE9),
+    hover_editor=a(BLUE_M, 0x53), find=DEEP_VIOLET, line=a(INDIGO, 0x1C),
+    toolbar_hover=a(BLUE_M, 0x8C), menubar_hover=None, command_active=None,
+    status_hover=None, status_compact_hover=None,
     title_fg=CHROME, title_fg_inactive=DIM,
-)  # fmt: skip
-# Soft1: 彩度を落とした青紫（背景と同じ色相）で選択を示す．ホバーは INDIGO を薄く重ねて明るさで示す．
-# 検索一致の塗りが選択と被るので DEEP_PURPLE に移す
-SURFACES_SOFT1 = replace(
-    SURFACES_QUIET_BARS,
-    sel=a(DEEP_VIOLET, 0xE0), sel_sub=a(DEEP_VIOLET, 0xB2), sel_focus=a(DEEP_VIOLET, 0xC7), sel_strong=DEEP_VIOLET,
-    mark=a(DEEP_VIOLET, 0xA0), hover=a(INDIGO, 0x29), tab_hover=a(INDIGO, 0x29), tab_active_hover=DEEP_VIOLET,
-    hover_editor=a(INDIGO, 0x24), find=DEEP_PURPLE, toolbar_hover=a(INDIGO, 0x20),
-)  # fmt: skip
-# Soft2: INDIGO の透明度だけで示す（明るさ重視）．選択・ホバー・現在行が同じ系統になるので，現在行を弱める
-SURFACES_SOFT2 = replace(
-    SURFACES_QUIET_BARS,
-    sel=a(INDIGO, 0x3C), sel_sub=a(INDIGO, 0x2A), sel_focus=a(INDIGO, 0x34), sel_strong=a(INDIGO, 0x3C),
-    mark=a(INDIGO, 0x26), hover=a(INDIGO, 0x1C), tab_hover=a(INDIGO, 0x1C), tab_active_hover=a(INDIGO, 0x44),
-    hover_editor=a(INDIGO, 0x24), line=a(INDIGO, 0x1C), toolbar_hover=a(INDIGO, 0x20),
-)  # fmt: skip
-# Soft2b: Soft2 の基底を INDIGO → VIOLET_B（色味を少し足す）にし，同じ読みやすさ（コード色・ファイル名 3.0 以上）で
-# 選択を ΔE 5.4 → 6.8 に強める．ホバーは 2.5 → 3.7 に上げ，各段の差を約1ずつ取る．現在行は Soft2 のまま
-SURFACES_SOFT2B = replace(
-    SURFACES_SOFT2,
-    sel=a(VIOLET_B, 0x35), sel_sub=a(VIOLET_B, 0x26), sel_focus=a(VIOLET_B, 0x30), sel_strong=a(VIOLET_B, 0x35),
-    mark=a(VIOLET_B, 0x22), hover=a(VIOLET_B, 0x1C), tab_hover=a(VIOLET_B, 0x1C), tab_active_hover=a(VIOLET_B, 0x35),
-    hover_editor=a(VIOLET_B, 0x19), toolbar_hover=a(VIOLET_B, 0x20),
-)  # fmt: skip
-# Soft2c: Soft2b の基底を VIOLET_B → PLUM（#6c1d91）にして色味をさらに足す．選択 ΔE 6.8 → 8.8，色相は 288 → 307（紫寄り）．
-# 各段は ΔE が ホバー3.9 / 非アクティブ5.5 / フォーカス7.3 / アクティブ8.8 になる透明度
-SURFACES_SOFT2C = replace(
-    SURFACES_SOFT2B,
-    sel=a(PLUM, 0x5F), sel_sub=a(PLUM, 0x3B), sel_focus=a(PLUM, 0x4F), sel_strong=a(PLUM, 0x5F),
-    mark=a(PLUM, 0x35), hover=a(PLUM, 0x2A), tab_hover=a(PLUM, 0x2A), tab_active_hover=a(PLUM, 0x5F),
-    hover_editor=a(PLUM, 0x22), toolbar_hover=a(PLUM, 0x2A),
-)  # fmt: skip
-# Soft2d: 基底を MAG（マゼンタ）の薄い重ねにする．選択 ΔE 8.8，色相は 317（赤紫寄り）．Soft2c と同じ階段
-SURFACES_SOFT2D = replace(
-    SURFACES_SOFT2B,
-    sel=a(MAG, 0x29), sel_sub=a(MAG, 0x19), sel_focus=a(MAG, 0x22), sel_strong=a(MAG, 0x29),
-    mark=a(MAG, 0x17), hover=a(MAG, 0x12), tab_hover=a(MAG, 0x12), tab_active_hover=a(MAG, 0x29),
-    hover_editor=a(MAG, 0x0E), toolbar_hover=a(MAG, 0x12),
-)  # fmt: skip
-# --- Prompt zen3 20: 「落ち着いた青」「青紫・藍」のグループの色を選択・ホバーに使う比較 ---
-# Soft2e: 選択は Soft2b（VIOLET_B）のまま，ホバーだけ TEAL（青緑がかった青）にして，選択↔ホバーの間を ΔE 2.7 → 5.0 に広げる
-SURFACES_SOFT2E = replace(
-    SURFACES_SOFT2B,
-    hover=a(TEAL, 0x57), tab_hover=a(TEAL, 0x57), hover_editor=a(TEAL, 0x46), toolbar_hover=a(TEAL, 0x57),
-)  # fmt: skip
-# Soft2f: 選択を NAVY（濃紺．ΔE 7.5，明るさの差は +0.6 と小さい），ホバーを INDIGO の薄い重ね（明るさで示す）にする
-SURFACES_SOFT2F = replace(
-    SURFACES_SOFT2B,
-    sel=NAVY, sel_sub=a(NAVY, 0x9D), sel_focus=a(NAVY, 0xD0), sel_strong=NAVY,
-    mark=a(NAVY, 0x96), hover=a(INDIGO, 0x2D), tab_hover=a(INDIGO, 0x2D), tab_active_hover=NAVY,
-    hover_editor=a(INDIGO, 0x23), toolbar_hover=a(INDIGO, 0x2D),
-)  # fmt: skip
-# Soft2g: アクティブなタブだけ DEEP_VIOLET（ΔE 9.2）にする．リスト・エディタの選択は Soft2b のまま
-SURFACES_SOFT2G = replace(SURFACES_SOFT2B, sel_strong=DEEP_VIOLET, tab_active_hover=DEEP_VIOLET)
-# --- Prompt zen3 21: 文字の読みやすさは実機で確かめる前提で，2グループの色をほぼ不透明のまま使う ---
-# 選択（アクティブ・タブ）は不透明，フォーカス・非アクティブ・同じ文字列の強調は不透明度 0.8 / 0.7 / 0.6．
-# ホバーは暗い色（NAVY か DEEP_VIOLET）を不透明のまま使う．コード色の最低コントラストは 3.0 を下回る
-def dense(select: str, hover: str) -> Surfaces:
-    return replace(
-        SURFACES_SOFT2B,
-        sel=select, sel_strong=select, tab_active_hover=select,
-        sel_focus=a(select, 0xCC), sel_sub=a(select, 0xB3), mark=a(select, 0x99),
-        hover=hover, tab_hover=hover, hover_editor=hover, toolbar_hover=hover,
-    )  # fmt: skip
-
-
-SURFACES_DENSE1 = dense(TEAL, NAVY)  # 選択 ΔE 11.5（青緑がかった青），ホバー ΔE 7.5
-SURFACES_DENSE2 = dense(BLUE_M, NAVY)  # 選択 ΔE 26.6（中間の青）
-SURFACES_DENSE3 = dense(INDIGO, DEEP_VIOLET)  # 選択 ΔE 21.8（藍），ホバー ΔE 9.2（検索一致と同色）
-SURFACES_DENSE4 = dense(VIOLET_B, DEEP_VIOLET)  # 選択 ΔE 30.0（青紫）
-
-
-# --- Prompt zen3 22: Dense2（選択 BLUE_M）を基準に，選択の不透明度を 0.8〜0.9 に下げ，ホバーを明るい別の色にする ---
-# フォーカス・非アクティブ・同じ文字列の強調は選択より 0.10 / 0.20 / 0.30 薄くする．
-# エディタ上のホバー強調だけは，前に「きつい」と指摘があったので，ホバーと同じ色の薄い版（ΔE 約 9）にする
-def dense2(select_alpha: int, hover: str, hover_editor: str) -> Surfaces:
-    s = select_alpha
-    return replace(
-        SURFACES_SOFT2B,
-        sel=a(BLUE_M, s), sel_strong=a(BLUE_M, s), tab_active_hover=a(BLUE_M, min(s + 0x10, 0xFF)),
-        sel_focus=a(BLUE_M, s - 0x1A), sel_sub=a(BLUE_M, s - 0x33), mark=a(BLUE_M, s - 0x4D),
-        hover=hover, tab_hover=hover, hover_editor=hover_editor, toolbar_hover=hover,
-    )  # fmt: skip
-
-
-SURFACES_DENSE2A = dense2(0xE6, a(TEAL, 0xF2), a(TEAL, 0xC4))  # 選択 0.90（ΔE 24.0），ホバー TEAL 0.95（ΔE 10.9）
-SURFACES_DENSE2B = dense2(0xD9, a(INDIGO, 0x99), a(INDIGO, 0x65))  # 選択 0.85（ΔE 22.8），ホバー INDIGO 0.60（ΔE 13.4）
-SURFACES_DENSE2C = dense2(0xD9, a(BLUE_M, 0x8C), a(BLUE_M, 0x53))  # 選択 0.85，ホバー BLUE_M 0.55（ΔE 14.9．選択と同じ色の薄め）
-SURFACES_DENSE2D = dense2(0xCC, a(INDIGO, 0xA6), a(INDIGO, 0x65))  # 選択 0.80（ΔE 21.4），ホバー INDIGO 0.65（ΔE 14.4）
-# Soft3: 背景より暗い NIGHT を重ねて「沈み込み」で示す（ほぼ無彩色．文字のコントラストは上がる）
-SURFACES_SOFT3 = replace(
-    SURFACES_QUIET_BARS,
-    sel=a(NIGHT, 0xD9), sel_sub=a(NIGHT, 0xA6), sel_focus=a(NIGHT, 0xC0), sel_strong=a(NIGHT, 0xE6),
-    mark=a(NIGHT, 0x99), hover=a(NIGHT, 0x66), tab_hover=a(NIGHT, 0x66), tab_active_hover=NIGHT,
-    hover_editor=a(NIGHT, 0x54), toolbar_hover=a(NIGHT, 0x4C),
 )  # fmt: skip
 # 出力ファイル -> (背景色, 役割の色, 面の色)。見比べたいときは dataclasses.replace(ROLES_MAIN, ...) /
 # dataclasses.replace(SURFACES_MAIN, ...) でエントリを足す
 # （package.json にも登録する．決まったら採用案を ROLES_MAIN / SURFACES_MAIN にして比較用を削除する）。
 VARIANTS = {
     ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN, SURFACES_MAIN),
-    ROOT / "themes" / "keivax-zen3-soft1-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT1),
-    ROOT / "themes" / "keivax-zen3-soft2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2),
-    ROOT / "themes" / "keivax-zen3-soft2b-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2B),
-    ROOT / "themes" / "keivax-zen3-soft2c-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2C),
-    ROOT / "themes" / "keivax-zen3-soft2d-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2D),
-    ROOT / "themes" / "keivax-zen3-soft2e-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2E),
-    ROOT / "themes" / "keivax-zen3-soft2f-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2F),
-    ROOT / "themes" / "keivax-zen3-soft2g-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2G),
-    ROOT / "themes" / "keivax-zen3-dense1-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE1),
-    ROOT / "themes" / "keivax-zen3-dense2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2),
-    ROOT / "themes" / "keivax-zen3-dense3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE3),
-    ROOT / "themes" / "keivax-zen3-dense4-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE4),
-    ROOT / "themes" / "keivax-zen3-dense2a-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2A),
-    ROOT / "themes" / "keivax-zen3-dense2b-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2B),
-    ROOT / "themes" / "keivax-zen3-dense2c-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2C),
-    ROOT / "themes" / "keivax-zen3-dense2d-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2D),
-    ROOT / "themes" / "keivax-zen3-soft3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT3),
 }
 
 
