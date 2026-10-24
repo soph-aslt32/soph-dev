@@ -32,6 +32,16 @@
         "path": "./themes/keivax-zen3-soft2b-theme.json"
       },
       {
+        "label": "Keivax-zen3 Soft2c Plum",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft2c-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Soft2d Magenta",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft2d-theme.json"
+      },
+      {
         "label": "Keivax-zen3 Soft3 Sunken",
         "uiTheme": "vs-dark",
         "path": "./themes/keivax-zen3-soft3-theme.json"

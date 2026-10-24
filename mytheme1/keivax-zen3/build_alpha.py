@@ -49,6 +49,7 @@ VIOLET_B = "#5f47cc"  # 青紫: デバッグ・マージ
 LAV = "#9b7dc6"  # 藤色: 検索一致・各種マッチ強調
 EXTERN = "#b075d8"  # 明るい紫: 外部ライブラリ・ビルトイン・モジュール
 PURP = "#ae47d1"  # 紫: Git の削除・差分（トークンには使わない）
+PLUM = "#6c1d91"  # 中紫: 選択・ホバーに色味を足す（比較用）
 MAG = "#f411e1"  # マゼンタ: 注意色（グローバル/定数など希少で重要なもの）・変数ハイライト
 ROSE = "#dd949e"  # バラ色: 関数・Git の変更・エラー文字
 GREEN = "#7ea033"  # オリーブ緑: 文字列・数値・正規表現・None/True/False・未追跡
@@ -152,6 +153,21 @@ SURFACES_SOFT2B = replace(
     mark=a(VIOLET_B, 0x22), hover=a(VIOLET_B, 0x1C), tab_hover=a(VIOLET_B, 0x1C), tab_active_hover=a(VIOLET_B, 0x35),
     hover_editor=a(VIOLET_B, 0x19), toolbar_hover=a(VIOLET_B, 0x20),
 )  # fmt: skip
+# Soft2c: Soft2b の基底を VIOLET_B → PLUM（#6c1d91）にして色味をさらに足す．選択 ΔE 6.8 → 8.8，色相は 288 → 307（紫寄り）．
+# 各段は ΔE が ホバー3.9 / 非アクティブ5.5 / フォーカス7.3 / アクティブ8.8 になる透明度
+SURFACES_SOFT2C = replace(
+    SURFACES_SOFT2B,
+    sel=a(PLUM, 0x5F), sel_sub=a(PLUM, 0x3B), sel_focus=a(PLUM, 0x4F), sel_strong=a(PLUM, 0x5F),
+    mark=a(PLUM, 0x35), hover=a(PLUM, 0x2A), tab_hover=a(PLUM, 0x2A), tab_active_hover=a(PLUM, 0x5F),
+    hover_editor=a(PLUM, 0x22), toolbar_hover=a(PLUM, 0x2A),
+)  # fmt: skip
+# Soft2d: 基底を MAG（マゼンタ）の薄い重ねにする．選択 ΔE 8.8，色相は 317（赤紫寄り）．Soft2c と同じ階段
+SURFACES_SOFT2D = replace(
+    SURFACES_SOFT2B,
+    sel=a(MAG, 0x29), sel_sub=a(MAG, 0x19), sel_focus=a(MAG, 0x22), sel_strong=a(MAG, 0x29),
+    mark=a(MAG, 0x17), hover=a(MAG, 0x12), tab_hover=a(MAG, 0x12), tab_active_hover=a(MAG, 0x29),
+    hover_editor=a(MAG, 0x0E), toolbar_hover=a(MAG, 0x12),
+)  # fmt: skip
 # Soft3: 背景より暗い NIGHT を重ねて「沈み込み」で示す（ほぼ無彩色．文字のコントラストは上がる）
 SURFACES_SOFT3 = replace(
     SURFACES_QUIET_BARS,
@@ -167,6 +183,8 @@ VARIANTS = {
     ROOT / "themes" / "keivax-zen3-soft1-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT1),
     ROOT / "themes" / "keivax-zen3-soft2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2),
     ROOT / "themes" / "keivax-zen3-soft2b-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2B),
+    ROOT / "themes" / "keivax-zen3-soft2c-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2C),
+    ROOT / "themes" / "keivax-zen3-soft2d-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2D),
     ROOT / "themes" / "keivax-zen3-soft3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT3),
 }
 
