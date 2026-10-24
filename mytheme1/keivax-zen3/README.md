@@ -170,6 +170,12 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
 - 方針は「色味を足す」を試す．暖色（茶・ワイン系）は選択・ホバーに使わない
 - 比較用テーマを追加: Soft2c Plum（`#6c1d91` 基底，選択 ΔE 8.8，色相 307）と Soft2d Magenta（`MAG` の薄い重ね，選択 ΔE 8.8，色相 317）
 
+## Prompt zen3 20
+
+- 選択・ホバーには ColorPalette(group) の「落ち着いた青」「青紫・藍」の色を使う方針を検討する
+- 検討結果: 明るさで示す方式では `VIOLET_B`（Soft2b）がこの2グループで最良（ΔE 6.8）．これ以上の強さは `DEEP_VIOLET`（9.2）・`#081a56`（7.5）の彩度頼みで，明るさの差が小さい．上積みできるのは選択とホバーの見分けやすさ（同じ色の濃さ違いだと間が ΔE 2.7）
+- 比較用テーマを追加: Soft2e Blue Hover（選択 `VIOLET_B` × ホバー `#113f56`，間 ΔE 5.0），Soft2f Navy（選択 `#081a56` × ホバー `INDIGO`），Soft2g Violet Tab（タブだけ `DEEP_VIOLET`，ΔE 9.2）
+
 ## NewColorPalette
 
 - #7a6a64
