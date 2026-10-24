@@ -196,6 +196,14 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
   - Dense2c Blue Hover: 選択 0.85，ホバー `#1761aa` 0.55（選択と同じ色の薄め）
   - Dense2d Indigo Hover Soft: 選択 0.80，ホバー `#4a4d91` 0.65
 
+## Prompt zen3 23
+
+- 比較用テーマ Dense2c Blue Hover を，ひとまずベース（標準テーマ）にする
+  - 選択（アクティブ・タブ）= `BLUE_M` 0.85，フォーカス行 0.75，非アクティブ 0.65，同じ文字列の強調 0.55
+  - ホバー = `BLUE_M` 0.55，エディタ上のホバー強調 = `BLUE_M` 0.33
+  - 上のバーのホバーは塗りなし，タイトルバーの文字は `CHROME`（非アクティブ時は `DIM`），検索一致は `DEEP_VIOLET`，現在行は `INDIGO` 0.11
+- 比較用テーマ（Soft1〜3，Dense1〜4，Dense2a〜2d）と，比較専用の定数（`DEEP_BLUE` `PLUM` `NIGHT` `NAVY` `TEAL`）は削除した．必要になれば，削除前のコミット `71473ea` から取り出せる
+
 ## NewColorPalette
 
 - #7a6a64
