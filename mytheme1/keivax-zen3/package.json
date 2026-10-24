@@ -42,6 +42,21 @@
         "path": "./themes/keivax-zen3-soft2d-theme.json"
       },
       {
+        "label": "Keivax-zen3 Soft2e Blue Hover",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft2e-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Soft2f Navy",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft2f-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Soft2g Violet Tab",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft2g-theme.json"
+      },
+      {
         "label": "Keivax-zen3 Soft3 Sunken",
         "uiTheme": "vs-dark",
         "path": "./themes/keivax-zen3-soft3-theme.json"
