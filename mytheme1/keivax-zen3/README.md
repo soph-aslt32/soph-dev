@@ -186,6 +186,16 @@ APIリファレンス <https://code.visualstudio.com/api/references/theme-color>
   - Dense4 Violet: 選択 `#5f47cc`（ΔE 30.0），ホバー `#231663`
 - 既存の Soft2f（選択 `#081a56` 不透明）と Soft1（選択 `#231663`）も濃い状態の候補にあたる
 
+## Prompt zen3 22
+
+- Dense2 Blue が良さそう．選択の不透明度を「ある程度高い値」に調整したい
+- ホバーの色が選択に比べて暗すぎる．他の色を選び，高めの不透明度で調整して改善したい
+- 比較用テーマを追加（選択は `BLUE_M`．フォーカス・非アクティブ・同じ文字列の強調は選択より 0.10 / 0.20 / 0.30 薄い．エディタ上のホバー強調はホバーと同じ色の薄い版 ΔE 約 9）
+  - Dense2a Teal Hover: 選択 0.90，ホバー `#113f56` 0.95
+  - Dense2b Indigo Hover: 選択 0.85，ホバー `#4a4d91` 0.60
+  - Dense2c Blue Hover: 選択 0.85，ホバー `#1761aa` 0.55（選択と同じ色の薄め）
+  - Dense2d Indigo Hover Soft: 選択 0.80，ホバー `#4a4d91` 0.65
+
 ## NewColorPalette
 
 - #7a6a64
