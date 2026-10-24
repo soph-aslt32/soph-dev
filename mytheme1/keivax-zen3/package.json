@@ -15,6 +15,21 @@
         "label": "Keivax-zen3",
         "uiTheme": "vs-dark",
         "path": "./themes/keivax-zen3-alpha-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Soft1 Violet",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft1-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Soft2 Indigo",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft2-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Soft3 Sunken",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-soft3-theme.json"
       }
     ]
   }

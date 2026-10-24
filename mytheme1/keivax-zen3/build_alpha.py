@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")  # パイプ経由でも日本語・記号を文字化けさせない
@@ -105,6 +105,7 @@ class Surfaces:
     tab_active_hover: str  # アクティブなタブのホバー
     hover_editor: str  # エディタ上でホバー表示が出ている語の強調
     find: str  # 検索一致の塗り（他の一致はこの色の透明度違い）
+    line: str  # カーソルがある行の背景
     toolbar_hover: str  # ツールバーのボタン（アクティビティバー・タイトルバー・エディタ右上など）のホバー
     menubar_hover: str | None  # タイトルバーのメニュー（ファイル・編集…）のホバー
     command_active: str | None  # コマンドセンターのホバー
@@ -117,16 +118,47 @@ class Surfaces:
 SURFACES_MAIN = Surfaces(
     sel=a(DEEP_BLUE, 0xC0), sel_sub=a(DEEP_BLUE, 0x80), sel_focus=a(DEEP_BLUE, 0xA0), sel_strong=a(DEEP_BLUE, 0xE0),
     mark=a(DEEP_BLUE, 0x70), hover=a(DEEP_BLUE, 0x60), tab_hover=a(DEEP_BLUE, 0x80), tab_active_hover=DEEP_BLUE,
-    hover_editor=a(DEEP_BLUE, 0x60), find=DEEP_VIOLET,
+    hover_editor=a(DEEP_BLUE, 0x60), find=DEEP_VIOLET, line=a(INDIGO, 0x40),
     toolbar_hover=a(INDIGO, 0x50), menubar_hover=a(DEEP_BLUE, 0x90), command_active=a(BLUE_M, 0x30),
     status_hover=a(BLUE_M, 0x50), status_compact_hover=a(BLUE_M, 0x60),
     title_fg=FG, title_fg_inactive=FG2,
+)  # fmt: skip
+# --- 比較用（Prompt zen3 16: 選択・ホバーの純青が強い）。3案とも上のバーは塗りをなくし，文字の明暗で示す ---
+SURFACES_QUIET_BARS = replace(
+    SURFACES_MAIN,
+    menubar_hover=None, command_active=None, status_hover=None, status_compact_hover=None,
+    title_fg=CHROME, title_fg_inactive=DIM,
+)  # fmt: skip
+# Soft1: 彩度を落とした青紫（背景と同じ色相）で選択を示す．ホバーは INDIGO を薄く重ねて明るさで示す．
+# 検索一致の塗りが選択と被るので DEEP_PURPLE に移す
+SURFACES_SOFT1 = replace(
+    SURFACES_QUIET_BARS,
+    sel=a(DEEP_VIOLET, 0xE0), sel_sub=a(DEEP_VIOLET, 0xB2), sel_focus=a(DEEP_VIOLET, 0xC7), sel_strong=DEEP_VIOLET,
+    mark=a(DEEP_VIOLET, 0xA0), hover=a(INDIGO, 0x29), tab_hover=a(INDIGO, 0x29), tab_active_hover=DEEP_VIOLET,
+    hover_editor=a(INDIGO, 0x24), find=DEEP_PURPLE, toolbar_hover=a(INDIGO, 0x20),
+)  # fmt: skip
+# Soft2: INDIGO の透明度だけで示す（明るさ重視）．選択・ホバー・現在行が同じ系統になるので，現在行を弱める
+SURFACES_SOFT2 = replace(
+    SURFACES_QUIET_BARS,
+    sel=a(INDIGO, 0x3C), sel_sub=a(INDIGO, 0x2A), sel_focus=a(INDIGO, 0x34), sel_strong=a(INDIGO, 0x3C),
+    mark=a(INDIGO, 0x26), hover=a(INDIGO, 0x1C), tab_hover=a(INDIGO, 0x1C), tab_active_hover=a(INDIGO, 0x44),
+    hover_editor=a(INDIGO, 0x24), line=a(INDIGO, 0x1C), toolbar_hover=a(INDIGO, 0x20),
+)  # fmt: skip
+# Soft3: 背景より暗い NIGHT を重ねて「沈み込み」で示す（ほぼ無彩色．文字のコントラストは上がる）
+SURFACES_SOFT3 = replace(
+    SURFACES_QUIET_BARS,
+    sel=a(NIGHT, 0xD9), sel_sub=a(NIGHT, 0xA6), sel_focus=a(NIGHT, 0xC0), sel_strong=a(NIGHT, 0xE6),
+    mark=a(NIGHT, 0x99), hover=a(NIGHT, 0x66), tab_hover=a(NIGHT, 0x66), tab_active_hover=NIGHT,
+    hover_editor=a(NIGHT, 0x54), toolbar_hover=a(NIGHT, 0x4C),
 )  # fmt: skip
 # 出力ファイル -> (背景色, 役割の色, 面の色)。見比べたいときは dataclasses.replace(ROLES_MAIN, ...) /
 # dataclasses.replace(SURFACES_MAIN, ...) でエントリを足す
 # （package.json にも登録する．決まったら採用案を ROLES_MAIN / SURFACES_MAIN にして比較用を削除する）。
 VARIANTS = {
     ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN, SURFACES_MAIN),
+    ROOT / "themes" / "keivax-zen3-soft1-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT1),
+    ROOT / "themes" / "keivax-zen3-soft2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2),
+    ROOT / "themes" / "keivax-zen3-soft3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT3),
 }
 
 
@@ -170,7 +202,7 @@ textSeparator.foreground        a(DIM, 0x70)
 # --- エディタ本体 ---
 editor.background                       BG
 editor.foreground                       FG
-editor.lineHighlightBackground          a(INDIGO, 0x40)
+editor.lineHighlightBackground          S_LINE
 editor.lineHighlightBorder              T
 editor.selectionBackground              S_SEL
 editor.selectionForeground              FG
