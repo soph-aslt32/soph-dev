@@ -185,6 +185,22 @@ SURFACES_SOFT2F = replace(
 )  # fmt: skip
 # Soft2g: アクティブなタブだけ DEEP_VIOLET（ΔE 9.2）にする．リスト・エディタの選択は Soft2b のまま
 SURFACES_SOFT2G = replace(SURFACES_SOFT2B, sel_strong=DEEP_VIOLET, tab_active_hover=DEEP_VIOLET)
+# --- Prompt zen3 21: 文字の読みやすさは実機で確かめる前提で，2グループの色をほぼ不透明のまま使う ---
+# 選択（アクティブ・タブ）は不透明，フォーカス・非アクティブ・同じ文字列の強調は不透明度 0.8 / 0.7 / 0.6．
+# ホバーは暗い色（NAVY か DEEP_VIOLET）を不透明のまま使う．コード色の最低コントラストは 3.0 を下回る
+def dense(select: str, hover: str) -> Surfaces:
+    return replace(
+        SURFACES_SOFT2B,
+        sel=select, sel_strong=select, tab_active_hover=select,
+        sel_focus=a(select, 0xCC), sel_sub=a(select, 0xB3), mark=a(select, 0x99),
+        hover=hover, tab_hover=hover, hover_editor=hover, toolbar_hover=hover,
+    )  # fmt: skip
+
+
+SURFACES_DENSE1 = dense(TEAL, NAVY)  # 選択 ΔE 11.5（青緑がかった青），ホバー ΔE 7.5
+SURFACES_DENSE2 = dense(BLUE_M, NAVY)  # 選択 ΔE 26.6（中間の青）
+SURFACES_DENSE3 = dense(INDIGO, DEEP_VIOLET)  # 選択 ΔE 21.8（藍），ホバー ΔE 9.2（検索一致と同色）
+SURFACES_DENSE4 = dense(VIOLET_B, DEEP_VIOLET)  # 選択 ΔE 30.0（青紫）
 # Soft3: 背景より暗い NIGHT を重ねて「沈み込み」で示す（ほぼ無彩色．文字のコントラストは上がる）
 SURFACES_SOFT3 = replace(
     SURFACES_QUIET_BARS,
@@ -205,6 +221,10 @@ VARIANTS = {
     ROOT / "themes" / "keivax-zen3-soft2e-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2E),
     ROOT / "themes" / "keivax-zen3-soft2f-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2F),
     ROOT / "themes" / "keivax-zen3-soft2g-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT2G),
+    ROOT / "themes" / "keivax-zen3-dense1-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE1),
+    ROOT / "themes" / "keivax-zen3-dense2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2),
+    ROOT / "themes" / "keivax-zen3-dense3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE3),
+    ROOT / "themes" / "keivax-zen3-dense4-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE4),
     ROOT / "themes" / "keivax-zen3-soft3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT3),
 }
 

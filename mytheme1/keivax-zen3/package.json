@@ -57,6 +57,26 @@
         "path": "./themes/keivax-zen3-soft2g-theme.json"
       },
       {
+        "label": "Keivax-zen3 Dense1 Teal",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense1-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Dense2 Blue",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense2-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Dense3 Indigo",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense3-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Dense4 Violet",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense4-theme.json"
+      },
+      {
         "label": "Keivax-zen3 Soft3 Sunken",
         "uiTheme": "vs-dark",
         "path": "./themes/keivax-zen3-soft3-theme.json"
