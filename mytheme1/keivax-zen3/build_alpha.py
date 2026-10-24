@@ -201,6 +201,25 @@ SURFACES_DENSE1 = dense(TEAL, NAVY)  # 選択 ΔE 11.5（青緑がかった青�
 SURFACES_DENSE2 = dense(BLUE_M, NAVY)  # 選択 ΔE 26.6（中間の青）
 SURFACES_DENSE3 = dense(INDIGO, DEEP_VIOLET)  # 選択 ΔE 21.8（藍），ホバー ΔE 9.2（検索一致と同色）
 SURFACES_DENSE4 = dense(VIOLET_B, DEEP_VIOLET)  # 選択 ΔE 30.0（青紫）
+
+
+# --- Prompt zen3 22: Dense2（選択 BLUE_M）を基準に，選択の不透明度を 0.8〜0.9 に下げ，ホバーを明るい別の色にする ---
+# フォーカス・非アクティブ・同じ文字列の強調は選択より 0.10 / 0.20 / 0.30 薄くする．
+# エディタ上のホバー強調だけは，前に「きつい」と指摘があったので，ホバーと同じ色の薄い版（ΔE 約 9）にする
+def dense2(select_alpha: int, hover: str, hover_editor: str) -> Surfaces:
+    s = select_alpha
+    return replace(
+        SURFACES_SOFT2B,
+        sel=a(BLUE_M, s), sel_strong=a(BLUE_M, s), tab_active_hover=a(BLUE_M, min(s + 0x10, 0xFF)),
+        sel_focus=a(BLUE_M, s - 0x1A), sel_sub=a(BLUE_M, s - 0x33), mark=a(BLUE_M, s - 0x4D),
+        hover=hover, tab_hover=hover, hover_editor=hover_editor, toolbar_hover=hover,
+    )  # fmt: skip
+
+
+SURFACES_DENSE2A = dense2(0xE6, a(TEAL, 0xF2), a(TEAL, 0xC4))  # 選択 0.90（ΔE 24.0），ホバー TEAL 0.95（ΔE 10.9）
+SURFACES_DENSE2B = dense2(0xD9, a(INDIGO, 0x99), a(INDIGO, 0x65))  # 選択 0.85（ΔE 22.8），ホバー INDIGO 0.60（ΔE 13.4）
+SURFACES_DENSE2C = dense2(0xD9, a(BLUE_M, 0x8C), a(BLUE_M, 0x53))  # 選択 0.85，ホバー BLUE_M 0.55（ΔE 14.9．選択と同じ色の薄め）
+SURFACES_DENSE2D = dense2(0xCC, a(INDIGO, 0xA6), a(INDIGO, 0x65))  # 選択 0.80（ΔE 21.4），ホバー INDIGO 0.65（ΔE 14.4）
 # Soft3: 背景より暗い NIGHT を重ねて「沈み込み」で示す（ほぼ無彩色．文字のコントラストは上がる）
 SURFACES_SOFT3 = replace(
     SURFACES_QUIET_BARS,
@@ -225,6 +244,10 @@ VARIANTS = {
     ROOT / "themes" / "keivax-zen3-dense2-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2),
     ROOT / "themes" / "keivax-zen3-dense3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE3),
     ROOT / "themes" / "keivax-zen3-dense4-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE4),
+    ROOT / "themes" / "keivax-zen3-dense2a-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2A),
+    ROOT / "themes" / "keivax-zen3-dense2b-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2B),
+    ROOT / "themes" / "keivax-zen3-dense2c-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2C),
+    ROOT / "themes" / "keivax-zen3-dense2d-theme.json": ("#201d33", ROLES_MAIN, SURFACES_DENSE2D),
     ROOT / "themes" / "keivax-zen3-soft3-theme.json": ("#201d33", ROLES_MAIN, SURFACES_SOFT3),
 }
 

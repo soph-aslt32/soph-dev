@@ -77,6 +77,26 @@
         "path": "./themes/keivax-zen3-dense4-theme.json"
       },
       {
+        "label": "Keivax-zen3 Dense2a Teal Hover",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense2a-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Dense2b Indigo Hover",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense2b-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Dense2c Blue Hover",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense2c-theme.json"
+      },
+      {
+        "label": "Keivax-zen3 Dense2d Indigo Hover Soft",
+        "uiTheme": "vs-dark",
+        "path": "./themes/keivax-zen3-dense2d-theme.json"
+      },
+      {
         "label": "Keivax-zen3 Soft3 Sunken",
         "uiTheme": "vs-dark",
         "path": "./themes/keivax-zen3-soft3-theme.json"
