@@ -61,6 +61,7 @@ DEEP_WINE = "#4f122f"  # 暗いワイン色: 単語ハイライト（読取・�
 DEEP_GREEN = "#002319"  # 暗い緑: 差分の追加
 DEEP_VIOLET = "#231663"  # 暗い青紫: 検索一致
 DEEP_PURPLE = "#421949"  # 暗い紫: 差分の削除
+NIGHT = "#0f0514"  # 背景より暗い青紫: 沈み込み型の選択・ホバー（比較用）
 
 ERR = "#dd2a57"  # エラー専有
 WARN = "#fcb346"  # 警告専有
@@ -90,20 +91,55 @@ ROLES_MAIN = Roles(
     keyword=BLUE, operator=MUTED, variable=FG2, function=ROSE,
     type=PURP, value=GREEN, comment=DIM, accent=MAG,
 )  # fmt: skip
-# 出力ファイル -> (背景色, 役割の色)。見比べたいときは dataclasses.replace(ROLES_MAIN, ...) でエントリを足す
-# （package.json にも登録する．決まったら採用案を ROLES_MAIN にして比較用を削除する）。
+@dataclass(frozen=True)
+class Surfaces:
+    """選択・ホバーなど「面」の色の役割。None は透明。強さの段階は hover < mark < sel_sub < sel_focus < sel < sel_strong。"""
+
+    sel: str  # 選択（エディタ・リスト・メニュー・サジェスト・ターミナル）のアクティブ時
+    sel_sub: str  # 非アクティブな選択・括弧の一致・スタックフレーム
+    sel_focus: str  # リストのフォーカス行（選択はされていない）
+    sel_strong: str  # アクティブなタブ・フォーカス中のスタックフレーム
+    mark: str  # 選択範囲と同じ文字列の強調・スニペットのタブ位置
+    hover: str  # リストのホバー・シンボルの強調
+    tab_hover: str  # タブのホバー
+    tab_active_hover: str  # アクティブなタブのホバー
+    hover_editor: str  # エディタ上でホバー表示が出ている語の強調
+    find: str  # 検索一致の塗り（他の一致はこの色の透明度違い）
+    toolbar_hover: str  # ツールバーのボタン（アクティビティバー・タイトルバー・エディタ右上など）のホバー
+    menubar_hover: str | None  # タイトルバーのメニュー（ファイル・編集…）のホバー
+    command_active: str | None  # コマンドセンターのホバー
+    status_hover: str | None  # ステータスバーの項目のホバー
+    status_compact_hover: str | None  # ステータスバーの小さい項目のホバー
+    title_fg: str  # タイトルバー・メニューの普段の文字
+    title_fg_inactive: str  # ウィンドウが非アクティブなときのタイトルバーの文字
+
+
+SURFACES_MAIN = Surfaces(
+    sel=a(DEEP_BLUE, 0xC0), sel_sub=a(DEEP_BLUE, 0x80), sel_focus=a(DEEP_BLUE, 0xA0), sel_strong=a(DEEP_BLUE, 0xE0),
+    mark=a(DEEP_BLUE, 0x70), hover=a(DEEP_BLUE, 0x60), tab_hover=a(DEEP_BLUE, 0x80), tab_active_hover=DEEP_BLUE,
+    hover_editor=a(DEEP_BLUE, 0x60), find=DEEP_VIOLET,
+    toolbar_hover=a(INDIGO, 0x50), menubar_hover=a(DEEP_BLUE, 0x90), command_active=a(BLUE_M, 0x30),
+    status_hover=a(BLUE_M, 0x50), status_compact_hover=a(BLUE_M, 0x60),
+    title_fg=FG, title_fg_inactive=FG2,
+)  # fmt: skip
+# 出力ファイル -> (背景色, 役割の色, 面の色)。見比べたいときは dataclasses.replace(ROLES_MAIN, ...) /
+# dataclasses.replace(SURFACES_MAIN, ...) でエントリを足す
+# （package.json にも登録する．決まったら採用案を ROLES_MAIN / SURFACES_MAIN にして比較用を削除する）。
 VARIANTS = {
-    ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN),
+    ROOT / "themes" / "keivax-zen3-alpha-theme.json": ("#201d33", ROLES_MAIN, SURFACES_MAIN),
 }
 
 
-def make_namespace(bg: str, roles: Roles) -> dict[str, object]:
-    """割り当て表の式を評価する名前空間。BG・T と R_* （役割の色）は variant ごとに差し替える。"""
+def make_namespace(bg: str, roles: Roles, surfaces: Surfaces) -> dict[str, object]:
+    """割り当て表の式を評価する名前空間。BG・T と R_*（役割の色）・S_*（面の色）は variant ごとに差し替える。"""
     ns: dict[str, object] = {
         k: v for k, v in globals().items() if k.isupper() and isinstance(v, str)
     }
     ns.update({"a": a, "BG": bg, "T": bg + "00"})
     ns.update({f"R_{f.name.upper()}": getattr(roles, f.name) for f in fields(roles)})
+    for f in fields(surfaces):
+        value = getattr(surfaces, f.name)
+        ns[f"S_{f.name.upper()}"] = bg + "00" if value is None else value
     return ns
 
 BRACKETS = [BLUE, GREEN, MAG, KHAKI, FG2, ROSE]
@@ -118,7 +154,7 @@ descriptionForeground           CHROME
 disabledForeground              DIM
 errorForeground                 ROSE
 focusBorder                     BLUE
-selection.background            a(DEEP_BLUE, 0xc0)
+selection.background            S_SEL
 icon.foreground                 CHROME
 progressBar.background          BLUE
 textBlockQuote.background       a(INDIGO, 0x30)
@@ -136,10 +172,10 @@ editor.background                       BG
 editor.foreground                       FG
 editor.lineHighlightBackground          a(INDIGO, 0x40)
 editor.lineHighlightBorder              T
-editor.selectionBackground              a(DEEP_BLUE, 0xc0)
+editor.selectionBackground              S_SEL
 editor.selectionForeground              FG
-editor.inactiveSelectionBackground      a(DEEP_BLUE, 0x80)
-editor.selectionHighlightBackground     a(DEEP_BLUE, 0x70)
+editor.inactiveSelectionBackground      S_SEL_SUB
+editor.selectionHighlightBackground     S_MARK
 editor.selectionHighlightBorder         a(FG, 0x60)
 editor.wordHighlightBackground          DEEP_WINE
 editor.wordHighlightBorder              MAG
@@ -147,16 +183,16 @@ editor.wordHighlightStrongBackground    DEEP_WINE
 editor.wordHighlightStrongBorder        PALEGREEN
 editor.wordHighlightTextBackground      a(DEEP_WINE, 0xb0)
 editor.wordHighlightTextBorder          a(MAG, 0x70)
-editor.findMatchBackground              DEEP_VIOLET
+editor.findMatchBackground              S_FIND
 editor.findMatchBorder                  LAV
-editor.findMatchHighlightBackground     a(DEEP_VIOLET, 0xc0)
+editor.findMatchHighlightBackground     a(S_FIND, 0xc0)
 editor.findMatchHighlightBorder         T
 editor.findRangeHighlightBackground     a(INDIGO, 0x30)
 editor.findRangeHighlightBorder         T
-editor.hoverHighlightBackground         a(DEEP_BLUE, 0x60)
+editor.hoverHighlightBackground         S_HOVER_EDITOR
 editor.rangeHighlightBackground         a(INDIGO, 0x30)
 editor.rangeHighlightBorder             T
-editor.symbolHighlightBackground        a(DEEP_BLUE, 0x60)
+editor.symbolHighlightBackground        S_HOVER
 editor.symbolHighlightBorder            T
 editor.inlineValuesBackground           a(BG, 0xcc)
 editor.inlineValuesForeground           DIM
@@ -164,12 +200,12 @@ editor.linkedEditingBackground          a(PURP, 0x30)
 editor.foldBackground                   a(INDIGO, 0x30)
 editor.foldPlaceholderForeground        DIM
 editor.placeholder.foreground           DIM
-editor.snippetTabstopHighlightBackground        a(DEEP_BLUE, 0x70)
+editor.snippetTabstopHighlightBackground        S_MARK
 editor.snippetTabstopHighlightBorder            a(FG2, 0x60)
 editor.snippetFinalTabstopHighlightBackground   a(LAV, 0x30)
 editor.snippetFinalTabstopHighlightBorder       LAV
-editor.stackFrameHighlightBackground            a(DEEP_BLUE, 0x80)
-editor.focusedStackFrameHighlightBackground     a(DEEP_BLUE, 0xe0)
+editor.stackFrameHighlightBackground            S_SEL_SUB
+editor.focusedStackFrameHighlightBackground     S_SEL_STRONG
 editor.compositionBorder                BLUE
 
 # --- カーソル ---
@@ -198,7 +234,7 @@ editorIndentGuide.activeBackground5     a(DIM, 0xb0)
 editorIndentGuide.activeBackground6     a(DIM, 0xb0)
 
 # --- 括弧 (1〜6 は BRACKETS から生成) ---
-editorBracketMatch.background                       a(DEEP_BLUE, 0x80)
+editorBracketMatch.background                       S_SEL_SUB
 editorBracketMatch.border                           FG2
 editorBracketHighlight.unexpectedBracket.foreground ERR
 
@@ -251,13 +287,13 @@ editorSuggestWidget.border                      T
 editorSuggestWidget.foreground                  FG
 editorSuggestWidget.highlightForeground         LAV
 editorSuggestWidget.focusHighlightForeground    LAV
-editorSuggestWidget.selectedBackground          a(DEEP_BLUE, 0xc0)
+editorSuggestWidget.selectedBackground          S_SEL
 editorSuggestWidget.selectedForeground          FG
 editorSuggestWidget.selectedIconForeground      FG2
 editorSuggestWidgetStatus.foreground            DIM
 editorActionList.background             BG
 editorActionList.foreground             FG
-editorActionList.focusBackground        a(DEEP_BLUE, 0xc0)
+editorActionList.focusBackground        S_SEL
 editorActionList.focusForeground        FG
 editorHoverWidget.background            BG
 editorHoverWidget.border                T
@@ -311,7 +347,7 @@ tab.activeModifiedBorder                PALEGREEN
 tab.inactiveBackground                  BG
 tab.inactiveForeground                  CHROME
 tab.inactiveModifiedBorder              a(PALEGREEN, 0x70)
-tab.hoverBackground                     a(DEEP_BLUE, 0x80)
+tab.hoverBackground                     S_TAB_HOVER
 tab.hoverForeground                     FG
 tab.hoverBorder                         T
 tab.unfocusedActiveBackground           BG
@@ -330,16 +366,16 @@ tab.selectedForeground                  FG
 tab.selectedBorderTop                   BLUE
 tab.lastPinnedBorder                    T
 tab.dragAndDropBorder                   BLUE
-modernTab.activeBackground              a(DEEP_BLUE, 0xe0)
+modernTab.activeBackground              S_SEL_STRONG
 modernTab.activeForeground              FG
-modernTab.hoverBackground               a(DEEP_BLUE, 0x80)
+modernTab.hoverBackground               S_TAB_HOVER
 modernTab.hoverForeground               FG
-modernEditorTab.activeBackground        a(DEEP_BLUE, 0xe0)
+modernEditorTab.activeBackground        S_SEL_STRONG
 modernEditorTab.activeForeground        FG
 modernEditorTab.inactiveBackground      BG
-modernEditorTab.hoverBackground         a(DEEP_BLUE, 0x80)
+modernEditorTab.hoverBackground         S_TAB_HOVER
 modernEditorTab.hoverForeground         FG
-modernEditorTab.activeHoverBackground   DEEP_BLUE
+modernEditorTab.activeHoverBackground   S_TAB_ACTIVE_HOVER
 
 # --- アクティビティバー ---
 activityBar.background              BG
@@ -391,11 +427,11 @@ statusBar.debuggingBorder           T
 statusBar.noFolderBackground        BG
 statusBar.noFolderForeground        CHROME
 statusBar.noFolderBorder            T
-statusBarItem.hoverBackground       a(BLUE_M, 0x50)
+statusBarItem.hoverBackground       S_STATUS_HOVER
 statusBarItem.hoverForeground       FG
 statusBarItem.activeBackground      a(BLUE_M, 0x80)
 statusBarItem.focusBorder           BLUE
-statusBarItem.compactHoverBackground    a(BLUE_M, 0x60)
+statusBarItem.compactHoverBackground    S_STATUS_COMPACT_HOVER
 statusBarItem.remoteBackground      BLUE_M
 statusBarItem.remoteForeground      FG
 statusBarItem.remoteHoverBackground VIOLET_B
@@ -419,16 +455,16 @@ statusBarItem.prominentHoverForeground  BG
 
 # --- タイトルバー・メニュー・コマンドセンター ---
 titleBar.activeBackground       BG
-titleBar.activeForeground       FG
+titleBar.activeForeground       S_TITLE_FG
 titleBar.inactiveBackground     BG
-titleBar.inactiveForeground     FG2
+titleBar.inactiveForeground     S_TITLE_FG_INACTIVE
 titleBar.border                 T
-menubar.selectionBackground     a(DEEP_BLUE, 0x90)
+menubar.selectionBackground     S_MENUBAR_HOVER
 menubar.selectionForeground     FG
 menubar.selectionBorder         T
 menu.background                 BG
 menu.foreground                 FG
-menu.selectionBackground        a(DEEP_BLUE, 0xc0)
+menu.selectionBackground        S_SEL
 menu.selectionForeground        FG
 menu.selectionBorder            T
 menu.separatorBackground        a(DIM, 0x50)
@@ -436,7 +472,7 @@ menu.border                     T
 commandCenter.background        BG
 commandCenter.foreground        CHROME
 commandCenter.border            a(DIM, 0xe8)
-commandCenter.activeBackground  a(BLUE_M, 0x30)
+commandCenter.activeBackground  S_COMMAND_ACTIVE
 commandCenter.activeBorder      BLUE
 commandCenter.activeForeground  FG
 commandCenter.inactiveBorder    a(DIM, 0x30)
@@ -445,7 +481,7 @@ commandCenter.inactiveForeground    FG2
 # --- クイック入力・入力部品 ---
 quickInput.background               BG
 quickInput.foreground               FG
-quickInputList.focusBackground      a(DEEP_BLUE, 0xc0)
+quickInputList.focusBackground      S_SEL
 quickInputList.focusForeground      FG
 quickInputList.focusIconForeground  FG2
 quickInputTitle.background          BG
@@ -499,17 +535,17 @@ badge.background                    BLUE_M
 badge.foreground                    FG
 
 # --- リスト・ツリー ---
-list.activeSelectionBackground          a(DEEP_BLUE, 0xc0)
+list.activeSelectionBackground          S_SEL
 list.activeSelectionForeground          FG
 list.activeSelectionIconForeground      FG
-list.inactiveSelectionBackground        a(DEEP_BLUE, 0x80)
+list.inactiveSelectionBackground        S_SEL_SUB
 list.inactiveSelectionForeground        FG
 list.inactiveSelectionIconForeground    FG2
-list.inactiveFocusBackground            a(DEEP_BLUE, 0x60)
+list.inactiveFocusBackground            S_HOVER
 list.inactiveFocusOutline               T
-list.hoverBackground                    a(DEEP_BLUE, 0x60)
+list.hoverBackground                    S_HOVER
 list.hoverForeground                    FG
-list.focusBackground                    a(DEEP_BLUE, 0xa0)
+list.focusBackground                    S_SEL_FOCUS
 list.focusForeground                    FG
 list.focusOutline                       T
 list.focusAndSelectionOutline           T
@@ -556,9 +592,9 @@ outputViewStickyScroll.background   BG
 terminal.background                 BG
 terminal.foreground                 FG
 terminal.border                     T
-terminal.selectionBackground        a(DEEP_BLUE, 0xc0)
+terminal.selectionBackground        S_SEL
 terminal.selectionForeground        FG
-terminal.inactiveSelectionBackground    a(DEEP_BLUE, 0x80)
+terminal.inactiveSelectionBackground    S_SEL_SUB
 terminal.ansiBlack                  INDIGO
 terminal.ansiRed                    ERR
 terminal.ansiGreen                  GREEN
@@ -676,7 +712,7 @@ problemsErrorIcon.foreground        ERR
 problemsWarningIcon.foreground      WARN
 problemsInfoIcon.foreground         FG2
 sash.hoverBorder                    BLUE
-toolbar.hoverBackground             a(INDIGO, 0x50)
+toolbar.hoverBackground             S_TOOLBAR_HOVER
 toolbar.hoverOutline                T
 toolbar.activeBackground            a(BLUE_M, 0x60)
 keybindingLabel.background          a(INDIGO, 0x40)
@@ -695,7 +731,7 @@ peekViewResult.background               BG
 peekViewResult.fileForeground           FG
 peekViewResult.lineForeground           FG2
 peekViewResult.matchHighlightBackground a(LAV, 0x50)
-peekViewResult.selectionBackground      a(DEEP_BLUE, 0xc0)
+peekViewResult.selectionBackground      S_SEL
 peekViewResult.selectionForeground      FG
 peekViewTitle.background                BG
 peekViewTitleDescription.foreground     FG2
@@ -1037,10 +1073,10 @@ def check_keys(label: str, expected: list[str], actual: set[str]) -> None:
         raise SystemExit("\n".join(msg))
 
 
-def build(bg: str, roles: Roles, dst: Path) -> None:
+def build(bg: str, roles: Roles, surfaces: Surfaces, dst: Path) -> None:
     src = json.loads(SRC.read_text(encoding="utf-8-sig"))
 
-    colors_new = parse_colors_spec(make_namespace(bg, roles))
+    colors_new = parse_colors_spec(make_namespace(bg, roles, surfaces))
     check_keys("colors", list(src["colors"]), set(colors_new))
 
     token_map = token_settings(roles)
@@ -1080,8 +1116,8 @@ def build(bg: str, roles: Roles, dst: Path) -> None:
 
 
 def main() -> None:
-    for dst, (bg, roles) in VARIANTS.items():
-        build(bg, roles, dst)
+    for dst, (bg, roles, surfaces) in VARIANTS.items():
+        build(bg, roles, surfaces, dst)
 
 
 if __name__ == "__main__":
