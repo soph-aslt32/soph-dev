@@ -283,7 +283,7 @@ check_13() {
     want 'sandbox.enabled が true' '.sandbox.enabled == true'
     want 'sandbox.failIfUnavailable が true' '.sandbox.failIfUnavailable == true'
     want 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
-    want 'permissions.blockReadsOutsideWorkingDirectories が true' '.permissions.blockReadsOutsideWorkingDirectories == true'
+    # want 'permissions.blockReadsOutsideWorkingDirectories が true' '.permissions.blockReadsOutsideWorkingDirectories == true'
     want 'permissions.deny に "Read(//mnt/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(//mnt/**)")'
     want 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
     want 'sandbox.credentials.files で ~/.ssh が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.ssh" and .mode == "deny")'

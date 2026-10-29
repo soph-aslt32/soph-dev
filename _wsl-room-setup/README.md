@@ -1,5 +1,5 @@
 # wsl-room-setup — Claude Code 用の「部屋」を自動で作るスクリプト
-
+<!-- markdownlint-disable MD036 MD040-->
 Claude Code を安全に動かすための WSL2 のディストリビューション（以下「部屋」）を、
 PowerShell のコマンド 1 つで作ります。
 
@@ -339,7 +339,7 @@ sudo bash /usr/local/lib/wsl-room-setup/verify-room.sh --root   # root の権限
 
 ## 9. ファイル構成
 
-```
+```txt
 wsl-room-setup/
 ├── README.md                 この説明書
 ├── New-SecureRoom.ps1        Windows 側の司令塔（これを実行する）
