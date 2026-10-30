@@ -29,6 +29,14 @@ readonly SETTINGS_TEMPLATE="$SCRIPT_DIR/templates/claude-settings.json.tmpl"
 readonly STATUSLINE_SRC="$SCRIPT_DIR/statusline.sh"
 readonly STATUSLINE_DEST="$HOME/.claude/statusline.sh"
 
+readonly UV_INSTALL_URL='https://astral.sh/uv/install.sh'
+readonly UV_BIN="$HOME/.local/bin/uv"
+readonly RUSTUP_URL='https://sh.rustup.rs'
+readonly RUSTC_BIN="$HOME/.cargo/bin/rustc"
+# ~/.bashrc に書く行。$HOME は書いた時点で展開せず、そのまま書き込む
+# shellcheck disable=SC2016
+readonly CARGO_ENV_LINE='. "$HOME/.cargo/env"'
+
 usage() {
     echo '使い方: bash provision-user.sh [--config <room.conf のパス>] [--dry-run]'
 }
@@ -61,6 +69,62 @@ add_path_line() {
     fi
     printf '\n# Claude Code（wsl-room-setup が追加）\n%s\n' "$PATH_LINE" >> "$HOME/.bashrc"
     ok "~/.bashrc に追記しました。"
+}
+
+# uv（Python のパッケージ・プロジェクト管理ツール）を ~/.local/bin に入れる
+install_uv() {
+    step "uv をインストールします"
+    if [[ -x $UV_BIN ]]; then
+        ok "インストール済みです（$("$UV_BIN" --version)）。"
+        return 0
+    fi
+    if (( DRY_RUN )); then
+        info "[dry-run] curl --proto '=https' --tlsv1.2 -LsSf $UV_INSTALL_URL | env UV_NO_MODIFY_PATH=1 sh"
+        return 0
+    fi
+    # ~/.local/bin は add_path_line で PATH に入るので、
+    # インストーラーには ~/.bashrc などを書き換えさせない
+    curl --proto '=https' --tlsv1.2 -LsSf "$UV_INSTALL_URL" | env UV_NO_MODIFY_PATH=1 sh
+    [[ -x $UV_BIN ]] || die "インストール後も $UV_BIN が見つかりません。" \
+        "上に表示されたインストーラーのメッセージを確認してください。"
+    ok "インストールしました（$("$UV_BIN" --version)）。"
+}
+
+# Rust（rustup 経由。~/.cargo と ~/.rustup に入る）
+install_rust() {
+    step "Rust（rustup）をインストールします"
+
+    # Rust はリンクに C コンパイラ（cc）を使う。無いと cargo build が失敗する
+    if ! command -v cc > /dev/null; then
+        if (( DRY_RUN )); then
+            warn "cc が見つかりません。provision-root.sh で build-essential を入れる必要があります。"
+        else
+            die "C コンパイラ（cc）が見つかりません。" \
+                "provision-root.sh のパッケージに build-essential を追加して、先に実行してください。"
+        fi
+    fi
+
+    if [[ -x $RUSTC_BIN ]]; then
+        ok "インストール済みです（$("$RUSTC_BIN" --version)）。"
+    elif (( DRY_RUN )); then
+        info "[dry-run] curl --proto '=https' --tlsv1.2 -sSf $RUSTUP_URL | sh -s -- -y --no-modify-path --profile default --default-toolchain stable"
+    else
+        curl --proto '=https' --tlsv1.2 -sSf "$RUSTUP_URL" \
+            | sh -s -- -y --no-modify-path --profile default --default-toolchain stable
+        [[ -x $RUSTC_BIN ]] || die "インストール後も $RUSTC_BIN が見つかりません。" \
+            "上に表示されたインストーラーのメッセージを確認してください。"
+        ok "インストールしました（$("$RUSTC_BIN" --version)）。"
+    fi
+
+    # ~/.cargo/bin を PATH に入れる行を ~/.bashrc に追加（すでにあれば追記しない）
+    if [[ -f $HOME/.bashrc ]] && grep -Fxq -- "$CARGO_ENV_LINE" "$HOME/.bashrc"; then
+        ok "~/.bashrc の設定はすでにあります（変更なし）。"
+    elif (( DRY_RUN )); then
+        info "[dry-run] ~/.bashrc に次の行を追記: $CARGO_ENV_LINE"
+    else
+        printf '\n# Rust（wsl-room-setup が追加）\n%s\n' "$CARGO_ENV_LINE" >> "$HOME/.bashrc"
+        ok "~/.bashrc に追記しました。"
+    fi
 }
 
 install_settings() {
@@ -148,6 +212,8 @@ main() {
 
     install_claude
     add_path_line
+    install_uv
+    install_rust
     install_settings
     install_statusline
     create_projects_dir

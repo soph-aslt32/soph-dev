@@ -23,7 +23,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$SCRIPT_DIR/lib.sh"
 trap 'on_error $LINENO' ERR
 
-readonly PACKAGES=(bubblewrap socat git curl jq)
+readonly PACKAGES=(bubblewrap socat git curl jq build-essential pkg-config libssl-dev)
 readonly APT_OPTS=(-y -o DPkg::Lock::Timeout=300)
 readonly APPARMOR_PROFILE=/etc/apparmor.d/bwrap
 
