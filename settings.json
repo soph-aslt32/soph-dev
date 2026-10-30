@@ -312,4 +312,8 @@
     "workbench.colorTheme": "Keivax-zen3",
     "workbench.experimental.modernUIEditorTabStyle": "pill",
     "chat.viewSessions.orientation": "stacked",
+
+    // git関係
+    "git.confirmSync": false,
+    "github.gitAuthentication": false
 }
