@@ -315,5 +315,6 @@
 
     // git関係
     "git.confirmSync": false,
-    "github.gitAuthentication": false
+    "github.gitAuthentication": false,
+    "git.terminalAuthentication": false,
 }
