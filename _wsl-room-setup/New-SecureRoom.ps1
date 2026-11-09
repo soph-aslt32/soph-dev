@@ -9,8 +9,13 @@
       1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、設定ファイル room.conf）
       2. ディストリビューション名と部屋の名前の質問
       3. wsl --install による部屋の作成（room.conf の linux_user と同じユーザー名と、パスワードをご自身で入力します）
-      4. 部屋の中での設定（root 用の設定 → 再起動 → マウント設定 → 一般ユーザー用の設定 → 再起動）
+      4. 部屋の中での設定（root 用の設定 → 再起動 → マウント設定 → 一般ユーザー用の設定
+         → GitHub の設定とクローン（room-github.conf に記入があるときだけ） → 再起動）
       5. 自動検証（verify-room.sh）
+
+    room-github.conf（room.conf と同じフォルダ）は、room.conf と違い部屋の中へコピーしません。
+    中身（特に PAT）は、このスクリプトが確認したうえで標準入力で部屋に渡し、PAT は部屋の
+    ~/.git-credentials（Claude Code からは読めないように設定してある）にだけ保存します。
 
     部屋をすでに作ってある場合は -Resume（設定のやり直し）や -VerifyOnly（検証だけ）を使います。
     このスクリプトが部屋を削除すること（wsl --unregister）はありません。
@@ -23,6 +28,10 @@
 
 .PARAMETER ConfigPath
     設定ファイルのパス。省略すると、このスクリプトと同じフォルダの room.conf を使います。
+
+.PARAMETER GitHubConfigPath
+    GitHub の設定ファイルのパス。省略すると、room.conf と同じフォルダの room-github.conf を使います
+    （無い場合や、すべて空欄の場合は、GitHub の設定をしません）。
 
 .PARAMETER Resume
     途中で止まった部屋に対して、作成以外の手順をもう一度実行します（部屋は消しません）。
@@ -50,6 +59,7 @@ param(
     [string]$Distro,
     [string]$RoomName,
     [string]$ConfigPath,
+    [string]$GitHubConfigPath,
     [switch]$Resume,
     [switch]$VerifyOnly,
     [switch]$DryRun
@@ -66,13 +76,16 @@ $ErrorActionPreference = 'Stop'
 $script:InstallDir = '/usr/local/lib/wsl-room-setup'
 
 # 部屋の中へコピーするファイル（room.conf は -ConfigPath のファイルをこの名前でコピーする）
+# room-github.conf は PAT を含むので、ここに入れてはいけない（部屋の中の誰でも読める場所に置かれるため）
 $script:PayloadFiles = @(
     'lib.sh',
     'provision-root.sh',
     'provision-user.sh',
+    'provision-github.sh',
     'verify-room.sh',
     'room.conf',
     'statusline.sh',
+    'delzonei.sh',
     'templates/wsl.conf.tmpl',
     'templates/claude-settings.json.tmpl'
 )
@@ -83,7 +96,15 @@ $script:ReLinuxUser = '^[a-z_][a-z0-9_-]{0,31}$'
 $script:ReWinUser   = '^[A-Za-z0-9._-]+$'
 $script:ReDomain    = '^(\*\.)?[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'
 
+# room-github.conf の入力チェック用（provision-github.sh と同じ規則）
+$script:ReGitHubUserNameBad = '[\x00-\x1F\x7F-\x9F<>]'   # user_name に使えない文字（制御文字と < >）
+$script:ReGitHubEmail       = '^[^\s<>@]+@[^\s<>@]+$'
+$script:ReGitHubPat         = '^[A-Za-z0-9_]{20,255}$'
+# リポジトリの URL。末尾の .git と / は省略可（https://github.com/OWNER/REPOSITORY.git の形にそろえて使う）
+$script:ReGitHubRepoUrl     = '^https://(?i:github\.com)/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\.git)?/?$'
+
 $script:LastWslExit = 0
+$script:GitHub = $null   # room-github.conf の内容（記入が無ければ $null）
 
 # =============================================================================
 # 表示
@@ -291,6 +312,102 @@ function Read-RoomConf {
     }
 }
 
+# パスが WSL の部屋の中（\\wsl.localhost\... や \\wsl$\...）を指しているか
+function Test-PathInsideWsl([string]$Path) {
+    return ($Path -match '^(\\\\\?\\UNC\\|\\\\)(wsl\.localhost|wsl\$)\\')
+}
+
+# room-github.conf を読んで内容を確認する。部屋を作る前に書き間違いに気づけるようにするための事前チェック。
+#   - ファイルが無い、またはすべて空欄 → $null を返す（GitHub の設定をしない）
+#   - 一部だけ記入されている → 書き忘れとみなして停止する
+# 書式は room.conf と同じ。値のチェックは provision-github.sh と同じ規則（変えるときは両方）。
+# PAT を画面に出さないよう、エラーの表示には行の中身と pat の値を含めない。
+function Read-GitHubConf {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    $name = Split-Path -Leaf $Path
+    try {
+        $text = [System.IO.File]::ReadAllText($Path, (New-Object System.Text.UTF8Encoding($false, $true)))
+    } catch {
+        Stop-Setup "設定ファイル $Path を読めません。UTF-8 で保存されていない可能性があります。" @(
+            'メモ帳などで開き、文字コードを UTF-8 にして保存し直してください。')
+    }
+    $text = $text.TrimStart([char]0xFEFF)
+
+    $keys = @('user_name', 'user_email', 'pat', 'repo_url')
+    $values = @{}
+    $lineOf = @{}
+    foreach ($k in $keys) { $values[$k] = ''; $lineOf[$k] = 0 }
+    $lineNo = 0
+    foreach ($raw in ($text -split "`r?`n")) {
+        $lineNo++
+        $line = $raw.Trim()
+        if ($line -eq '' -or $line.StartsWith('#')) { continue }
+        if ($line -cmatch '^([a-z_]+)\s*=(.*)$') {
+            $key = $Matches[1]
+            $value = $Matches[2].Trim()
+        } else {
+            Stop-Setup "$name の $lineNo 行目の書き方が正しくありません（PAT を含むかもしれないため、内容は表示しません）。" @(
+                '「名前 = 値」の形で書いてください。')
+        }
+        if ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"')) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        if ($keys -cnotcontains $key) {
+            Stop-Setup "$name の $lineNo 行目: 知らない項目名です: $key" @('使える項目は user_name、user_email、pat、repo_url です。')
+        }
+        if ($lineOf[$key] -ne 0) { Stop-Setup "$name の $lineNo 行目: $key が 2 回書かれています。" }
+        $lineOf[$key] = $lineNo
+        $values[$key] = $value
+    }
+
+    $empty = @($keys | Where-Object { $values[$_] -eq '' })
+    if ($empty.Count -eq $keys.Count) { return $null }
+    if ($empty.Count -gt 0) {
+        Stop-Setup "$name の一部だけが記入されています（空欄: $($empty -join '、')）。" @(
+            'GitHub の設定をする場合は、user_name、user_email、pat、repo_url のすべてを記入してください。',
+            'GitHub の設定をしない場合は、すべて空欄にしてください。')
+    }
+    if (Test-PathInsideWsl $Path) {
+        Stop-Setup "記入済みの $name が、WSL の部屋の中にあります: $Path" @(
+            '部屋の中のファイルは、その部屋で動く Claude Code から読めることがあります。',
+            "$name は Windows 側にコピーしたフォルダ（room.conf と同じ場所）で記入し、そこにあるスクリプトを実行してください（README の 3 章）。",
+            '部屋の中のファイルに書いた PAT は、念のため GitHub で削除（失効）して作り直してください。')
+    }
+
+    $userName = $values['user_name']
+    if ($userName -match $script:ReGitHubUserNameBad) {
+        Stop-Setup "$name の $($lineOf['user_name']) 行目: user_name に使えない文字が含まれています。" @('制御文字と < > は使えません。')
+    }
+    $email = $values['user_email']
+    if ($email -notmatch $script:ReGitHubEmail -or $email -match '[\x00-\x1F\x7F-\x9F]') {
+        Stop-Setup "$name の $($lineOf['user_email']) 行目: user_email がメールアドレスの形になっていません: $email" @(
+            '例: dev-room@example.com')
+    }
+    if ($values['pat'] -cnotmatch $script:ReGitHubPat) {
+        Stop-Setup "$name の $($lineOf['pat']) 行目: pat が PAT の形になっていません（内容は表示しません）。" @(
+            'GitHub で作成したトークン（github_pat_ や ghp_ で始まる、英数字と _ だけの文字列）を、そのまま貼り付けてください。')
+    }
+    if ($values['repo_url'] -cmatch $script:ReGitHubRepoUrl) {
+        $owner = $Matches[1]
+        $repo = $Matches[2]
+    } else {
+        Stop-Setup "$name の $($lineOf['repo_url']) 行目: repo_url が正しくありません: $($values['repo_url'])" @(
+            'https://github.com/OWNER/REPOSITORY.git の形で書いてください（SSH の git@github.com:... は使えません）。')
+    }
+    if ($repo -eq '.' -or $repo -eq '..') {
+        Stop-Setup "$name の $($lineOf['repo_url']) 行目: リポジトリの名前が正しくありません: $($values['repo_url'])"
+    }
+    return [pscustomobject]@{
+        UserName  = $userName
+        UserEmail = $email
+        Pat       = $values['pat']
+        Owner     = $owner
+        RepoName  = $repo
+        RepoUrl   = "https://github.com/$owner/$repo.git"
+    }
+}
+
 # =============================================================================
 # 部屋の名前など
 # =============================================================================
@@ -383,6 +500,18 @@ function Show-Summary([bool]$Creating) {
     Write-Info "部屋に見せるフォルダ   : $(Get-VSCodeExtensionsDir)（読み取り専用）"
     if ($script:Conf.AllowedDomains.Count -gt 0) { $domains = $script:Conf.AllowedDomains -join ', ' } else { $domains = '（なし）' }
     Write-Info "通信を許可するドメイン : $domains"
+    if (-not $VerifyOnly) {
+        $ghName = Split-Path -Leaf $script:GitHubConfigFile
+        if ($null -ne $script:GitHub) {
+            Write-Info "GitHub の設定          : する（$($script:GitHubConfigFile)）"
+            Write-Info "クローンするリポジトリ : $($script:GitHub.RepoUrl) → ~/projects/$($script:GitHub.RepoName)"
+            Write-Info "コミットの作者         : $($script:GitHub.UserName) <$($script:GitHub.UserEmail)>"
+        } else {
+            if (Test-Path -LiteralPath $script:GitHubConfigFile -PathType Leaf) { $why = "$ghName が空欄" } else { $why = "$ghName が無い" }
+            if ($Resume) { $why += '。すでにある GitHub の設定はそのまま' }
+            Write-Info "GitHub の設定          : しない（$why）"
+        }
+    }
     Write-Info "設定ファイル           : $($script:ConfigFile)"
     if ($Resume) {
         Write-Note 'この部屋を途中で 2 回再起動します。部屋の中で動いているもの（Claude Code やターミナル）はすべて終了します。'
@@ -521,6 +650,44 @@ function Invoke-ProvisionStep {
     }
 }
 
+# 文字列を標準入力として wsl.exe に渡して実行し、部屋の中の表示はこの画面にそのまま出す。終了コードを返す。
+function Invoke-WslWithInput {
+    param([Parameter(Mandatory = $true)][string]$Text, [Parameter(Mandatory = $true)][string[]]$Arguments)
+    $ErrorActionPreference = 'Continue'
+    $Text | & wsl.exe @Arguments | Out-Host
+    return $LASTEXITCODE
+}
+
+# room-github.conf に記入があるときだけ、git の設定と PAT の保存、リポジトリのクローンを行う。
+# room-github.conf は部屋の中にコピーせず、内容（PAT を含む）は base64 にして標準入力で渡す
+# （コマンドライン引数は部屋の中のほかのプロセスから見えるため使わない）。
+function Invoke-GitHubSetup {
+    $gh = $script:GitHub
+    if ($null -eq $gh) { return }
+    $user = $script:LinuxUser
+    $what = "GitHub の設定（$user）: git の設定と PAT の保存"
+    $wslArgs = @('-d', $script:Room, '-u', $user, '--cd', '~', '--exec', 'bash',
+        "$($script:InstallDir)/provision-github.sh", '--phase', 'credentials')
+    Write-Step $what
+    if ($DryRun) {
+        Write-DryRun ('wsl.exe ' + ($wslArgs -join ' ') + '（user_name・user_email・PAT・リポジトリの URL は標準入力で渡す）')
+    } else {
+        $payload = "user_name=$($gh.UserName)`nuser_email=$($gh.UserEmail)`npat=$($gh.Pat)`nrepo_url=$($gh.RepoUrl)`n"
+        $b64 = [Convert]::ToBase64String((New-Object System.Text.UTF8Encoding($false)).GetBytes($payload))
+        $payload = $null
+        $code = Invoke-WslWithInput -Text $b64 -Arguments $wslArgs
+        $b64 = $null
+        if ($code -ne 0) {
+            Stop-Setup "「$what」に失敗しました（終了コード $code）。" @(
+                '上に表示されたメッセージを確認してください。',
+                '原因を取り除いたら、次のコマンドで続きからやり直せます（部屋は消えません）:',
+                "  .\New-SecureRoom.ps1 -RoomName $($script:Room) -Resume")
+        }
+    }
+    Invoke-ProvisionStep -User $user -ScriptName 'provision-github.sh' -ScriptArgs @('--phase', 'clone', $gh.RepoUrl) `
+        -What "リポジトリのクローン（$user）: $($gh.RepoUrl) → ~/projects/$($gh.RepoName)"
+}
+
 # 部屋を停止して起動し直す（wsl.conf の変更は、これをしないと反映されない）
 function Restart-Room {
     Write-Step "部屋「$($script:Room)」を再起動します（設定を反映させるため）"
@@ -558,7 +725,7 @@ function Invoke-Verify {
             '直したあと、次のコマンドで検証だけをやり直せます:',
             "  .\New-SecureRoom.ps1 -RoomName $($script:Room) -VerifyOnly")
     }
-    Write-Ok '自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します）。'
+    Write-Ok '自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します。WARN の項目があれば、その説明を確認してください）。'
 }
 
 function Show-NextSteps {
@@ -573,6 +740,13 @@ function Show-NextSteps {
     Write-Info '3. VS Code で開くときは、Windows の PowerShell から:'
     Write-Info "     code --remote wsl+$room /home/$user/projects/<プロジェクト名>"
     Write-Info '   Claude Code は必ず ~/projects/<プロジェクト名> の中で起動してください。'
+    if ($null -ne $script:GitHub) {
+        $repo = $script:GitHub.RepoName
+        Write-Info "4. GitHub のリポジトリを ~/projects/$repo にクローンしてあります。VS Code で開くときは:"
+        Write-Info "     code --remote wsl+$room /home/$user/projects/$repo"
+        Write-Info '   README の「GitHub の設定」（6.6）の確認も行ってください。'
+        Write-Note "$(Split-Path -Leaf $script:GitHubConfigFile) の PAT などは、もう不要です。空欄に戻してください（$($script:GitHubConfigFile)）。"
+    }
 }
 
 # =============================================================================
@@ -594,6 +768,15 @@ function Invoke-Main {
     $script:Conf = Read-RoomConf $script:ConfigFile
     $script:LinuxUser = $script:Conf.LinuxUser
     Write-Ok "設定ファイルを確認しました（$($script:ConfigFile)）。"
+    if (-not $VerifyOnly) {
+        if ($GitHubConfigPath -and -not (Test-Path -LiteralPath $script:GitHubConfigFile -PathType Leaf)) {
+            Stop-Setup "GitHub の設定ファイルが見つかりません: $($script:GitHubConfigFile)"
+        }
+        $script:GitHub = Read-GitHubConf $script:GitHubConfigFile
+        if ($null -ne $script:GitHub) {
+            Write-Ok "GitHub の設定ファイルを確認しました（$($script:GitHubConfigFile)）。"
+        }
+    }
     Test-VSCodeWslExtension
     Write-Ok "VS Code の WSL 拡張機能があります（$(Get-VSCodeExtensionsDir)）。"
 
@@ -620,12 +803,13 @@ function Invoke-Main {
     if (-not $VerifyOnly) {
         Invoke-ProvisionStep -User 'root' -ScriptName 'provision-root.sh' `
             -ScriptArgs @('--phase', 'base') `
-            -What '部屋の基本設定（root）: パッケージ、wsl.conf、AppArmor'
+            -What '部屋の基本設定（root）: パッケージ、wsl.conf、AppArmor、delzonei'
         Restart-Room
         Invoke-ProvisionStep -User 'root' -ScriptName 'provision-root.sh' -ScriptArgs @('--phase', 'mount') `
-            -What 'VS Code 拡張フォルダの読み取り専用マウント（root）'
+            -What 'VS Code 拡張フォルダの読み取り専用マウントと /mnt の片付け（root）'
         Invoke-ProvisionStep -User $script:LinuxUser -ScriptName 'provision-user.sh' `
             -What "一般ユーザーの設定（$($script:LinuxUser)）: Claude Code、PATH、settings.json、ステータスライン、~/projects"
+        Invoke-GitHubSetup
         Restart-Room
     }
     Invoke-Verify
@@ -637,6 +821,12 @@ if ($ConfigPath) {
     $script:ConfigFile = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ConfigPath)
 } else {
     $script:ConfigFile = Join-Path $script:ScriptRoot 'room.conf'
+}
+if ($GitHubConfigPath) {
+    $script:GitHubConfigFile = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GitHubConfigPath)
+} else {
+    # room.conf と同じフォルダの room-github.conf（-ConfigPath で別の場所を指定したときは、そのフォルダ）
+    $script:GitHubConfigFile = Join-Path (Split-Path -Parent $script:ConfigFile) 'room-github.conf'
 }
 
 $exitCode = 0

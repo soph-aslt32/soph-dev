@@ -5,11 +5,12 @@
 # 通常は Windows 側の New-SecureRoom.ps1 が、次の 2 段階に分けて自動で呼び出します。
 #
 #   bash provision-root.sh --phase base [--config <room.conf のパス>]
-#       パッケージの導入、/etc/wsl.conf の書き換え、AppArmor の確認。
+#       パッケージの導入、/etc/wsl.conf の書き換え、AppArmor の確認、delzonei の配置。
 #       wsl.conf の変更（C ドライブを隠す）は、このあと部屋を再起動するまで反映されない。
 #
 #   bash provision-root.sh --phase mount [--config <room.conf のパス>]
-#       VS Code 拡張フォルダを読み取り専用でマウントする設定（/etc/fstab）。
+#       VS Code 拡張フォルダを読み取り専用でマウントする設定（/etc/fstab）と、/mnt の片付け
+#       （初回起動時に WSL が作ったドライブ用のフォルダ）。
 #       再起動前に実行すると、本物の C ドライブの上にフォルダを作ってしまうので、
 #       C ドライブが見えなくなったことを確認してから進む。
 #
@@ -26,6 +27,9 @@ trap 'on_error $LINENO' ERR
 readonly PACKAGES=(bubblewrap socat git curl jq build-essential pkg-config libssl-dev)
 readonly APT_OPTS=(-y -o DPkg::Lock::Timeout=300)
 readonly APPARMOR_PROFILE=/etc/apparmor.d/bwrap
+# Zone.Identifier ファイルを削除するコマンド。ユーザーがサンドボックスの外で実行するので、root 所有で置く
+readonly DELZONEI_SRC="$SCRIPT_DIR/delzonei.sh"
+readonly DELZONEI_DEST=/usr/local/bin/delzonei
 
 usage() {
     cat <<'EOF'
@@ -80,20 +84,38 @@ phase_base() {
         "部屋を作るときに入力したユーザー名と、room.conf の linux_user が同じか確認してください。"
     [[ $uid != 0 ]] || die "$CONF_LINUX_USER は root（UID 0）です。一般ユーザーを指定してください。"
 
-    step "1/3 パッケージを更新し、必要なもの（${PACKAGES[*]}）をインストールします（数分かかります）"
+    step "1/4 パッケージを更新し、必要なもの（${PACKAGES[*]}）をインストールします（数分かかります）"
     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
     run apt-get "${APT_OPTS[@]}" update
     run apt-get "${APT_OPTS[@]}" -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
     run apt-get "${APT_OPTS[@]}" install "${PACKAGES[@]}"
     ok "パッケージの準備ができました。"
 
-    step "2/3 /etc/wsl.conf を仕様どおりの内容に置き換えます"
+    step "2/4 /etc/wsl.conf を仕様どおりの内容に置き換えます"
     install_wsl_conf "$CONF_LINUX_USER"
 
-    step "3/3 AppArmor の追加設定が必要か確認します"
+    step "3/4 AppArmor の追加設定が必要か確認します"
     setup_apparmor_if_needed
 
+    step "4/4 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
+    install_delzonei
+
     ok "base 段階が終わりました。部屋を再起動してから --phase mount を実行します。"
+}
+
+install_delzonei() {
+    [[ -r $DELZONEI_SRC ]] || die "$DELZONEI_SRC が見つかりません。"
+    if [[ -f $DELZONEI_DEST && ! -L $DELZONEI_DEST ]] && cmp -s -- "$DELZONEI_SRC" "$DELZONEI_DEST" &&
+        [[ $(stat -c '%u %a' -- "$DELZONEI_DEST") == '0 755' ]]; then
+        ok "すでに同じ内容です（変更なし）。"
+        return 0
+    fi
+    if (( DRY_RUN )); then
+        info "[dry-run] $DELZONEI_SRC を $DELZONEI_DEST に置きます（root 所有、モード 755）"
+        return 0
+    fi
+    write_file_atomic "$DELZONEI_DEST" 755 < "$DELZONEI_SRC"
+    ok "置きました。部屋の中で delzonei と入力すると、カレントディレクトリ以下の Zone.Identifier ファイルを削除できます。"
 }
 
 install_wsl_conf() {
@@ -155,7 +177,7 @@ phase_mount() {
     mp=$(win_ext_mountpoint "$CONF_WINDOWS_USER")
     line=$(fstab_expected_line "$CONF_WINDOWS_USER")
 
-    step "1/4 C ドライブが部屋から見えなくなっていることを確認します"
+    step "1/5 C ドライブが部屋から見えなくなっていることを確認します"
     if [[ -e /mnt/c/Windows ]] || mountpoint -q /mnt/c; then
         die "C ドライブがまだ部屋から見えています（/mnt/c）。" \
             "/etc/wsl.conf の変更が反映されていません。部屋を再起動してから、もう一度実行してください。" \
@@ -163,7 +185,7 @@ phase_mount() {
     fi
     ok "C ドライブは見えていません。"
 
-    step "2/4 取り付け先のフォルダ $mp を用意します（部屋の中のフォルダです）"
+    step "2/5 取り付け先のフォルダ $mp を用意します（部屋の中のフォルダです）"
     if mountpoint -q "$mp"; then
         ok "すでにマウントされています。"
     else
@@ -171,10 +193,10 @@ phase_mount() {
         ok "用意しました。"
     fi
 
-    step "3/4 /etc/fstab に読み取り専用マウントの設定を追加します"
+    step "3/5 /etc/fstab に読み取り専用マウントの設定を追加します"
     update_fstab "$mp" "$line"
 
-    step "4/4 マウントします"
+    step "4/5 マウントします"
     if wait_for_systemd; then
         # systemd は fstab の内容を覚えているので、読み直させてからマウントする（9 章）
         run systemctl daemon-reload
@@ -193,6 +215,48 @@ phase_mount() {
             "安全のため、ここで停止します。/etc/fstab の内容を確認してください。"
     fi
     ok "$mp を読み取り専用でマウントしました。"
+
+    step "5/5 /mnt を片付けます（初回起動時に WSL が作ったドライブ用のフォルダ）"
+    tidy_mnt "$CONF_WINDOWS_USER"
+}
+
+# 部屋の初回起動時（wsl.conf が反映される前）に、WSL は Windows のドライブごとに /mnt/<ドライブ文字> を
+# 誰でも書き込める（777）フォルダとして作る。automount を無効にした後は使わないので、
+#   - c 以外は、空なら削除する（rmdir は空のフォルダしか消せない。空でなければ残して知らせる）
+#   - /mnt/c は VS Code 拡張フォルダの取り付け先の途中なので消せない（パスは wslpath の変換結果と
+#     一致させる必要がある）。起動のたびに root がマウントする場所なので、取り付け先までのフォルダを
+#     root だけが変更できる状態（root 所有・755）にする
+tidy_mnt() {
+    local w=$1 d
+    local -a drives=()
+    shopt -s nullglob
+    drives=(/mnt/[a-z])
+    shopt -u nullglob
+    for d in "${drives[@]}"; do
+        [[ $d != /mnt/c ]] || continue
+        if [[ -L $d || ! -d $d ]]; then
+            warn "$d はフォルダではないため、そのままにします。"
+            continue
+        fi
+        mountpoint -q "$d" && die "$d がマウントされています（Windows のドライブが部屋から見えている可能性があります）。" \
+            "/etc/wsl.conf の [automount] enabled=false が反映されているか確認し、部屋を再起動してから、もう一度実行してください。"
+        if [[ -n $(find "$d" -mindepth 1 -maxdepth 1 -print -quit) ]]; then
+            warn "$d は空ではないため、削除せずに残します。中身を確認してください。"
+            continue
+        fi
+        run rmdir -- "$d"
+        ok "使っていない空のフォルダ $d を削除しました。"
+    done
+
+    for d in /mnt/c /mnt/c/Users "/mnt/c/Users/$w" "/mnt/c/Users/$w/.vscode"; do
+        if [[ ! -e $d ]] && (( DRY_RUN )); then continue; fi   # ドライランでは 2/5 のフォルダが作られていない
+        [[ -d $d && ! -L $d ]] || die "$d がフォルダではありません（想定外）。"
+        [[ $(stat -c '%u:%g %a' -- "$d") != '0:0 755' ]] || continue
+        run chown root:root -- "$d"
+        run chmod u=rwx,go=rx,ug-s,-t -- "$d"
+        ok "$d を root だけが変更できる状態（root 所有・755）にしました。"
+    done
+    ok "/mnt の片付けが終わりました。"
 }
 
 update_fstab() {

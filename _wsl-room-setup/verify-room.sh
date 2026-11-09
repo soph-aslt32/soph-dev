@@ -7,11 +7,16 @@
 #   sudo bash /usr/local/lib/wsl-room-setup/verify-room.sh --root   root の権限が必要な検査
 #
 # New-SecureRoom.ps1 は両方を自動で実行します。
-# 各項目を [PASS] / [FAIL] / [SKIP] で表示し、FAIL が 1 つでもあれば終了コード 1 で終わります。
+# 各項目を [PASS] / [FAIL] / [SKIP] / [WARN] で表示し、FAIL が 1 つでもあれば終了コード 1 で終わります。
+# [WARN] は失敗ではなく、部屋の設定では止められないが知っておいてほしいこと（WSL 全体の設定で決まるものなど）です。
 #
 # 項目番号:
 #   01〜14  申し送り書 第 6 章の表（12 の claude doctor はログインが必要なため手動確認に回す）
 #   E1〜E6  追加の申し送り EX1（重要ファイルの所有者・権限、wsl.conf と fstab の内容）
+#   E7      delzonei（/usr/local/bin/delzonei）の所有者・権限・内容
+#   G1〜G2  GitHub の PAT（room-github.conf で設定したもの）が保存先以外に漏れていないこと
+#   W1〜W2  （警告）WSLg、/mnt/wsl など、WSL の仕組みとして部屋から Windows やほかのディストリに届く窓口
+#   W3      （警告）初回起動時に WSL が作ったドライブ用のフォルダ（/mnt/d など）の残りと、/mnt/c の権限
 #
 # 期待値（Linux ユーザー名、Windows ユーザー名、許可ドメイン）は、このスクリプトと同じフォルダの
 # room.conf から読みます（部屋の中では root 所有なので、一般ユーザーや Claude は書き換えられません）。
@@ -28,7 +33,7 @@ trap 'on_error $LINENO' ERR
 
 readonly INSTALL_DIR=/usr/local/lib/wsl-room-setup
 
-PASS=0 FAIL=0 SKIP=0
+PASS=0 FAIL=0 SKIP=0 WARN=0
 DETAILS=()
 U='' W='' MP='' FSTAB_LINE=''
 
@@ -40,7 +45,7 @@ usage() {
 detail() { DETAILS+=("$*"); }
 
 # run_check <番号> <見出し> <関数名>
-# 関数は 0=PASS、1=FAIL、2=SKIP を返す。
+# 関数は 0=PASS、1=FAIL、2=SKIP、3=WARN を返す。
 run_check() {
     local id=$1 title=$2 fn=$3 rc=0 d
     DETAILS=()
@@ -48,6 +53,7 @@ run_check() {
     case $rc in
         0) PASS=$((PASS + 1)); printf '%s[PASS]%s %-3s %s\n' "$C_GREEN" "$C_RESET" "$id" "$title" ;;
         2) SKIP=$((SKIP + 1)); printf '%s[SKIP]%s %-3s %s\n' "$C_YELLOW" "$C_RESET" "$id" "$title" ;;
+        3) WARN=$((WARN + 1)); printf '%s[WARN]%s %-3s %s\n' "$C_YELLOW" "$C_RESET" "$id" "$title" ;;
         *) FAIL=$((FAIL + 1)); printf '%s[FAIL]%s %-3s %s\n' "$C_RED" "$C_RESET" "$id" "$title" ;;
     esac
     for d in "${DETAILS[@]}"; do printf '           %s\n' "$d"; done
@@ -285,6 +291,7 @@ check_13() {
     want 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
     # want 'permissions.blockReadsOutsideWorkingDirectories が true' '.permissions.blockReadsOutsideWorkingDirectories == true'
     want 'permissions.deny に "Read(//mnt/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(//mnt/**)")'
+    want 'permissions.deny に "Read(~/.git-credentials)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.git-credentials)")'
     want 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
     want 'sandbox.credentials.files で ~/.ssh が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.ssh" and .mode == "deny")'
     want 'sandbox.credentials.files で ~/.aws が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.aws" and .mode == "deny")'
@@ -431,6 +438,157 @@ check_E6() {
     return $bad
 }
 
+check_E7() {
+    local dest=/usr/local/bin/delzonei src="$SCRIPT_DIR/delzonei.sh" bad=0
+    check_root_only_writable /usr/local/bin || bad=1
+    if check_root_only_writable "$dest"; then
+        if [[ ! -x $dest ]]; then
+            detail "$dest を実行できません（モード $(stat -c %a -- "$dest")）。"
+            bad=1
+        fi
+        if [[ -r $src ]] && ! cmp -s -- "$src" "$dest"; then
+            detail "$dest の中身が $src と違います。"
+            bad=1
+        fi
+    else
+        bad=1
+    fi
+    if (( bad )); then
+        detail "→ Windows 側で New-SecureRoom.ps1 -RoomName <部屋の名前> -Resume を実行すると置き直します。"
+    fi
+    return $bad
+}
+
+# PAT の保存先 ~/.git-credentials は、ある場合、本人だけが読み書きできること
+check_G1() {
+    local f="$HOME/.git-credentials" owner mode lsout bad=0
+    if [[ ! -e $f && ! -L $f ]]; then
+        return 0   # GitHub の設定をしていない部屋では無いのが正常
+    fi
+    if [[ -L $f ]]; then detail "$f がシンボリックリンクになっています（想定外）。"; return 1; fi
+    if [[ ! -f $f ]]; then detail "$f が通常のファイルではありません。"; return 1; fi
+    owner=$(stat -c %U -- "$f")
+    mode=$(stat -c %a -- "$f")
+    if [[ $owner != "$U" ]]; then
+        detail "$f の所有者が $owner になっています（期待: $U）。"
+        bad=1
+    fi
+    if (( (8#$mode & 8#077) != 0 )); then
+        detail "$f のモードが $mode です。$U 以外も読み書きできる状態です。"
+        detail "→ chmod 600 ~/.git-credentials を実行してください。"
+        bad=1
+    fi
+    lsout=$(ls -ld -- "$f")
+    if [[ ${lsout%% *} == *+ ]]; then
+        detail "$f に ACL（追加のアクセス権）が設定されています。"
+        bad=1
+    fi
+    return $bad
+}
+
+# PAT が保存先（~/.git-credentials）以外に書かれていないこと。
+#   - git の設定ファイルの URL に認証情報が埋め込まれていない（~/projects/*/.git/config は Claude から読める）
+#   - 部屋の中のスクリプト置き場（誰でも読める）に room-github.conf が無い
+# 見つけた場合も、PAT を画面に出さないよう、ファイル名と行番号だけを表示する。
+check_G2() {
+    local f lines bad=0
+    local -a files=()
+    # https://ユーザー:パスワード@... と、GitHub のトークンをユーザー名の位置に書いた https://ghp_...@...
+    local re='[A-Za-z][A-Za-z0-9+.-]*://[^/@[:space:]]*:[^/@[:space:]]*@|https?://(gh[pousr]_|github_pat_)[A-Za-z0-9_]+@'
+    files=("$HOME/.gitconfig" "${XDG_CONFIG_HOME:-$HOME/.config}/git/config")
+    shopt -s dotglob nullglob
+    files+=("$HOME"/projects/*/.git/config)
+    shopt -u dotglob nullglob
+    for f in "${files[@]}"; do
+        [[ -f $f && -r $f ]] || continue
+        lines=$(grep -nE -- "$re" "$f" 2> /dev/null | cut -d: -f1 | paste -sd, -) || true
+        if [[ -n $lines ]]; then
+            detail "${f/#"$HOME"/\~} の $lines 行目に、認証情報（PAT など）を含む URL があります（内容は表示しません）。"
+            bad=1
+        fi
+    done
+    if (( bad )); then
+        detail "→ git remote set-url origin https://github.com/OWNER/REPOSITORY.git のように、認証情報を含まない URL に直してください。"
+        detail "→ Claude から読める場所に書かれていたので、その PAT は GitHub で削除（失効）して作り直してください。"
+    fi
+    if [[ -e $INSTALL_DIR/room-github.conf ]]; then
+        detail "$INSTALL_DIR/room-github.conf があります（New-SecureRoom.ps1 は部屋の中にコピーしないファイルです）。"
+        detail "→ 中身に PAT が書かれていれば、GitHub で削除（失効）して作り直し、このファイルを削除してください（sudo rm）。"
+        bad=1
+    fi
+    return $bad
+}
+
+# -----------------------------------------------------------------------------
+# 警告（WARN）: 部屋の設定（wsl.conf など）では止められない、WSL の仕組みとしての窓口
+# Claude Code が実行するコマンドからは、/mnt の読み取り禁止とローカルソケット（Unix ドメインソケット）の
+# 禁止によって使えない。部屋の中でサンドボックスの外で動くプログラムから届くことを知らせる。
+# -----------------------------------------------------------------------------
+
+# WSLg（Linux の GUI アプリ機能）。有効だと、GUI の仕組みを通じて Windows のクリップボードなどに届く可能性がある。
+# Windows 側の %USERPROFILE%\.wslconfig で止める（WSL 全体の設定）ので、ここでは警告にとどめる。
+check_W1() {
+    local d
+    local -a found=()
+    if mountpoint -q /mnt/wslg 2> /dev/null; then found+=('/mnt/wslg がマウントされています。'); fi
+    if compgen -G '/tmp/.X11-unix/X*' > /dev/null; then found+=('X11 のソケット（/tmp/.X11-unix）があります。'); fi
+    (( ${#found[@]} > 0 )) || return 0
+    detail 'WSLg（Linux の GUI アプリ機能）が有効です:'
+    for d in "${found[@]}"; do detail "  $d"; done
+    detail '部屋の中でサンドボックスの外で動くプログラム（ご自身が実行するもの、VS Code の拡張機能など）が、'
+    detail 'Windows のクリップボードなどを使える可能性があります（Claude Code が実行するコマンドからは使えません）。'
+    detail '→ 止める場合は、Windows の %USERPROFILE%\.wslconfig の [wsl2] に guiApplications=false と書き、'
+    detail '  PowerShell で wsl --shutdown を実行してください（WSL 全体の設定なので、ほかのディストリでも GUI アプリが使えなくなります）。'
+    return 3
+}
+
+# /mnt/wsl は WSL2 のすべてのディストリビューションで共有される場所。WSL 自身が置く resolv.conf のほかに何かあれば、
+# ほかのディストリ（Docker Desktop など）が置いたものか、wsl --mount で取り付けたディスクで、部屋からも見える。
+check_W2() {
+    local e n
+    local -a others=()
+    [[ -d /mnt/wsl ]] || return 0
+    if [[ ! -r /mnt/wsl || ! -x /mnt/wsl ]]; then
+        detail '/mnt/wsl の中を一覧できないため、確認できませんでした。'
+        return 3
+    fi
+    shopt -s dotglob nullglob
+    for e in /mnt/wsl/*; do
+        n=${e##*/}
+        [[ $n == resolv.conf ]] && continue
+        others+=("${n//[[:cntrl:]]/?}")
+    done
+    shopt -u dotglob nullglob
+    (( ${#others[@]} > 0 )) || return 0
+    detail '/mnt/wsl（WSL2 のすべてのディストリビューションで共有される場所）に、次のものがあります:'
+    for n in "${others[@]}"; do detail "  $n"; done
+    detail 'ほかのディストリビューション（Docker Desktop など）が置いたものや、wsl --mount で取り付けたディスクは、この部屋からも見えます。'
+    detail '→ 中身が部屋から見えてよいものか確認してください。Docker Desktop の場合は、WSL integration の対象にこの部屋を入れないでください。'
+    return 3
+}
+
+# 初回起動時（wsl.conf が反映される前）に WSL が作ったドライブ用のフォルダ（誰でも書き込める 777）の残り。
+# provision-root.sh --phase mount が、c 以外は削除し、/mnt/c から取り付け先までは root 所有・755 にする。
+check_W3() {
+    local d bad=0
+    local -a drives=()
+    shopt -s nullglob
+    drives=(/mnt/[a-z])
+    shopt -u nullglob
+    for d in "${drives[@]}"; do
+        [[ $d != /mnt/c ]] || continue
+        detail "$d が残っています（初回起動時に WSL が作ったドライブ用のフォルダで、今は使っていません）。"
+        bad=1
+    done
+    for d in /mnt/c /mnt/c/Users "/mnt/c/Users/$W" "/mnt/c/Users/$W/.vscode"; do
+        [[ -e $d || -L $d ]] || continue
+        check_root_only_writable "$d" || bad=1
+    done
+    (( bad )) || return 0
+    detail '→ Windows 側で New-SecureRoom.ps1 -RoomName <部屋の名前> -Resume を実行すると片付けます。'
+    return 3
+}
+
 # =============================================================================
 # root として行う検査
 # =============================================================================
@@ -466,12 +624,15 @@ check_R2() {
 
 summary() {
     printf '\n----------------------------------------------------------------\n'
-    printf '結果: PASS %d / FAIL %d / SKIP %d\n' "$PASS" "$FAIL" "$SKIP"
+    printf '結果: PASS %d / FAIL %d / SKIP %d / WARN %d\n' "$PASS" "$FAIL" "$SKIP" "$WARN"
     if (( FAIL > 0 )); then
         printf '%sFAIL の項目があります。上の説明を確認してください。%s\n' "$C_RED" "$C_RESET"
         return 1
     fi
     printf '%sFAIL はありません。%s\n' "$C_GREEN" "$C_RESET"
+    if (( WARN > 0 )); then
+        printf '%sWARN の項目は失敗ではありませんが、上の説明を確認してください。%s\n' "$C_YELLOW" "$C_RESET"
+    fi
 }
 
 main() {
@@ -518,6 +679,12 @@ main() {
         run_check E4 '/etc/wsl.conf の内容が仕様（3.2）と一致する' check_E4
         run_check E5 '/etc/fstab の Windows 関連の行が仕様（3.3）の 1 行だけ' check_E5
         run_check E6 '検証の基準ファイル（部屋の中のスクリプトと room.conf）が root 所有で root 以外は書き込めない' check_E6
+        run_check E7 'delzonei（/usr/local/bin/delzonei）が root 所有で root 以外は書き込めず、中身が仕様どおり' check_E7
+        run_check G1 "~/.git-credentials（PAT の保存先）は、ある場合、$U だけが読み書きできる" check_G1
+        run_check G2 'PAT が保存先以外（git の設定の URL、部屋の中の room-github.conf）に書かれていない' check_G2
+        run_check W1 'WSLg（Linux の GUI アプリ機能）が無効で、Windows のクリップボードなどに届かない' check_W1
+        run_check W2 '/mnt/wsl（全ディストリで共有）に、ほかのディストリやディスク由来のものが無い' check_W2
+        run_check W3 '/mnt に使っていないドライブ用のフォルダが無く、/mnt/c は root 以外書き込めない' check_W3
     fi
 
     summary || exit 1

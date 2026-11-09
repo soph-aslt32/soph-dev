@@ -49,6 +49,8 @@ Windows側のデータとして意図的に見せているもの
 （Windows 側から `wsl -u root` を使うと、パスワードなしで root になれるためです）。
 
 **部屋の中には、漏れて困る認証情報（パスワード、秘密鍵、API キーなど）を置かないでください。**
+例外は、room-github.conf で設定する GitHub の PAT だけです（[4 章](#4-設定ファイル-roomconf-を編集する)）。
+これは Claude から読めないように守ったうえで `~/.git-credentials` に保存します。
 
 ---
 
@@ -60,6 +62,7 @@ Windows側のデータとして意図的に見せているもの
   - 入っていなければ PowerShell で: `code --install-extension ms-vscode-remote.remote-wsl`
 - Windows のユーザーフォルダが `C:\Users\<半角英数字の名前>` であること（[11 章](#11-対応していない環境まだ確認できていないこと)参照）
 - インターネット接続
+- （GitHub のリポジトリを自動でクローンする場合）GitHub の Personal Access Token（PAT）。[4 章](#4-設定ファイル-roomconf-を編集する)参照
 
 ---
 
@@ -120,6 +123,39 @@ allowed_domains = registry.npmjs.org, pypi.org, files.pythonhosted.org
   ここに無いドメインへの通信はブロックされます。`*.example.com` のように先頭に `*.` を付けると、
   サブドメインをまとめて許可できます。`*`（すべて許可）は使えません。
 - 保存するときの文字コードは **UTF-8** にしてください（メモ帳の既定は UTF-8 です）。
+
+### GitHub を使う場合: room-github.conf（使わない場合は空欄のまま）
+
+room.conf と同じフォルダにある `room-github.conf` に記入しておくと、部屋を作るときに一度だけ、次のことを自動で行います。
+
+- git の設定（コミットの作者名・メールアドレス、認証情報の保存方法）。内容は [GitHub.md](GitHub.md) の手順と同じです
+- PAT の保存（部屋の `~/.git-credentials`。Claude からは読めないように設定されます）
+- `repo_url` のリポジトリを、部屋の `~/projects/<リポジトリ名>` にクローン
+
+```ini
+user_name = dev-room
+user_email = dev-room@example.com
+pat = github_pat_xxxxxxxxxxxxxxxx
+repo_url = https://github.com/OWNER/REPOSITORY.git
+```
+
+- `user_name` / `user_email`: コミットに作者として記録される名前とメールアドレス（git の `user.name` / `user.email`）です。
+  GitHub のアカウントと関係のないダミーで構いません。
+  ただし、メールアドレスが実在する誰かのアドレスと偶然一致すると、GitHub がその人のコミットとして表示するので、
+  `example.com` などの例示用のドメインを使うと確実です。
+- `pat`: GitHub の Personal Access Token です。**fine-grained PAT で、対象のリポジトリだけ・Contents の Read and write・有効期限付き**
+  で作ることをおすすめします（万一漏れたときの被害を小さくするため）。
+- `repo_url`: `https://github.com/OWNER/REPOSITORY.git` の形で書きます（SSH の `git@github.com:...` は使えません）。
+- 4 つすべてを記入したときだけ実行します。すべて空欄なら何もしません。一部だけ記入されていると、部屋を作る前に止まります。
+- push / pull のときに git が PAT と組にして GitHub に送る「認証用のユーザー名」には、固定の文字列 `pat` を使います
+  （GitHub は PAT だけでアカウントを見分けるので、何でも構いません）。`user_name` とは関係ありません。
+
+room.conf と違い、**room-github.conf は部屋の中へコピーしません**（PAT を部屋に持ち込まないため）。
+スクリプトが内容を確認して部屋に渡し、PAT は `~/.git-credentials` にだけ保存されます。
+
+- **記入は、Windows 側にコピーしたフォルダで行ってください。** 部屋の中のファイルは、その部屋で動く Claude Code から読めることがあります
+  （部屋の中にある room-github.conf に記入して実行しようとすると、スクリプトが止まります）。
+- **部屋ができたら、room-github.conf は空欄に戻してください。**
 
 ---
 
@@ -191,12 +227,20 @@ Set-ExecutionPolicy -Scope Process Bypass
 [SKIP] 12  claude doctor
            claude doctor はログイン後に手動で確認します（README「ログイン後の手動確認」）。
 ...
-結果: PASS 18 / FAIL 0 / SKIP 2
+[WARN] W1  WSLg（Linux の GUI アプリ機能）が無効で、Windows のクリップボードなどに届かない
+           WSLg（Linux の GUI アプリ機能）が有効です:
+             /mnt/wslg がマウントされています。
+...
+結果: PASS 23 / FAIL 0 / SKIP 2 / WARN 1
 FAIL はありません。
-  [完了] 自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します）。
+WARN の項目は失敗ではありませんが、上の説明を確認してください。
+  [完了] 自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します。WARN の項目があれば、その説明を確認してください）。
 ```
 
 `[SKIP]` は「この方法では確認しない（別の場所で確認する）」という意味で、失敗ではありません。
+`[WARN]` も失敗ではありません。部屋の設定（wsl.conf など）では止められない、WSL の仕組みとしての窓口があることを知らせるものです
+（Claude Code が実行するコマンドからは使えませんが、部屋の中でサンドボックスの外で動くプログラムからは届きます）。
+表示された説明を読んで、必要なら対処してください（[10 章](#10-トラブルシューティング)）。
 
 途中で止まった場合は、表示されたメッセージに従って原因を取り除き、
 `-Resume` を付けて実行すると続きからやり直せます（部屋は消えません）。
@@ -291,7 +335,8 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
   プロジェクトの設定はこの部屋のユーザー設定（`~/.claude/settings.json`）より優先されるため、
   サンドボックスを弱める設定（`"sandbox": {"enabled": false}` など）が入っていると、守りが外れてしまいます。
 - clone に使うトークンなどを git に保存させる場合、保存先の `~/.git-credentials` は
-  Claude が実行するコマンドから読めないように設定してあります（トークンを保存してから Claude Code を起動してください）。
+  Claude が実行するコマンドからも、Claude のファイル読み取り機能からも読めないように設定してあります
+  （トークンを保存してから Claude Code を起動してください）。
   ただし、トークンを clone の URL に直接書くと、プロジェクトの `.git/config` に残って Claude から読めてしまうので避けてください。
 
 ### 6.5 ステータスライン
@@ -305,6 +350,61 @@ Claude Code を起動すると、画面の下にモデル名・作業フォル�
 - このファイルは Claude Code のサンドボックスの**外**で、あなたの権限で繰り返し実行されます。
   中身を確認したものだけを置いてください。
 
+### 6.6 GitHub の設定（room-github.conf に記入して部屋を作った場合）
+
+部屋を作ったときに、git の設定・PAT の保存・`~/projects/<リポジトリ名>` へのクローンが済んでいます。
+また、PAT で push できるか（書き込み権限があるか）を `git push --dry-run` で確かめてあります（何も送っていません）。
+確認できなかった場合は、途中で `[注意]` が表示されています。
+
+**(1) ターミナルで（Claude Code の外で）**
+
+```bash
+cd ~/projects/<リポジトリ名>
+git pull
+```
+
+→ ユーザー名やパスワードを聞かれずに終わること。
+
+**(2) Claude Code の中で**（`~/projects/<リポジトリ名>` で起動して）
+
+| 確認すること | 期待される結果 |
+|---|---|
+| `/permissions` を開く | Deny に `Read(~/.git-credentials)` がある |
+| ターミナルで `mkdir -p ~/.aws && echo dummy > ~/.aws/wsl-room-probe.txt` を実行してから、Claude に「`cat ~/.aws/wsl-room-probe.txt` を実行して」と頼む | **失敗する** |
+| Claude に「`git config --local wsl-room.probe 1` を実行して」と頼む | **失敗する**（`.git/config` に書き込めない） |
+
+> **`~/.git-credentials` そのものを Claude に読ませて確かめないでください。** 守りが効いていなかった場合、
+> PAT が会話の内容として送られてしまいます。`~/.aws` は `~/.git-credentials` と同じ仕組み
+> （settings.json の `sandbox.credentials`）で守っているので、代わりにダミーのファイルで確かめます。
+> 確認が終わったら `rm ~/.aws/wsl-room-probe.txt` で消してください。
+
+3 つ目の確認が成功してしまった（`git config --local --get wsl-room.probe` で `1` が表示される）場合、Claude がリポジトリの git の設定を
+書き換えられる状態です。書き換えられた設定は、あなたが VS Code やターミナルで git を使ったときに（サンドボックスの外で）
+実行されるため、PAT を盗まれる経路になりえます。`git config --local --unset wsl-room.probe` で元に戻し、
+PAT の権限を対象のリポジトリだけに絞っておいてください。
+
+**ふだんの使い方**
+
+- push はご自身で、VS Code のソース管理やターミナルから行ってください。
+  Claude が実行する `git push` / `git pull` は失敗します（`~/.git-credentials` を読めず、github.com への通信も許可していないため）。
+- PAT を作り直したときは、room-github.conf に新しい PAT を含む 4 項目を記入して、`-Resume` を付けて実行します
+  （古い PAT は置き換えられます。クローン済みのリポジトリはそのままです）。
+- 2 つ目以降のリポジトリは、[GitHub.md](GitHub.md) の手順で手動で clone します。
+
+### 6.7 Zone.Identifier ファイルを削除する（delzonei）
+
+Windows のエクスプローラーで部屋の中へファイルをコピーすると、ファイルごとに `<元の名前>:Zone.Identifier` という
+ファイルが作られます。部屋の中で `delzonei` を実行すると、カレントディレクトリとそのサブフォルダにある、それらをすべて削除します。
+
+```bash
+cd ~/projects/<プロジェクト名>
+delzonei        # 削除して、削除したファイルを表示する
+delzonei -n     # 削除せずに、見つかったファイルを表示するだけ
+```
+
+- 対象は、名前が `:Zone.Identifier` で終わる通常のファイルだけです（フォルダやシンボリックリンクは対象外で、リンク先もたどりません）。
+- `delzonei` は `/usr/local/bin/delzonei` に root 所有で置かれています（Claude が書き換えられないようにするため）。
+
 ---
 
 ## 7. オプション
@@ -317,6 +417,7 @@ Claude Code を起動すると、画面の下にモデル名・作業フォル�
 | `-RoomName dev` | 部屋の名前を指定する（質問を省略） |
 | `-Distro Ubuntu-26.04` | ディストリビューションを指定する（質問を省略） |
 | `-ConfigPath <パス>` | room.conf 以外の設定ファイルを使う |
+| `-GitHubConfigPath <パス>` | room-github.conf 以外の GitHub の設定ファイルを使う（省略時は room.conf と同じフォルダの room-github.conf） |
 
 例:
 
@@ -327,6 +428,7 @@ Claude Code を起動すると、画面の下にモデル名・作業フォル�
 
 `-Resume` は部屋を途中で 2 回再起動するので、部屋の中で動いている Claude Code やターミナルはすべて終了します。
 また、`~/.claude/settings.json` を仕様どおりの内容に戻します（元のファイルは `settings.json.bak-日時` として残します）。
+room-github.conf に記入があれば、GitHub の設定もやり直します（空欄なら、すでにある GitHub の設定はそのまま残します）。
 
 ---
 
@@ -351,11 +453,15 @@ wsl-room-setup/
 ├── README.md                 この説明書
 ├── New-SecureRoom.ps1        Windows 側の司令塔（これを実行する）
 ├── room.conf                 設定ファイル（Linux のユーザー名、Windows のユーザーフォルダ名、通信を許可するドメイン）
+├── room-github.conf          GitHub の設定ファイル（コミットの作者、PAT、リポジトリの URL）。部屋の中にはコピーしない
+├── GitHub.md                 GitHub を手動で設定する手順
 ├── lib.sh                    部屋の中のスクリプトが共通で使う部品
-├── provision-root.sh         部屋の中で root として行う設定（wsl.conf、fstab、パッケージ、AppArmor）
+├── provision-root.sh         部屋の中で root として行う設定（wsl.conf、fstab、パッケージ、AppArmor、delzonei、/mnt の片付け）
 ├── provision-user.sh         部屋の中で一般ユーザーとして行う設定（Claude Code、PATH、settings.json、ステータスライン、~/projects）
+├── provision-github.sh       部屋の中で一般ユーザーとして行う GitHub の設定（git の設定、PAT の保存、クローン）
 ├── verify-room.sh            自動検証
 ├── statusline.sh             Claude Code のステータスライン（部屋の ~/.claude/statusline.sh に置かれる）
+├── delzonei.sh               Zone.Identifier ファイルを削除するコマンド（部屋の /usr/local/bin/delzonei に置かれる）
 ├── templates/
 │   ├── wsl.conf.tmpl         /etc/wsl.conf のひな形
 │   └── claude-settings.json.tmpl   ~/.claude/settings.json のひな形
@@ -364,20 +470,26 @@ wsl-room-setup/
 
 部屋の中では、スクリプト一式と room.conf のコピーが `/usr/local/lib/wsl-room-setup/`（root 所有）に置かれます。
 Claude や一般ユーザーは書き換えられないので、検証の基準（期待値）として信用できます。
+room-github.conf はここに置きません（ここは部屋の中の誰でも読めるため）。
 
 ### 処理の流れ
 
-1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf）
+1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf、room-github.conf）
 2. `wsl --install <ディストリビューション> --name <部屋の名前>`（room.conf の `linux_user` と同じユーザー名と、パスワードを入力）
 3. 部屋が WSL2 で動いていること、部屋のユーザーが room.conf の `linux_user` と同じことを確認
 4. スクリプト一式と room.conf を部屋の中へコピーし、ハッシュ値で一致を確認
-5. `provision-root.sh --phase base`: パッケージ、`/etc/wsl.conf`、AppArmor
+5. `provision-root.sh --phase base`: パッケージ、`/etc/wsl.conf`、AppArmor、`/usr/local/bin/delzonei`
 6. 部屋を再起動（C ドライブが見えなくなる）
 7. `provision-root.sh --phase mount`: VS Code 拡張フォルダの読み取り専用マウント
-   （C ドライブが見えている間にやると本物の C ドライブの上にフォルダを作ってしまうので、再起動後に行う）
+   （C ドライブが見えている間にやると本物の C ドライブの上にフォルダを作ってしまうので、再起動後に行う）と、/mnt の片付け
+   （初回起動時に WSL が作ったドライブ用のフォルダのうち、`/mnt/c` 以外の空のものを削除し、
+   `/mnt/c` から取り付け先までのフォルダを root 所有・755 にする。`/mnt/c` は取り付け先の途中なので残す）
 8. `provision-user.sh`: Claude Code、PATH、settings.json、ステータスライン（`~/.claude/statusline.sh`）、`~/projects`
-9. 部屋を再起動（すべての設定が起動時に正しく反映されるかを確かめるため）
-10. `verify-room.sh --root` と `verify-room.sh`
+9. （room-github.conf に記入があるときだけ）`provision-github.sh`
+   - `--phase credentials`: git の設定と PAT の保存。room-github.conf の内容は、コマンドライン引数ではなく標準入力で渡す
+   - `--phase clone`: `~/projects/<リポジトリ名>` へのクローンと、`git push --dry-run` による書き込み権限の確認
+10. 部屋を再起動（すべての設定が起動時に正しく反映されるかを確かめるため）
+11. `verify-room.sh --root` と `verify-room.sh`
 
 ---
 
@@ -399,6 +511,17 @@ Claude や一般ユーザーは書き換えられないので、検証の基準�
 | 検証 06 が FAIL | Windows のプログラムを呼べる状態（とても危険） | `-Resume` でやり直す。直るまでこの部屋で Claude Code を使わない |
 | 検証 08・R1・R2 が FAIL | パスワードなしで sudo できる設定がある | 表示された行を `sudo visudo`（または `sudo visudo -f <ファイル>`）で削除 |
 | 検証 13 が FAIL | `~/.claude/settings.json` が仕様と違う | `-Resume` で仕様どおりに戻す |
+| 検証 E7 が FAIL | `/usr/local/bin/delzonei` が無い、または書き換えられている | `-Resume` で置き直す |
+| 検証 W1 が WARN | WSLg（Linux の GUI アプリ機能）が有効（Windows 11 の既定）。部屋の中でサンドボックスの外で動くプログラムが、Windows のクリップボードなどを使える可能性がある | 止める場合は Windows の `%USERPROFILE%\.wslconfig` の `[wsl2]` に `guiApplications=false` と書き、`wsl --shutdown`（WSL 全体の設定なので、ほかのディストリでも GUI アプリが使えなくなる） |
+| 検証 W2 が WARN | `/mnt/wsl`（全ディストリで共有される場所）に、ほかのディストリ（Docker Desktop など）が置いたものや、`wsl --mount` したディスクがある | 表示された名前を確認し、部屋から見えてよいものか判断する。Docker Desktop なら、WSL integration の対象にこの部屋を入れない |
+| 検証 W3 が WARN | 初回起動時に WSL が作ったドライブ用のフォルダ（`/mnt/d` など）が残っている、または `/mnt/c` を root 以外も書き込める（この機能を追加する前に作った部屋など） | `-Resume` で片付ける（空でないフォルダは削除せずに残すので、中身を確認してから `sudo rm -r` などで消す） |
+| 検証 G1 が FAIL | `~/.git-credentials` をほかのユーザーも読める | 部屋の中で `chmod 600 ~/.git-credentials` |
+| 検証 G2 が FAIL | git の設定の URL に PAT が書かれている、または部屋の中に room-github.conf がある | 表示に従って直す。Claude から読める場所にあった PAT は、GitHub で削除（失効）して作り直す |
+| 「room-github.conf の一部だけが記入されています」 | 4 つの項目の書き忘れ | すべて記入する（GitHub の設定をしないなら、すべて空欄にする） |
+| 「記入済みの room-github.conf が、WSL の部屋の中にあります」 | 部屋の中のフォルダから実行した、または部屋の中のファイルを指定した | Windows 側にコピーしたフォルダで記入して実行する。部屋の中のファイルに書いた PAT は、GitHub で削除（失効）して作り直す |
+| 「リポジトリをクローンできませんでした」 | `repo_url` の誤り、PAT の期限切れ・権限不足 | URL と PAT（対象のリポジトリへのアクセス権、Contents の権限）を確認し、room-github.conf を直して `-Resume` |
+| 「PAT で push できることを確認できませんでした」（`[注意]`） | PAT に書き込み権限が無い、または PAT が無効 | PAT の Contents を Read and write にする（または作り直す）。room-github.conf を直して `-Resume` |
+| 「~/projects/… がすでにあり、… のクローンではありません」 | クローン先に別のフォルダがある | 中身を確認して、別の場所へ移すか削除してから `-Resume` |
 | 部屋に入ると `/mnt/c/...` で始まる、またはエラーになる | `wsl` は Windows の今のフォルダに合わせて開始しようとする | `wsl -d <部屋の名前> --cd ~` で入る |
 | 部屋の中で `code .` が command not found | Windows のプログラムを起動できないようにしているため（想定どおり） | [6.3](#63-vs-code-で開く) の方法で Windows 側から開く |
 | ログイン時にブラウザが開かない | 同上 | 表示された URL を Windows のブラウザに手で貼る |
@@ -430,6 +553,9 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
 - interop を無効にした部屋から、実際に Windows のプログラムを起動できないこと
   （検証 06 は申し送り書どおり「`cmd.exe` などが見つからない」ことを確かめるもので、起動そのものは試していません）
 - AppArmor の設定が必要な場合（値が `1`）の手順（Ubuntu 26.04 の WSL では不要だったため）
+- room-github.conf による GitHub の設定と、delzonei（2026-11-10 に追加。部屋の中のスクリプトは、本物の GitHub の代わりに
+  手元のリポジトリを使って試験済み。New-SecureRoom.ps1 から部屋の中へ設定を渡す部分と、本物の GitHub での
+  クローン・`git push --dry-run` は未確認）
 
 ---
 
