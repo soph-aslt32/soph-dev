@@ -193,3 +193,69 @@ parse_allowed_domains() {
         CONF_ALLOWED_DOMAINS+=("$d")
     done
 }
+
+# ---------------------------------------------------------------------------
+# apt（CVE-2026-109518 / USN-8996-1 への対策）
+# ---------------------------------------------------------------------------
+# apt の http の扱いに穴があり、通信の途中で書き換えられると、検証されていないパッケージを
+# root の権限で入れさせられることがある（http で、かつ再試行が有効なときだけ）。
+# 対策として、取得先を https にし、修正版の apt になっていることを確かめる。
+# https://ubuntu.com/blog/apt-vulnerability-fixes-available
+
+# Ubuntu 26.04 での apt の取得先の設定ファイル
+readonly APT_SOURCES=/etc/apt/sources.list.d/ubuntu.sources
+# Ubuntu 26.04（resolute）で CVE-2026-109518 を修正した apt の版
+readonly APT_MIN_VERSION=3.2.1ubuntu0.1
+
+# apt の取得先のうち https でないものを「ファイル: URI」の形で 1 行ずつ表示する（すべて https なら何も表示しない）
+apt_non_https_uris() {
+    local f line uri
+    local -a files=() uris=()
+    for f in /etc/apt/sources.list.d/*.sources; do
+        if [[ -f $f ]]; then files+=("$f"); fi
+    done
+    for f in "${files[@]}"; do
+        while IFS= read -r line || [[ -n $line ]]; do
+            # deb822 形式: 「URIs: <URI> [<URI> ...]」
+            [[ $line =~ ^URIs:[[:space:]]*(.*)$ ]] || continue
+            read -ra uris <<< "${BASH_REMATCH[1]}"
+            for uri in "${uris[@]}"; do
+                [[ $uri == https://* ]] || printf '%s: %s\n' "$f" "$uri"
+            done
+        done < "$f"
+    done
+    files=()
+    for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+        if [[ -f $f ]]; then files+=("$f"); fi
+    done
+    for f in "${files[@]}"; do
+        while IFS= read -r line || [[ -n $line ]]; do
+            # 1 行形式: 「deb [オプション] <URI> <スイート> <コンポーネント>...」
+            [[ $line =~ ^[[:space:]]*deb(-src)?[[:space:]]+(\[[^]]*\][[:space:]]+)?([^[:space:]]+) ]] || continue
+            uri=${BASH_REMATCH[3]}
+            [[ $uri == https://* ]] || printf '%s: %s\n' "$f" "$uri"
+        done < "$f"
+    done
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# 管理者のグループ
+# ---------------------------------------------------------------------------
+# 入っていると root（またはそれと同じ力）になれるグループ。部屋のユーザーは、どれにも入れない。
+# Ubuntu は wsl --install で最初のユーザーを作るとき sudo グループに入れるので、provision-root.sh が外す。
+# 部屋の管理作業は、Windows 側から「wsl -d <部屋の名前> -u root」で入って行う。
+readonly ADMIN_GROUPS=(sudo admin wheel docker lxd incus incus-admin disk)
+
+# ユーザー $1 が入っている管理者のグループを 1 行ずつ表示する（入っていなければ何も表示しない）
+user_admin_groups() {
+    local g a
+    local -a mine=()
+    read -ra mine <<< "$(id -nG -- "$1")"
+    for g in "${mine[@]}"; do
+        for a in "${ADMIN_GROUPS[@]}"; do
+            if [[ $g == "$a" ]]; then printf '%s\n' "$g"; fi
+        done
+    done
+    return 0
+}

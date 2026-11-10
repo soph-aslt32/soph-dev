@@ -3,6 +3,11 @@
 Claude Code を安全に動かすための WSL2 のディストリビューション（以下「部屋」）を、
 PowerShell のコマンド 1 つで作ります。
 
+起動のしかたは 2 とおりあります。
+
+- **設定ファイルに記入してから実行する**（`room.conf` と `room-github.conf` に記入 → `New-SecureRoom.ps1` または `room-setup.cmd`）: [4 章](#4-設定ファイル-roomconf-を編集する)・[5 章](#5-実行する)
+- **ダブルクリックして画面で答える**（`room-setup-wizard.cmd`）: 設定ファイルに記入する代わりに、同じ内容を画面で聞きます。[5.6](#56-設定ファイルを使わずに画面で答えて実行するroom-setup-wizardcmd)
+
 部屋の中からは Windows のファイルやプログラムにほぼ触れられず、
 Claude Code はサンドボックス（作業フォルダの外に書き込めない・許可したドメインにしか通信できない）の中で動きます。
 
@@ -41,12 +46,17 @@ Windows側のデータとして意図的に見せているもの
 |---|---|---|
 | ① wsl.conf | C ドライブを部屋に見せない。部屋から Windows のプログラムを起動できなくする | 部屋の中のすべて（Claude Code を含む）から Windows のファイル・プログラムへのアクセス |
 | ② fstab | VS Code の接続に必要なフォルダ 1 つだけを**読み取り専用**で見せる | Windows 側で実行されるファイルの改ざん |
-| ③ sudo にパスワード必須 | Claude にはパスワードを教えない | Claude が root（管理者）になって ①② を元に戻すこと |
+| ③ 部屋の中では root になれない | 部屋のユーザーを sudo などの管理者のグループから外す。管理作業は Windows 側から `wsl -d <部屋の名前> -u root` で入って行う | Claude や、部屋の中で動くほかのプログラムが root（管理者）になって ①② を元に戻すこと |
 | ④ サンドボックス | Claude が実行するコマンドを閉じ込める | 作業フォルダの外への書き込み、許可していない通信 |
 | ⑤ Claude Code の権限ルール | Claude のファイル読み取り機能を制限する | 作業フォルダの外のファイルの読み取り |
+| ⑥ apt の取得先を https に | パッケージを https で取得し、apt が修正版（CVE-2026-109518）であることを確かめる | 通信の途中で、検証されていないパッケージを root の権限で入れさせられること |
 
 これらは互いに支え合っています。たとえば ③ は、① で「部屋から wsl.exe を呼べない」状態になっていて初めて意味を持ちます
 （Windows 側から `wsl -u root` を使うと、パスワードなしで root になれるためです）。
+
+③ は、以前は「sudo にパスワード必須」でした。今は部屋のユーザーを sudo グループから外しているので、
+部屋の中では、パスワードを知っていても sudo は使えません。これで、部屋の中のプログラムが sudo のパスワードを盗み見たり、
+sudo を使った直後のパスワード不要の時間に便乗したりする経路もなくなります。
 
 **部屋の中には、漏れて困る認証情報（パスワード、秘密鍵、API キーなど）を置かないでください。**
 例外は、room-github.conf で設定する GitHub の PAT だけです（[4 章](#4-設定ファイル-roomconf-を編集する)）。
@@ -98,6 +108,9 @@ Copy-Item -Recurse "\\wsl.localhost\<今の部屋の名前>\home\<Linuxのユー
 ---
 
 ## 4. 設定ファイル room.conf を編集する
+
+> `room-setup-wizard.cmd`（[5.6](#56-設定ファイルを使わずに画面で答えて実行するroom-setup-wizardcmd)）で実行する場合は、この章の作業は不要です。
+> 同じ内容を画面で聞かれるので、各項目の意味はこの章を参考にしてください。
 
 コピーしたフォルダの `room.conf` をメモ帳などで開いて、**`linux_user` と `windows_user` を必ず記入**します。
 スクリプトはこれらの値を推測したり自動で調べたりしません。空欄のままだと、最初の確認で止まります。
@@ -200,7 +213,7 @@ Set-ExecutionPolicy -Scope Process Bypass
    - ユーザー名には、**room.conf の `linux_user` と同じ名前**を入力します。
    - パスワードは入力しても画面に何も表示されませんが、正常です。
    - **このパスワードは Claude Code を含め、誰にも教えないでください。**
-     sudo（管理者の権限）を守る大切なパスワードです。忘れないようにしてください。
+     部屋の設定が終わると、このユーザーは sudo（管理者の権限）を使えなくなります（[1 章](#1-安全のしくみかんたんな説明)の ③）。
    - 入力が終わって `ユーザー名@...:~$` のような表示が出たら、**`exit` と入力して Enter** を押します。
      そのあとはスクリプトが自動で進めます。
 
@@ -231,7 +244,7 @@ Set-ExecutionPolicy -Scope Process Bypass
            WSLg（Linux の GUI アプリ機能）が有効です:
              /mnt/wslg がマウントされています。
 ...
-結果: PASS 23 / FAIL 0 / SKIP 2 / WARN 1
+結果: PASS 28 / FAIL 0 / SKIP 2 / WARN 1
 FAIL はありません。
 WARN の項目は失敗ではありませんが、上の説明を確認してください。
   [完了] 自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します。WARN の項目があれば、その説明を確認してください）。
@@ -244,6 +257,48 @@ WARN の項目は失敗ではありませんが、上の説明を確認してく
 
 途中で止まった場合は、表示されたメッセージに従って原因を取り除き、
 `-Resume` を付けて実行すると続きからやり直せます（部屋は消えません）。
+
+### 5.6 設定ファイルを使わずに、画面で答えて実行する（room-setup-wizard.cmd）
+
+Windows 側にコピーしたフォルダ（[3 章](#3-ファイルを-windows-側に用意する)）の `room-setup-wizard.cmd` を、エクスプローラーでダブルクリックします。
+実行ポリシーの設定（5.2）は不要です。room.conf と room-github.conf は読まず、同じ内容を次の順で聞きます。
+
+1. **行うこと**: 番号で選びます（新しい部屋を作る／既存の部屋の設定をやり直す（`-Resume` と同じ）／既存の部屋の自動検証だけを行う（`-VerifyOnly` と同じ））
+2. **ドライランにするか**: `y` にすると、何も変更せずに予定だけを表示します（初めてのときはおすすめ）
+3. **ディストリビューション名と部屋の名前**（5.4 と同じ）
+4. **room.conf にあたる値**: `linux_user`、`windows_user`、`allowed_domains`
+   - 新しく作るときは、`allowed_domains` だけ、このフォルダの room.conf の値を既定値として表示します。`linux_user` と `windows_user` は推測しません。
+   - やり直し・検証だけのときは、部屋の中にある root 所有の `room.conf`（前回設定したときの内容）を既定値として表示します。
+   - 通信を許可するドメインが無い場合は `-` を入力します。
+5. **GitHub の設定をするか**（検証だけのときは聞きません）: `y` のときだけ `user_name`、`user_email`、`pat`、`repo_url` を聞きます。
+   PAT は入力（貼り付け）しても `*` で表示されます。
+6. **最後の確認**: `y` で進める、`r` で 4. から入力し直す、`n` で中止（何も変更しません）
+
+画面の見かた:
+
+| 表示 | 意味 |
+|---|---|
+| `[?]`（水色）と白い文字 | 質問 |
+| 灰色の文字 | 入力の規則や例 |
+| `Enter だけ押すと:` のあとの緑の文字 | 何も入力せずに Enter を押したときに使われる値 |
+| `>`（水色） | ここに入力する |
+| `[入力エラー]`（赤） | 入力が正しくない。黄色の説明に従って、もう一度入力する |
+
+入力が正しくないときは、止まらずにその項目だけ聞き直します。
+そのあとの処理（部屋の作成・設定・検証）と画面の表示は、設定ファイルを使う場合と同じです。
+途中で止まった場合は、もう一度ダブルクリックして「既存の部屋の設定をやり直す」を選びます。
+
+**情報の扱い（設定ファイルを使う場合と同じ考え方です）**
+
+- 入力した値は、ファイルに一切保存しません（room.conf・room-github.conf も書き換えません）。
+- room.conf にあたる値（秘密の情報は含まない）は、メモリ上で room.conf と同じ形にして、部屋の中の `/usr/local/lib/wsl-room-setup/room.conf` に置きます（検証の基準に使うため）。
+- GitHub の情報は部屋の中にファイルとして持ち込まず、標準入力で渡します。PAT は部屋の `~/.git-credentials`（Claude Code から読めないように設定してある）にだけ保存されます。
+  PAT は、部屋に渡す直前まで SecureString（暗号化された文字列）で持ちます。ただし、渡すときに一時的に平文になったものは、PowerShell の仕組み上、メモリから完全には消せません（スクリプトが終わるとプロセスごと消えます）。
+- **部屋の中にあるファイル（`\\wsl.localhost\...` や、それを割り当てたドライブ）から起動すると、何も聞かずに止まります。**
+  部屋の中のファイルは Claude Code が書き換えられるため、書き換えられたスクリプトに PAT を入力してしまうのを防ぐためです。
+  必ず Windows 側にコピーし、中身を確かめてから、コピーしたほうを起動してください。
+
+PowerShell から起動する場合は、`.\New-SecureRoom.ps1 -Interactive` でも同じです。
 
 ---
 
@@ -328,7 +383,8 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
 
 - Claude Code は**必ず `~/projects/<プロジェクト名>` の中で**起動してください。
   ホーム（`~`）や `~/projects` で起動すると、すべてのプロジェクトが Claude から見えてしまいます。
-- sudo のパスワードを Claude に教えないでください。
+- 部屋の中では sudo を使えません。管理作業は [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で行ってください。
+- 部屋のユーザーのパスワードを Claude に教えないでください。
 - 部屋の中に、Windows 側の秘密鍵やクラウドの認証情報などをコピーしないでください。
 - リポジトリを clone したら、Claude Code を起動する前に、そのリポジトリの `.claude/` フォルダ
   （特に `settings.json` と `settings.local.json`）の中身を確認してください。
@@ -350,7 +406,7 @@ Claude Code を起動すると、画面の下にモデル名・作業フォル�
 - このファイルは Claude Code のサンドボックスの**外**で、あなたの権限で繰り返し実行されます。
   中身を確認したものだけを置いてください。
 
-### 6.6 GitHub の設定（room-github.conf に記入して部屋を作った場合）
+### 6.6 GitHub の設定（room-github.conf に記入して部屋を作った場合、または room-setup-wizard.cmd で「する」を選んだ場合）
 
 部屋を作ったときに、git の設定・PAT の保存・`~/projects/<リポジトリ名>` へのクローンが済んでいます。
 また、PAT で push できるか（書き込み権限があるか）を `git push --dry-run` で確かめてあります（何も送っていません）。
@@ -389,6 +445,7 @@ PAT の権限を対象のリポジトリだけに絞っておいてください�
   Claude が実行する `git push` / `git pull` は失敗します（`~/.git-credentials` を読めず、github.com への通信も許可していないため）。
 - PAT を作り直したときは、room-github.conf に新しい PAT を含む 4 項目を記入して、`-Resume` を付けて実行します
   （古い PAT は置き換えられます。クローン済みのリポジトリはそのままです）。
+  room-setup-wizard.cmd なら「既存の部屋の設定をやり直す」を選び、GitHub の設定を「する」にして 4 項目を入力します。
 - 2 つ目以降のリポジトリは、[GitHub.md](GitHub.md) の手順で手動で clone します。
 
 ### 6.7 Zone.Identifier ファイルを削除する（delzonei）
@@ -405,6 +462,40 @@ delzonei -n     # 削除せずに、見つかったファイルを表示する�
 - 対象は、名前が `:Zone.Identifier` で終わる通常のファイルだけです（フォルダやシンボリックリンクは対象外で、リンク先もたどりません）。
 - `delzonei` は `/usr/local/bin/delzonei` に root 所有で置かれています（Claude が書き換えられないようにするため）。
 
+### 6.8 部屋の管理作業（パッケージの追加・更新など）
+
+部屋のユーザーは sudo を使えないので（[1 章](#1-安全のしくみかんたんな説明)の ③）、root の権限が必要な作業は、
+**Windows の PowerShell から root で部屋に入って**行います（パスワードは聞かれません）。
+
+```powershell
+wsl -d dev -u root --cd /root
+```
+
+たとえば、パッケージを最新にするとき（月に 1 回ほど、または Ubuntu のセキュリティ情報が出たとき）:
+
+```bash
+apt update
+apt upgrade
+```
+
+- apt の取得先は、部屋を作るときに https に書き換えてあります（[1 章](#1-安全のしくみかんたんな説明)の ⑥）。
+  `/etc/apt/sources.list.d/ubuntu.sources` の `URIs:` を http に戻さないでください。
+- 終わったら `exit` で root のシェルを抜けてください。root のシェルを開いたまま Claude Code を使わないでください。
+- Claude Code 自体は、自動で更新されます。
+
+部屋を作るときに入れた **uv と Rust は、自動では更新されません**。root ではなく部屋のユーザーとして入れてあるので、
+部屋の中のターミナルで（Claude Code の外で）更新します。
+
+```bash
+uv self update
+rustup update
+```
+
+- Claude Code のサンドボックスの中から通信できるのは、room.conf の `allowed_domains` に書いたドメインだけです。
+  Python のパッケージ（`uv add` など）には、初期値の `pypi.org` と `files.pythonhosted.org` が使われます。
+  Rust のパッケージ（`cargo build` での依存パッケージの取得）を Claude に取得させる場合は、
+  `index.crates.io` と `static.crates.io` を `allowed_domains` に加えてください（初期値には入っていません）。
+
 ---
 
 ## 7. オプション
@@ -418,6 +509,10 @@ delzonei -n     # 削除せずに、見つかったファイルを表示する�
 | `-Distro Ubuntu-26.04` | ディストリビューションを指定する（質問を省略） |
 | `-ConfigPath <パス>` | room.conf 以外の設定ファイルを使う |
 | `-GitHubConfigPath <パス>` | room-github.conf 以外の GitHub の設定ファイルを使う（省略時は room.conf と同じフォルダの room-github.conf） |
+| `-Interactive` | 設定ファイルを使わず、値を画面で聞く（[5.6](#56-設定ファイルを使わずに画面で答えて実行するroom-setup-wizardcmd)。room-setup-wizard.cmd はこれを付けて起動する）。`-ConfigPath`・`-GitHubConfigPath` とは同時に使えない |
+
+`room-setup.cmd` と `room-setup-wizard.cmd` に付けたオプションは、そのまま `New-SecureRoom.ps1` に渡されます
+（例: `room-setup.cmd -RoomName dev -Resume`）。
 
 例:
 
@@ -438,7 +533,12 @@ room-github.conf に記入があれば、GitHub の設定もやり直します�
 
 ```bash
 bash /usr/local/lib/wsl-room-setup/verify-room.sh               # 一般ユーザーとして行う検査
-sudo bash /usr/local/lib/wsl-room-setup/verify-room.sh --root   # root の権限が必要な検査（パスワードを聞かれます）
+```
+
+root の権限が必要な検査は、部屋の中では sudo を使えないので、Windows の PowerShell から実行します（`dev` は部屋の名前）。
+
+```powershell
+wsl -d dev -u root --cd / --exec bash /usr/local/lib/wsl-room-setup/verify-room.sh --root
 ```
 
 > **Claude Code に検証を実行させないでください。** サンドボックスの中では root のファイルが
@@ -452,12 +552,14 @@ sudo bash /usr/local/lib/wsl-room-setup/verify-room.sh --root   # root の権限
 wsl-room-setup/
 ├── README.md                 この説明書
 ├── New-SecureRoom.ps1        Windows 側の司令塔（これを実行する）
+├── room-setup.cmd            New-SecureRoom.ps1 を、実行ポリシーの設定なしで起動する（設定ファイルを使う）
+├── room-setup-wizard.cmd     New-SecureRoom.ps1 を対話モード（-Interactive）で起動する。ダブルクリックで使う
 ├── room.conf                 設定ファイル（Linux のユーザー名、Windows のユーザーフォルダ名、通信を許可するドメイン）
 ├── room-github.conf          GitHub の設定ファイル（コミットの作者、PAT、リポジトリの URL）。部屋の中にはコピーしない
 ├── GitHub.md                 GitHub を手動で設定する手順
 ├── lib.sh                    部屋の中のスクリプトが共通で使う部品
 ├── provision-root.sh         部屋の中で root として行う設定（wsl.conf、fstab、パッケージ、AppArmor、delzonei、/mnt の片付け）
-├── provision-user.sh         部屋の中で一般ユーザーとして行う設定（Claude Code、PATH、settings.json、ステータスライン、~/projects）
+├── provision-user.sh         部屋の中で一般ユーザーとして行う設定（Claude Code、PATH、uv、Rust、settings.json、ステータスライン、~/projects）
 ├── provision-github.sh       部屋の中で一般ユーザーとして行う GitHub の設定（git の設定、PAT の保存、クローン）
 ├── verify-room.sh            自動検証
 ├── statusline.sh             Claude Code のステータスライン（部屋の ~/.claude/statusline.sh に置かれる）
@@ -475,16 +577,22 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 ### 処理の流れ
 
 1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf、room-github.conf）
+   - 対話モード（room-setup-wizard.cmd）では、room.conf と room-github.conf を読む代わりに、部屋の名前を決めたあとで同じ内容を画面で聞く
 2. `wsl --install <ディストリビューション> --name <部屋の名前>`（room.conf の `linux_user` と同じユーザー名と、パスワードを入力）
 3. 部屋が WSL2 で動いていること、部屋のユーザーが room.conf の `linux_user` と同じことを確認
 4. スクリプト一式と room.conf を部屋の中へコピーし、ハッシュ値で一致を確認
-5. `provision-root.sh --phase base`: パッケージ、`/etc/wsl.conf`、AppArmor、`/usr/local/bin/delzonei`
+5. `provision-root.sh --phase base`: apt の取得先を https に書き換え（すべて https になったことを確認）、パッケージの更新
+   （apt が CVE-2026-109518 の修正版になったことを確認してから、必要なものを入れる）、部屋のユーザーを管理者のグループ（sudo など）から外す、
+   `/etc/wsl.conf`、AppArmor、`/usr/local/bin/delzonei`
 6. 部屋を再起動（C ドライブが見えなくなる）
 7. `provision-root.sh --phase mount`: VS Code 拡張フォルダの読み取り専用マウント
    （C ドライブが見えている間にやると本物の C ドライブの上にフォルダを作ってしまうので、再起動後に行う）と、/mnt の片付け
    （初回起動時に WSL が作ったドライブ用のフォルダのうち、`/mnt/c` 以外の空のものを削除し、
    `/mnt/c` から取り付け先までのフォルダを root 所有・755 にする。`/mnt/c` は取り付け先の途中なので残す）
-8. `provision-user.sh`: Claude Code、PATH、settings.json、ステータスライン（`~/.claude/statusline.sh`）、`~/projects`
+8. `provision-user.sh`: Claude Code、PATH、uv、Rust、settings.json、ステータスライン（`~/.claude/statusline.sh`）、`~/projects`
+   - uv: 公式のインストールスクリプト（`https://astral.sh/uv/install.sh`）で `~/.local/bin` に入れる
+   - Rust: 公式の rustup（`https://sh.rustup.rs`）で stable を `~/.cargo` と `~/.rustup` に入れ、`~/.bashrc` に `. "$HOME/.cargo/env"` を追記する。
+     リンクに使う C コンパイラなどは、5. でパッケージ（build-essential・pkg-config・libssl-dev）として入れる
 9. （room-github.conf に記入があるときだけ）`provision-github.sh`
    - `--phase credentials`: git の設定と PAT の保存。room-github.conf の内容は、コマンドライン引数ではなく標準入力で渡す
    - `--phase clone`: `~/projects/<リポジトリ名>` へのクローンと、`git push --dry-run` による書き込み権限の確認
@@ -509,15 +617,22 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 検証 02・04・05 が FAIL / VS Code で「WSL Daemon exited with code 0」 | VS Code 拡張フォルダが正しくマウントされていない | `-Resume` で設定をやり直す。直らなければ部屋の中で `cat /etc/fstab` と `mount \| grep -i extensions` の結果を Claude Code に見せて相談 |
 | 検証 10 が FAIL（bwrap が失敗する） | AppArmor が bubblewrap を止めている可能性 | 部屋の中で `sysctl kernel.apparmor_restrict_unprivileged_userns` を確認。`1` なら `-Resume` でやり直す（自動でプロファイルを追加します） |
 | 検証 06 が FAIL | Windows のプログラムを呼べる状態（とても危険） | `-Resume` でやり直す。直るまでこの部屋で Claude Code を使わない |
-| 検証 08・R1・R2 が FAIL | パスワードなしで sudo できる設定がある | 表示された行を `sudo visudo`（または `sudo visudo -f <ファイル>`）で削除 |
+| 検証 08・R1・R2 が FAIL | パスワードなしで sudo できる設定がある | Windows の PowerShell から `wsl -d <部屋の名前> -u root` で入り、表示された行を `visudo`（または `visudo -f <ファイル>`）で削除 |
+| 検証 E8 が FAIL | 部屋のユーザーが sudo などの管理者のグループに入っている | `-Resume` でやり直す（グループから外します） |
+| 検証 A1 が FAIL | apt の取得先に http のものがある | `-Resume` でやり直す（Ubuntu 公式のものは https に書き換えます）。自分で追加した取得先なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って https に直す |
+| 検証 A2 が FAIL / 部屋の作成が「apt の版が…修正版より古いままです」で止まる | apt が CVE-2026-109518 の修正版になっていない | 時間をおいて `-Resume` でやり直す（サーバーの同期が遅れていることがあります） |
+| 検証 A3 が FAIL | Apache（apache2）が入っている | 不要なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って `apt purge apache2` などで削除 |
+| 検証 A4 が WARN | 適用していない更新がある | [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で `apt update` と `apt upgrade` を実行 |
 | 検証 13 が FAIL | `~/.claude/settings.json` が仕様と違う | `-Resume` で仕様どおりに戻す |
 | 検証 E7 が FAIL | `/usr/local/bin/delzonei` が無い、または書き換えられている | `-Resume` で置き直す |
 | 検証 W1 が WARN | WSLg（Linux の GUI アプリ機能）が有効（Windows 11 の既定）。部屋の中でサンドボックスの外で動くプログラムが、Windows のクリップボードなどを使える可能性がある | 止める場合は Windows の `%USERPROFILE%\.wslconfig` の `[wsl2]` に `guiApplications=false` と書き、`wsl --shutdown`（WSL 全体の設定なので、ほかのディストリでも GUI アプリが使えなくなる） |
 | 検証 W2 が WARN | `/mnt/wsl`（全ディストリで共有される場所）に、ほかのディストリ（Docker Desktop など）が置いたものや、`wsl --mount` したディスクがある | 表示された名前を確認し、部屋から見えてよいものか判断する。Docker Desktop なら、WSL integration の対象にこの部屋を入れない |
-| 検証 W3 が WARN | 初回起動時に WSL が作ったドライブ用のフォルダ（`/mnt/d` など）が残っている、または `/mnt/c` を root 以外も書き込める（この機能を追加する前に作った部屋など） | `-Resume` で片付ける（空でないフォルダは削除せずに残すので、中身を確認してから `sudo rm -r` などで消す） |
+| 検証 W3 が WARN | 初回起動時に WSL が作ったドライブ用のフォルダ（`/mnt/d` など）が残っている、または `/mnt/c` を root 以外も書き込める（この機能を追加する前に作った部屋など） | `-Resume` で片付ける（空でないフォルダは削除せずに残すので、中身を確認してから、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って `rm -r` などで消す） |
 | 検証 G1 が FAIL | `~/.git-credentials` をほかのユーザーも読める | 部屋の中で `chmod 600 ~/.git-credentials` |
 | 検証 G2 が FAIL | git の設定の URL に PAT が書かれている、または部屋の中に room-github.conf がある | 表示に従って直す。Claude から読める場所にあった PAT は、GitHub で削除（失効）して作り直す |
 | 「room-github.conf の一部だけが記入されています」 | 4 つの項目の書き忘れ | すべて記入する（GitHub の設定をしないなら、すべて空欄にする） |
+| 対話モードで「このスクリプトは WSL の部屋の中にあります」「WSL の部屋の中を割り当てたドライブ…にあります」 | 部屋の中のフォルダ（`\\wsl.localhost\...`）にある room-setup-wizard.cmd を起動した | [3 章](#3-ファイルを-windows-側に用意する)の手順で Windows 側にコピーし、コピーしたほうを起動する |
+| 対話モードで「ネットワークドライブ…の接続先を確認できませんでした」 | ネットワークドライブ上のフォルダから起動した | Windows のローカルのフォルダ（`%USERPROFILE%` の下など）にコピーして起動する |
 | 「記入済みの room-github.conf が、WSL の部屋の中にあります」 | 部屋の中のフォルダから実行した、または部屋の中のファイルを指定した | Windows 側にコピーしたフォルダで記入して実行する。部屋の中のファイルに書いた PAT は、GitHub で削除（失効）して作り直す |
 | 「リポジトリをクローンできませんでした」 | `repo_url` の誤り、PAT の期限切れ・権限不足 | URL と PAT（対象のリポジトリへのアクセス権、Contents の権限）を確認し、room-github.conf を直して `-Resume` |
 | 「PAT で push できることを確認できませんでした」（`[注意]`） | PAT に書き込み権限が無い、または PAT が無効 | PAT の Contents を Read and write にする（または作り直す）。room-github.conf を直して `-Resume` |
@@ -547,15 +662,25 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
 （`wsl --install` のあと `exit` で戻る流れ、部屋へのファイルのコピー、`wsl -l -o` の読み取りを含む）。
 そのとき見つかった、検証 11 で止まってしまう不具合は修正済みです。
 
+2026-11-10 に、次のことを実機で確かめました。
+
+- 新しい部屋の作成が最後まで進み、自動検証で FAIL が出ないこと（設定ファイルの方法・room-setup-wizard.cmd の両方）
+- room-github.conf（または room-setup-wizard.cmd での入力）による GitHub の設定で、本物の GitHub からクローンできること
+  （設定ファイルの方法・room-setup-wizard.cmd の両方）
+- apt の取得先の https への書き換え、apt の版の確認、部屋のユーザーを管理者のグループから外す処理と、
+  検証 E8・A1〜A4 が、room-setup-wizard.cmd での新しい部屋の作成で動作し、FAIL が出ないこと
+
 次の点は、まだ実機で確かめていません。
 
-- 修正後の自動検証が、最後（E6）まで通ること
 - interop を無効にした部屋から、実際に Windows のプログラムを起動できないこと
   （検証 06 は申し送り書どおり「`cmd.exe` などが見つからない」ことを確かめるもので、起動そのものは試していません）
 - AppArmor の設定が必要な場合（値が `1`）の手順（Ubuntu 26.04 の WSL では不要だったため）
-- room-github.conf による GitHub の設定と、delzonei（2026-11-10 に追加。部屋の中のスクリプトは、本物の GitHub の代わりに
-  手元のリポジトリを使って試験済み。New-SecureRoom.ps1 から部屋の中へ設定を渡す部分と、本物の GitHub での
-  クローン・`git push --dry-run` は未確認）
+- delzonei（2026-11-10 に追加）の実機での動作
+- apt の取得先の https への書き換えと、管理者のグループから外す処理（2026-11-10 に追加）を、設定ファイルの方法で使ったときの動作
+- 既存の部屋に対する「やり直し」（`-Resume`、room-setup-wizard.cmd の「既存の部屋の設定をやり直す」）と、
+  「検証だけ」（`-VerifyOnly`、room-setup-wizard.cmd の「既存の部屋の自動検証だけを行う」）の動作
+- 部屋の管理作業（[6.8](#68-部屋の管理作業パッケージの追加更新など)）と、root の権限が必要な検証（[8 章](#8-部屋の中で検証をやり直す)）を、
+  Windows の PowerShell から `wsl -d <部屋の名前> -u root` で行う手順
 
 ---
 

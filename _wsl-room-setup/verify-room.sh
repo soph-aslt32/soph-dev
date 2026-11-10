@@ -4,7 +4,8 @@
 #
 # 使い方（部屋の中で）:
 #   bash /usr/local/lib/wsl-room-setup/verify-room.sh               一般ユーザーとして行う検査
-#   sudo bash /usr/local/lib/wsl-room-setup/verify-room.sh --root   root の権限が必要な検査
+#   root の権限が必要な検査は、部屋のユーザーは sudo を使えないので、Windows の PowerShell から:
+#     wsl -d <部屋の名前> -u root --cd / --exec bash /usr/local/lib/wsl-room-setup/verify-room.sh --root
 #
 # New-SecureRoom.ps1 は両方を自動で実行します。
 # 各項目を [PASS] / [FAIL] / [SKIP] / [WARN] で表示し、FAIL が 1 つでもあれば終了コード 1 で終わります。
@@ -14,6 +15,9 @@
 #   01〜14  申し送り書 第 6 章の表（12 の claude doctor はログインが必要なため手動確認に回す）
 #   E1〜E6  追加の申し送り EX1（重要ファイルの所有者・権限、wsl.conf と fstab の内容）
 #   E7      delzonei（/usr/local/bin/delzonei）の所有者・権限・内容
+#   E8      部屋のユーザーが管理者のグループ（sudo など）に入っていない（部屋の中で root になれない）
+#   A1〜A4  apt（CVE-2026-109518 への対策）: 取得先が https、apt が修正版、Apache が入っていない、
+#           適用していない更新（A4 は警告。段階的配信で保留中のものは数えない）
 #   G1〜G2  GitHub の PAT（room-github.conf で設定したもの）が保存先以外に漏れていないこと
 #   W1〜W2  （警告）WSLg、/mnt/wsl など、WSL の仕組みとして部屋から Windows やほかのディストリに届く窓口
 #   W3      （警告）初回起動時に WSL が作ったドライブ用のフォルダ（/mnt/d など）の残りと、/mnt/c の権限
@@ -620,6 +624,68 @@ check_R2() {
     return 1
 }
 
+check_E8() {
+    local found
+    found=$(user_admin_groups "$U")
+    [[ -n $found ]] || return 0
+    detail "$U が管理者のグループに入っています: ${found//$'\n'/ }"
+    detail "→ 部屋の中で sudo などを使って root になれる状態です。-Resume でやり直すと、グループから外します。"
+    return 1
+}
+
+check_A1() {
+    local bad l
+    if [[ ! -f $APT_SOURCES ]]; then
+        detail "apt の取得先の設定ファイル（$APT_SOURCES）がありません。"
+        return 1
+    fi
+    bad=$(apt_non_https_uris)
+    [[ -n $bad ]] || return 0
+    detail "https でない取得先があります（CVE-2026-109518 の対象になります）:"
+    while IFS= read -r l; do detail "  $l"; done <<< "$bad"
+    detail "→ -Resume でやり直すと、https に書き換えます。"
+    return 1
+}
+
+check_A2() {
+    local v
+    v=$(dpkg-query -W -f='${Version}' apt 2> /dev/null) || v=''
+    if [[ -n $v ]] && dpkg --compare-versions "$v" ge "$APT_MIN_VERSION"; then return 0; fi
+    detail "apt の版（${v:-不明}）が、CVE-2026-109518 の修正版（$APT_MIN_VERSION）より古いです。"
+    detail "→ 取得先が https であること（A1）を確かめてから、Windows の PowerShell で wsl -d <部屋の名前> -u root と入力して入り、"
+    detail "  apt update と apt upgrade を実行してください。"
+    return 1
+}
+
+check_A3() {
+    local out
+    out=$(dpkg-query -W -f='${binary:Package} ${db:Status-Status}\n' 'apache2*' 2> /dev/null |
+        awk '$2 == "installed" { print $1 }') || true
+    [[ -n $out ]] || return 0
+    detail "Apache HTTP Server のパッケージが入っています: ${out//$'\n'/ }"
+    detail "→ このスクリプトは Apache を入れません。不要なら、wsl -d <部屋の名前> -u root で入り、apt purge で削除してください。"
+    return 1
+}
+
+check_A4() {
+    local out n deferred l
+    if ! out=$(LC_ALL=C apt-get -s -o Debug::NoLocking=1 upgrade 2> /dev/null); then
+        detail "apt-get -s upgrade（更新の模擬実行）ができませんでした。"
+        return 3
+    fi
+    n=$(grep -c '^Inst ' <<< "$out" || true)
+    # 段階的配信（phased updates）で保留中のものは、apt が「deferred due to phasing」の下に字下げして並べる
+    deferred=$(sed -n '/deferred due to phasing/,/^[^ ]/{/^ /p}' <<< "$out" | wc -w)
+    if (( deferred > 0 )); then
+        detail "段階的配信（phased updates）で保留中の更新が $deferred 件あります（数えていません）。"
+    fi
+    (( n > 0 )) || return 0
+    detail "適用していない更新が $n 件あります（最後に apt update したときの一覧で判定）:"
+    while IFS= read -r l; do detail "  ${l#Inst }"; done < <(grep '^Inst ' <<< "$out" | head -n 20)
+    detail "→ Windows の PowerShell で wsl -d <部屋の名前> -u root と入力して入り、apt update と apt upgrade を実行してください。"
+    return 3
+}
+
 # =============================================================================
 
 summary() {
@@ -680,6 +746,11 @@ main() {
         run_check E5 '/etc/fstab の Windows 関連の行が仕様（3.3）の 1 行だけ' check_E5
         run_check E6 '検証の基準ファイル（部屋の中のスクリプトと room.conf）が root 所有で root 以外は書き込めない' check_E6
         run_check E7 'delzonei（/usr/local/bin/delzonei）が root 所有で root 以外は書き込めず、中身が仕様どおり' check_E7
+        run_check E8 "$U が管理者のグループ（${ADMIN_GROUPS[*]}）に入っていない" check_E8
+        run_check A1 'apt の取得先がすべて https（CVE-2026-109518 への対策）' check_A1
+        run_check A2 "apt が CVE-2026-109518 の修正版（$APT_MIN_VERSION）以上" check_A2
+        run_check A3 'Apache HTTP Server（apache2）が入っていない' check_A3
+        run_check A4 '適用していない更新が残っていない（段階的配信で保留中のものを除く）' check_A4
         run_check G1 "~/.git-credentials（PAT の保存先）は、ある場合、$U だけが読み書きできる" check_G1
         run_check G2 'PAT が保存先以外（git の設定の URL、部屋の中の room-github.conf）に書かれていない' check_G2
         run_check W1 'WSLg（Linux の GUI アプリ機能）が無効で、Windows のクリップボードなどに届かない' check_W1

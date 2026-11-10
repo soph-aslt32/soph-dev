@@ -5,7 +5,9 @@
 # 通常は Windows 側の New-SecureRoom.ps1 が、次の 2 段階に分けて自動で呼び出します。
 #
 #   bash provision-root.sh --phase base [--config <room.conf のパス>]
-#       パッケージの導入、/etc/wsl.conf の書き換え、AppArmor の確認、delzonei の配置。
+#       apt の取得先を https にしてからパッケージを更新・導入（apt が修正版か確認）、
+#       部屋のユーザーを管理者のグループ（sudo など）から外す、/etc/wsl.conf の書き換え、
+#       AppArmor の確認、delzonei の配置。
 #       wsl.conf の変更（C ドライブを隠す）は、このあと部屋を再起動するまで反映されない。
 #
 #   bash provision-root.sh --phase mount [--config <room.conf のパス>]
@@ -84,23 +86,85 @@ phase_base() {
         "部屋を作るときに入力したユーザー名と、room.conf の linux_user が同じか確認してください。"
     [[ $uid != 0 ]] || die "$CONF_LINUX_USER は root（UID 0）です。一般ユーザーを指定してください。"
 
-    step "1/4 パッケージを更新し、必要なもの（${PACKAGES[*]}）をインストールします（数分かかります）"
+    step "1/6 apt の取得先を https に書き換えます（CVE-2026-109518 への対策）"
+    switch_apt_to_https
+
+    step "2/6 パッケージを更新します（数分かかります）"
     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
     run apt-get "${APT_OPTS[@]}" update
     run apt-get "${APT_OPTS[@]}" -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
+    # 必要なものは、apt が修正版になったことを確かめてから入れる
+    check_apt_version
     run apt-get "${APT_OPTS[@]}" install "${PACKAGES[@]}"
-    ok "パッケージの準備ができました。"
+    ok "パッケージの準備ができました（${PACKAGES[*]}）。"
 
-    step "2/4 /etc/wsl.conf を仕様どおりの内容に置き換えます"
+    step "3/6 $CONF_LINUX_USER を管理者のグループ（sudo など）から外します"
+    remove_admin_groups "$CONF_LINUX_USER"
+
+    step "4/6 /etc/wsl.conf を仕様どおりの内容に置き換えます"
     install_wsl_conf "$CONF_LINUX_USER"
 
-    step "3/4 AppArmor の追加設定が必要か確認します"
+    step "5/6 AppArmor の追加設定が必要か確認します"
     setup_apparmor_if_needed
 
-    step "4/4 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
+    step "6/6 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
     install_delzonei
 
     ok "base 段階が終わりました。部屋を再起動してから --phase mount を実行します。"
+}
+
+# apt の取得先（$APT_SOURCES）の Ubuntu 公式サーバーを https にし、すべて https になったことを確かめる。
+# 書き換えは部屋に残るので、あとでユーザーが行う更新も https になる。
+switch_apt_to_https() {
+    local bad
+    [[ -f $APT_SOURCES ]] || die "apt の取得先の設定ファイル（$APT_SOURCES）がありません。" \
+        "このスクリプトは、Ubuntu 26.04 の設定ファイルの形（deb822 形式）を前提にしています。"
+    if grep -qE 'http://(([a-z]+\.)?archive|security)\.ubuntu\.com' "$APT_SOURCES"; then
+        run sed -Ei 's!http://((([a-z]+\.)?archive|security)\.ubuntu\.com)!https://\1!g' "$APT_SOURCES"
+    fi
+    if (( DRY_RUN )); then return 0; fi
+    bad=$(apt_non_https_uris)
+    if [[ -n $bad ]]; then
+        die "apt の取得先に、https でないものがあります:"$'\n'"$bad" \
+            "http のままだと、CVE-2026-109518 により、通信の途中で検証されていないパッケージを入れさせられるおそれがあります。" \
+            "表示されたファイルの URI を https に直してから、もう一度実行してください。"
+    fi
+    ok "apt の取得先はすべて https です。"
+}
+
+# apt が CVE-2026-109518 の修正版（$APT_MIN_VERSION）以上であることを確かめる（apt-get upgrade のあとに呼ぶ）
+check_apt_version() {
+    local v
+    if (( DRY_RUN )); then
+        info "[dry-run] apt の版が $APT_MIN_VERSION 以上であることを確かめます。"
+        return 0
+    fi
+    v=$(dpkg-query -W -f='${Version}' apt)
+    dpkg --compare-versions "$v" ge "$APT_MIN_VERSION" || die \
+        "apt の版（$v）が、CVE-2026-109518 の修正版（$APT_MIN_VERSION）より古いままです。" \
+        "パッケージの更新（apt-get upgrade）で apt が新しくならなかった可能性があります。" \
+        "時間をおいて、もう一度実行してください（サーバーの同期が遅れていることがあります）。"
+    ok "apt は修正版です（$v）。"
+}
+
+# ユーザーを管理者のグループ（lib.sh の ADMIN_GROUPS）から外し、外れたことを確かめる
+remove_admin_groups() {
+    local user=$1 g
+    local -a found=()
+    while IFS= read -r g; do found+=("$g"); done < <(user_admin_groups "$user")
+    if (( ${#found[@]} == 0 )); then
+        ok "$user は管理者のグループに入っていません。"
+        return 0
+    fi
+    for g in "${found[@]}"; do
+        run gpasswd -d "$user" "$g"
+    done
+    if (( DRY_RUN )); then return 0; fi
+    found=()
+    while IFS= read -r g; do found+=("$g"); done < <(user_admin_groups "$user")
+    (( ${#found[@]} == 0 )) || die "$user を管理者のグループ（${found[*]}）から外せませんでした。"
+    ok "$user を管理者のグループから外しました。部屋の中では sudo を使えなくなります。"
+    info "部屋の管理作業は、Windows の PowerShell から「wsl -d <部屋の名前> -u root」で入って行います。"
 }
 
 install_delzonei() {

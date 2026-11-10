@@ -9,9 +9,16 @@
 # 行うこと:
 #   1. Claude Code のインストール（公式のインストールスクリプト）
 #   2. ~/.local/bin を PATH に追加（~/.bashrc。すでにあれば追記しない）
+#   -  uv（Python のパッケージ・プロジェクト管理ツール）のインストール
+#      （公式のインストールスクリプト https://astral.sh/uv/install.sh。~/.local/bin に入る。~/.bashrc などは書き換えさせない）
+#   -  Rust のインストール（公式の rustup https://sh.rustup.rs。stable の default プロファイルを ~/.cargo と ~/.rustup に入れ、
+#      ~/.bashrc に「. "$HOME/.cargo/env"」を追記）。リンクに使う C コンパイラなどは provision-root.sh が入れる
+#      （build-essential・pkg-config・libssl-dev）
 #   3. ~/.claude/settings.json の配置（サンドボックス等の設定。room.conf の allowed_domains を反映）
 #   4. ステータスライン（statusline.sh）を ~/.claude/statusline.sh に配置
 #   5. ~/projects の作成
+#
+# uv と Rust は、Claude Code と違って自動では更新されない（README 6.8）。
 #
 # Claude Code へのログインは対話が必要なので、ここでは行いません（README 参照）。
 # =============================================================================
