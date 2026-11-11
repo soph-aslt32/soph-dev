@@ -317,4 +317,12 @@
     "git.confirmSync": false,
     "github.gitAuthentication": false,
     "git.terminalAuthentication": false,
+    "files.exclude": {
+        "**/.git": false,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.jj": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    }
 }
