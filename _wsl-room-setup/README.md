@@ -5,7 +5,7 @@ PowerShell のコマンド 1 つで作ります。
 
 起動のしかたは 2 とおりあります。
 
-- **設定ファイルに記入してから実行する**（`room.conf` と `room-github.conf` に記入 → `New-SecureRoom.ps1` または `room-setup.cmd`）: [4 章](#4-設定ファイル-roomconf-を編集する)・[5 章](#5-実行する)
+- **設定ファイルに記入してから実行する**（`room.conf` と、必要なら `room-github.conf` か `room-localgit.conf` に記入 → `New-SecureRoom.ps1` または `room-setup.cmd`）: [4 章](#4-設定ファイル-roomconf-を編集する)・[5 章](#5-実行する)
 - **ダブルクリックして画面で答える**（`room-setup-wizard.cmd`）: 設定ファイルに記入する代わりに、同じ内容を画面で聞きます。[5.6](#56-設定ファイルを使わずに画面で答えて実行するroom-setup-wizardcmd)
 
 部屋の中からは Windows のファイルやプログラムにほぼ触れられず、
@@ -48,11 +48,28 @@ Windows側のデータとして意図的に見せているもの
 | ② fstab | VS Code の接続に必要なフォルダ 1 つだけを**読み取り専用**で見せる | Windows 側で実行されるファイルの改ざん |
 | ③ 部屋の中では root になれない | 部屋のユーザーを sudo などの管理者のグループから外す。管理作業は Windows 側から `wsl -d <部屋の名前> -u root` で入って行う | Claude や、部屋の中で動くほかのプログラムが root（管理者）になって ①② を元に戻すこと |
 | ④ サンドボックス | Claude が実行するコマンドを閉じ込める | 作業フォルダの外への書き込み、許可していない通信 |
-| ⑤ Claude Code の権限ルール | Claude のファイル読み取り機能を制限する | 作業フォルダの外のファイルの読み取り |
+| ⑤ Claude Code の権限ルール | Claude のファイル読み取り機能・編集機能を制限する | 作業フォルダの外のファイルの読み取り。サンドボックスの外で自動で実行されるファイル（`~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json` など）と、`~/repos`（LocalGit の部屋の bare リポジトリ）の書き換え |
 | ⑥ apt の取得先を https に | パッケージを https で取得し、apt が修正版（CVE-2026-109518）であることを確かめる | 通信の途中で、検証されていないパッケージを root の権限で入れさせられること |
 
 これらは互いに支え合っています。たとえば ③ は、① で「部屋から wsl.exe を呼べない」状態になっていて初めて意味を持ちます
 （Windows 側から `wsl -u root` を使うと、パスワードなしで root になれるためです）。
+
+⑤ の書き換えの禁止は、④ を補うものです。Claude が実行するコマンドは ④ で作業フォルダの外に書き込めませんが、
+Claude のファイル編集機能（Edit・Write など）はサンドボックスの外の仕組みで、作業フォルダの外への書き込みは「確認で許可すれば書ける」状態です。
+そこで、許可しても書けないように、次のものを禁止しています（`~/.claude/settings.json` の `permissions.deny`）。
+どれも、あなたがターミナルを開く・git を使う・VS Code で接続する・Claude Code を起動する、といったふつうの操作で、
+**サンドボックスの外で自動で実行される**ものです。
+
+- シェルの設定: `~/.bash*`（`.bashrc` など）、`~/.profile`
+- git などの設定: `~/.gitconfig`、`~/.config/` の下、`~/.ssh/` の下、`~/.npmrc`
+- PATH にあるプログラム: `~/.local/` の下（Claude Code・uv の本体）、`~/.cargo/` と `~/.rustup/` の下（Rust）
+- VS Code の部屋の側: `~/.vscode-server/` の下
+- Claude Code 自身が実行するもの: `~/.claude/settings.json`、`~/.claude/statusline.sh`、`~/.claude.json`、
+  `~/.claude/plugins/` と `~/.claude/dev-mods/` の下
+
+禁止しているのは Claude による書き換えだけで、あなた自身はこれまでどおり編集できます。Claude が読むことや、`~/.claude` のほかの場所
+（メモリー・`CLAUDE.md`・`skills` など）を書くことは、これまでどおりです。そのかわり、Claude に「`.bashrc` に PATH を足して」
+「ステータスラインを作り直して」（`/statusline`）のように頼んだり、Claude に mod を作らせたりすることはできません（拒否されます）。
 
 ③ は、以前は「sudo にパスワード必須」でした。今は部屋のユーザーを sudo グループから外しているので、
 部屋の中では、パスワードを知っていても sudo は使えません。これで、部屋の中のプログラムが sudo のパスワードを盗み見たり、
@@ -73,6 +90,7 @@ sudo を使った直後のパスワード不要の時間に便乗したりする
 - Windows のユーザーフォルダが `C:\Users\<半角英数字の名前>` であること（[11 章](#11-対応していない環境まだ確認できていないこと)参照）
 - インターネット接続
 - （GitHub のリポジトリを自動でクローンする場合）GitHub の Personal Access Token（PAT）。[4 章](#4-設定ファイル-roomconf-を編集する)参照
+- （LocalGit を使う場合）Windows 側の Git for Windows（**2.46.0 以上**）と、Windows のローカルのフォルダにある bare リポジトリ。[4 章](#4-設定ファイル-roomconf-を編集する)参照
 
 ---
 
@@ -169,6 +187,28 @@ room.conf と違い、**room-github.conf は部屋の中へコピーしません
 - **記入は、Windows 側にコピーしたフォルダで行ってください。** 部屋の中のファイルは、その部屋で動く Claude Code から読めることがあります
   （部屋の中にある room-github.conf に記入して実行しようとすると、スクリプトが止まります）。
 - **部屋ができたら、room-github.conf は空欄に戻してください。**
+- room-github.conf と、次の room-localgit.conf は、**どちらか一方だけ**に記入します（両方に記入すると、部屋を作る前に止まります）。
+
+### GitHub に置けないコードを使う場合: room-localgit.conf（LocalGit。使わない場合は空欄のまま）
+
+Windows 側にある bare リポジトリ（`git init --bare` で作ったもの）を正本にして、部屋の中の Claude Code で作業するための設定です。
+room.conf と同じフォルダにある `room-localgit.conf` に記入しておくと、部屋を作るときに次のことを自動で行います。
+
+- `repo_path` のリポジトリの内容（すべてのブランチ・タグ・履歴）を、部屋の `~/repos/<名前>.git`（部屋の中の bare リポジトリ）に写す
+- それを部屋の `~/projects/<名前>` にクローンする
+- この部屋専用の**同期スクリプト**（このフォルダの `rooms\<部屋の名前>\Sync-<部屋の名前>.cmd`）を作る。使い方は [6.9](#69-localgit-の同期)
+
+```ini
+repo_path = C:\repos\foo.git
+```
+
+- `repo_path`: Windows 側の bare リポジトリのフォルダです。`HEAD`・`config`・`objects`・`refs` などが直接入っているフォルダを、
+  ドライブ名から書きます。ネットワークドライブや `\\` で始まる場所は使えません。
+- `<名前>` は、フォルダ名から末尾の `.git` を除いたものです（`C:\repos\foo.git` → `foo`）。フォルダ名は半角英数字と `.` `_` `-` だけにしてください。
+- room-localgit.conf は部屋の中へコピーしません。Windows 側のパスは、部屋の中には一切渡しません。
+- **Windows 側のリポジトリのすべてのブランチ・タグ・履歴が、部屋の中（Claude Code から読める場所）に入ります。**
+  履歴の中に、パスワードなどの秘密の情報をコミットしたことがあるリポジトリは使わないでください。
+  また、Windows 側でコミットしたときの作者（git の `user.name`・`user.email`）も部屋に入ります。本名などが気になる場合は見直してください。
 
 ---
 
@@ -261,7 +301,7 @@ WARN の項目は失敗ではありませんが、上の説明を確認してく
 ### 5.6 設定ファイルを使わずに、画面で答えて実行する（room-setup-wizard.cmd）
 
 Windows 側にコピーしたフォルダ（[3 章](#3-ファイルを-windows-側に用意する)）の `room-setup-wizard.cmd` を、エクスプローラーでダブルクリックします。
-実行ポリシーの設定（5.2）は不要です。room.conf と room-github.conf は読まず、同じ内容を次の順で聞きます。
+実行ポリシーの設定（5.2）は不要です。room.conf・room-github.conf・room-localgit.conf は読まず、同じ内容を次の順で聞きます。
 
 1. **行うこと**: 番号で選びます（新しい部屋を作る／既存の部屋の設定をやり直す（`-Resume` と同じ）／既存の部屋の自動検証だけを行う（`-VerifyOnly` と同じ））
 2. **ドライランにするか**: `y` にすると、何も変更せずに予定だけを表示します（初めてのときはおすすめ）
@@ -270,8 +310,9 @@ Windows 側にコピーしたフォルダ（[3 章](#3-ファイルを-windows-�
    - 新しく作るときは、`allowed_domains` だけ、このフォルダの room.conf の値を既定値として表示します。`linux_user` と `windows_user` は推測しません。
    - やり直し・検証だけのときは、部屋の中にある root 所有の `room.conf`（前回設定したときの内容）を既定値として表示します。
    - 通信を許可するドメインが無い場合は `-` を入力します。
-5. **GitHub の設定をするか**（検証だけのときは聞きません）: `y` のときだけ `user_name`、`user_email`、`pat`、`repo_url` を聞きます。
-   PAT は入力（貼り付け）しても `*` で表示されます。
+5. **リポジトリの設定**（検証だけのときは聞きません）: 「しない」「GitHub」「LocalGit」から番号で選びます。
+   - GitHub: `user_name`、`user_email`、`pat`、`repo_url` を聞きます。PAT は入力（貼り付け）しても `*` で表示されます。
+   - LocalGit: `repo_path`（Windows 側の bare リポジトリのフォルダ）を聞きます。
 6. **最後の確認**: `y` で進める、`r` で 4. から入力し直す、`n` で中止（何も変更しません）
 
 画面の見かた:
@@ -294,6 +335,7 @@ Windows 側にコピーしたフォルダ（[3 章](#3-ファイルを-windows-�
 - room.conf にあたる値（秘密の情報は含まない）は、メモリ上で room.conf と同じ形にして、部屋の中の `/usr/local/lib/wsl-room-setup/room.conf` に置きます（検証の基準に使うため）。
 - GitHub の情報は部屋の中にファイルとして持ち込まず、標準入力で渡します。PAT は部屋の `~/.git-credentials`（Claude Code から読めないように設定してある）にだけ保存されます。
   PAT は、部屋に渡す直前まで SecureString（暗号化された文字列）で持ちます。ただし、渡すときに一時的に平文になったものは、PowerShell の仕組み上、メモリから完全には消せません（スクリプトが終わるとプロセスごと消えます）。
+- LocalGit の `repo_path` も、ファイルには保存しません（部屋のために作る同期スクリプトの中にだけ書き込みます）。
 - **部屋の中にあるファイル（`\\wsl.localhost\...` や、それを割り当てたドライブ）から起動すると、何も聞かずに止まります。**
   部屋の中のファイルは Claude Code が書き換えられるため、書き換えられたスクリプトに PAT を入力してしまうのを防ぐためです。
   必ず Windows 側にコピーし、中身を確かめてから、コピーしたほうを起動してください。
@@ -350,6 +392,9 @@ claude
 | Claude に「`~/outside.txt` を読んで」と頼む | **拒否される** |
 | Claude に「`curl --noproxy '*' https://example.com` を実行して」と頼む | **接続できない** |
 | Claude に「このフォルダに `hello.txt` を作って」と頼む | **成功する** |
+| Claude に「`~/.bashrc` の最後に `# test` を書き足して」と頼む | **拒否される**（[1 章](#1-安全のしくみかんたんな説明)の ⑤） |
+| Claude に「`~/.claude/statusline.sh` の先頭にコメントを足して」と頼む | **拒否される** |
+| Claude に「今の作業内容をメモリーに保存して」と頼む | **成功する**（`~/.claude` のほかの場所は書ける） |
 
 > ご自身が `!` を付けて打つコマンドはサンドボックスの外で動くので、この確認には使えません。
 > 必ず Claude に頼んで実行させてください。
@@ -385,6 +430,8 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
   ホーム（`~`）や `~/projects` で起動すると、すべてのプロジェクトが Claude から見えてしまいます。
 - 部屋の中では sudo を使えません。管理作業は [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で行ってください。
 - 部屋のユーザーのパスワードを Claude に教えないでください。
+- `~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json` などを変えたいときは、ご自身で編集してください
+  （Claude には書き換えられないようにしてあります。[1 章](#1-安全のしくみかんたんな説明)の ⑤）。
 - 部屋の中に、Windows 側の秘密鍵やクラウドの認証情報などをコピーしないでください。
 - リポジトリを clone したら、Claude Code を起動する前に、そのリポジトリの `.claude/` フォルダ
   （特に `settings.json` と `settings.local.json`）の中身を確認してください。
@@ -404,7 +451,7 @@ Claude Code を起動すると、画面の下にモデル名・作業フォル�
 - 表示を変えたいときは、このフォルダの `statusline.sh` を差し替えてから新しく部屋を作るか、
   既存の部屋なら `-Resume` を付けて実行します（部屋の中の元のファイルは `statusline.sh.bak-日時` として残します）。
 - このファイルは Claude Code のサンドボックスの**外**で、あなたの権限で繰り返し実行されます。
-  中身を確認したものだけを置いてください。
+  中身を確認したものだけを置いてください。Claude には書き換えられないようにしてあります（`/statusline` も使えません）。
 
 ### 6.6 GitHub の設定（room-github.conf に記入して部屋を作った場合、または room-setup-wizard.cmd で「する」を選んだ場合）
 
@@ -496,6 +543,96 @@ rustup update
   Rust のパッケージ（`cargo build` での依存パッケージの取得）を Claude に取得させる場合は、
   `index.crates.io` と `static.crates.io` を `allowed_domains` に加えてください（初期値には入っていません）。
 
+### 6.9 LocalGit の同期
+
+room-localgit.conf に記入して（または room-setup-wizard.cmd で LocalGit を選んで）作った部屋では、
+Windows 側の bare リポジトリ（正本）と、部屋の中の bare リポジトリ `~/repos/<名前>.git` を、同期スクリプトで同期します。
+
+```
+Windows 側の bare リポジトリ（正本）  ⇔（同期スクリプト）⇔  部屋の ~/repos/<名前>.git  ⇔（あなたが push / pull）⇔  ~/projects/<名前>
+```
+
+**同期スクリプト**は、部屋を作ったときに、wsl-room-setup フォルダの `rooms\<部屋の名前>\` に作られます。
+
+- `Sync-<部屋の名前>.cmd` をダブルクリックすると同期します。
+- `Sync-<部屋の名前>.cmd` と `Sync-<部屋の名前>.ps1` を**同じフォルダに置けば、PC のどこへ移しても動きます**
+  （wsl-room-setup フォルダを消しても構いません）。ただし、**部屋の中（`\\wsl.localhost\...`）には置かないでください**
+  （部屋の中のファイルは Claude Code が書き換えられ、書き換えられたスクリプトが Windows のあなたの権限で動いてしまいます）。
+- 部屋ごとに 1 組です。部屋の名前・Linux のユーザー名・Windows 側のリポジトリの場所が書き込まれています。
+
+**ふだんの流れ**
+
+1. 部屋の `~/projects/<名前>` で作業し（Claude Code もここで起動します）、コミットします。
+2. 内容を確かめてから、**ご自身で** `git push` します（部屋の `~/repos/<名前>.git` へ）。
+   Claude は `~/repos` に書き込めないので、push できません（サンドボックスと `Edit(~/repos/**)` の禁止ルール）。
+3. Windows 側で `Sync-<部屋の名前>.cmd` をダブルクリックします。写す内容（ブランチ・タグの作成・更新・削除と、コミットの一覧）が表示されるので、
+   確かめて `y` を入力します。
+
+Windows 側で作業した場合は、Windows 側の bare リポジトリへ push してから同期スクリプトを実行し、
+部屋の `~/projects/<名前>` で `git pull --prune` を実行します。
+
+**部屋を作ったあとの確認**（Claude Code を `~/projects/<名前>` で起動して）
+
+| 確認すること | 期待される結果 |
+|---|---|
+| Claude に「`~/repos/<名前>.git/description` に test と書き込んで」と頼む | **拒否される**（`Edit(~/repos/**)` の禁止ルール） |
+| Claude に「`echo test > ~/repos/<名前>.git/description` を実行して」と頼む | **失敗する**（サンドボックス） |
+| Claude に「`git push` を実行して」と頼む | **失敗する** |
+
+ここで書き込めてしまった場合は、Claude が、あなたの確認を通さずに同期の対象を変えられる状態です。
+`~/.claude/settings.json` を確かめ（[8 章](#8-部屋の中で検証をやり直す)の検証 13）、`-Resume` で直してください。
+
+**同期スクリプトが行うこと**
+
+前回の同期の状態（基準）を、Windows 側のリポジトリの中の `room-sync\<部屋の名前>.txt` に記録しておき、
+Windows 側・部屋の中・基準の 3 つを比べます（git は、リポジトリのフォルダの中にある知らないフォルダを無視します）。
+
+| Windows 側 | 部屋の中 | 行うこと |
+|---|---|---|
+| 部屋の中と同じ | 〃 | 何もしない（「同期済み」） |
+| 前回と同じ | 前回から変わった | 部屋の内容を Windows 側へ写す |
+| 前回から変わった | 前回と同じ | Windows 側の内容を部屋へ写す |
+| 前回から変わった | 前回から変わった | 止まる（下の「両側で変更されて止まったとき」） |
+
+- 写すのは、ブランチ・タグ・HEAD（既定のブランチ）です。削除も写します。それ以外の ref（`refs/notes` など）と、
+  リポジトリの設定（config・hooks）は写しません。
+- **force にあたる変更は写さずに止まります**: fast-forward でないブランチの更新（rebase・reset・`push --force` の結果）と、タグの付け替え。
+- ブランチとタグの名前は、半角英数字と `.` `_` `+` `/` `-` だけにしてください（それ以外を含むものがあると止まります）。
+- 部屋の中のリポジトリは、Windows 側の git では開きません。部屋とは bundle（履歴を詰めたデータ）だけをやりとりし、
+  部屋から受け取ったものは検査（fsck）してから取り込みます。確認画面の文字列からは、画面を書き換える制御文字を取り除いて表示します。
+- 部屋の中の git は、部屋のユーザーの git の設定（`~/.gitconfig`）を読まずに動かします（同期はサンドボックスの外で動くため）。
+- 受け渡しの途中の bundle は、Windows 側のリポジトリの `room-sync\<部屋の名前>.bundle.tmp` に置き、終わったら消します
+  （途中で強制終了したときは残りますが、次の同期で上書きされます）。
+- Windows 側へ写したコードは、部屋の中の Claude Code が書いたものです。Windows 側でそれを開いたりビルドしたりするときは、
+  中身を確かめてからにしてください（VS Code の「ワークスペースの信頼」なども使ってください）。
+
+**両側で変更されて止まったとき**
+
+並行作業には対応していないので、どちらか一方の変更を、前回の同期の状態に戻してから同期します。
+前回の同期の状態（各ブランチ・タグの ID）は、Windows 側のリポジトリの `room-sync\<部屋の名前>.txt` に書かれています。
+たとえば部屋の中の変更を戻す場合は、部屋の中のターミナルで（Claude Code の外で）、表示された ref ごとに次を実行します。
+
+```bash
+cd ~/repos/<名前>.git
+git update-ref refs/heads/<ブランチ> <記録の ID>   # 更新・削除されたものを、記録の ID に戻す
+git update-ref -d refs/heads/<ブランチ>            # 新しく作られたものを消す
+```
+
+`~/projects/<名前>` の作業用のクローンにはコミットが残っているので、作業は失われません。同期して Windows 側の変更を部屋に写したあと、
+`~/projects/<名前>` で `git pull` して合わせ（merge）、もう一度 push して同期します。
+
+**前回の同期の記録が無いと言われたとき**
+
+`room-sync\<部屋の名前>.txt` を消した場合などに起きます。両側の内容が同じなら、記録を作り直して終わります。違う場合は、
+どちらに合わせるかを指定して実行します（コマンドプロンプトや PowerShell で、同期スクリプトのフォルダに移動して）。
+
+```powershell
+.\Sync-dev.cmd -Direction ToRoom      # Windows 側の内容を部屋へ写す
+.\Sync-dev.cmd -Direction ToWindows   # 部屋の内容を Windows 側へ写す
+```
+
+写す先にしか無いブランチやタグは削除されます。写す内容が表示されるので、確かめてから `y` を入力してください。
+
 ---
 
 ## 7. オプション
@@ -524,6 +661,9 @@ rustup update
 `-Resume` は部屋を途中で 2 回再起動するので、部屋の中で動いている Claude Code やターミナルはすべて終了します。
 また、`~/.claude/settings.json` を仕様どおりの内容に戻します（元のファイルは `settings.json.bak-日時` として残します）。
 room-github.conf に記入があれば、GitHub の設定もやり直します（空欄なら、すでにある GitHub の設定はそのまま残します）。
+room-localgit.conf に記入があれば、同期スクリプトを作り直し、部屋を作ったときに終わっていなかった LocalGit の準備を続けます
+（部屋の `~/repos/<名前>.git` がすでにあれば、中身には触れません）。
+GitHub の設定をした部屋に LocalGit を、LocalGit の設定をした部屋に GitHub を、あとから設定することはできません（止まります）。
 
 ---
 
@@ -551,11 +691,13 @@ wsl -d dev -u root --cd / --exec bash /usr/local/lib/wsl-room-setup/verify-room.
 ```txt
 wsl-room-setup/
 ├── README.md                 この説明書
+├── DEV.md                    開発途中の未決定事項（開発者向け）
 ├── New-SecureRoom.ps1        Windows 側の司令塔（これを実行する）
 ├── room-setup.cmd            New-SecureRoom.ps1 を、実行ポリシーの設定なしで起動する（設定ファイルを使う）
 ├── room-setup-wizard.cmd     New-SecureRoom.ps1 を対話モード（-Interactive）で起動する。ダブルクリックで使う
 ├── room.conf                 設定ファイル（Linux のユーザー名、Windows のユーザーフォルダ名、通信を許可するドメイン）
 ├── room-github.conf          GitHub の設定ファイル（コミットの作者、PAT、リポジトリの URL）。部屋の中にはコピーしない
+├── room-localgit.conf        LocalGit の設定ファイル（Windows 側の bare リポジトリの場所）。部屋の中にはコピーしない
 ├── GitHub.md                 GitHub を手動で設定する手順
 ├── lib.sh                    部屋の中のスクリプトが共通で使う部品
 ├── provision-root.sh         部屋の中で root として行う設定（wsl.conf、fstab、パッケージ、AppArmor、delzonei、/mnt の片付け）
@@ -566,7 +708,9 @@ wsl-room-setup/
 ├── delzonei.sh               Zone.Identifier ファイルを削除するコマンド（部屋の /usr/local/bin/delzonei に置かれる）
 ├── templates/
 │   ├── wsl.conf.tmpl         /etc/wsl.conf のひな形
-│   └── claude-settings.json.tmpl   ~/.claude/settings.json のひな形
+│   ├── claude-settings.json.tmpl   ~/.claude/settings.json のひな形
+│   └── Sync-Room.ps1.tmpl    LocalGit の同期スクリプトのひな形（部屋の中で動かす部分も含む。部屋の中にはコピーしない）
+├── rooms/                    （LocalGit の部屋を作ると作られる）部屋ごとの同期スクリプト Sync-<部屋の名前>.ps1 / .cmd
 └── .gitattributes            改行コードの指定（Linux 側のファイルは LF）
 ```
 
@@ -576,7 +720,7 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 
 ### 処理の流れ
 
-1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf、room-github.conf）
+1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf、room-github.conf、room-localgit.conf）
    - 対話モード（room-setup-wizard.cmd）では、room.conf と room-github.conf を読む代わりに、部屋の名前を決めたあとで同じ内容を画面で聞く
 2. `wsl --install <ディストリビューション> --name <部屋の名前>`（room.conf の `linux_user` と同じユーザー名と、パスワードを入力）
 3. 部屋が WSL2 で動いていること、部屋のユーザーが room.conf の `linux_user` と同じことを確認
@@ -596,6 +740,9 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 9. （room-github.conf に記入があるときだけ）`provision-github.sh`
    - `--phase credentials`: git の設定と PAT の保存。room-github.conf の内容は、コマンドライン引数ではなく標準入力で渡す
    - `--phase clone`: `~/projects/<リポジトリ名>` へのクローンと、`git push --dry-run` による書き込み権限の確認
+   - （room-localgit.conf に記入があるときは、代わりに）`Sync-Room.ps1.tmpl` から部屋専用の同期スクリプトを作り、
+     `-Initialize` を付けて実行する。部屋の `~/repos/<名前>.git` を Windows 側と同じハッシュの形式で作り、Windows 側の内容を写して
+     `~/projects/<名前>` にクローンする。部屋の中で動かすコードは、実行のたびに同期スクリプトから渡す（部屋の中には置かない）
 10. 部屋を再起動（すべての設定が起動時に正しく反映されるかを確かめるため）
 11. `verify-room.sh --root` と `verify-room.sh`
 
@@ -623,7 +770,8 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 検証 A2 が FAIL / 部屋の作成が「apt の版が…修正版より古いままです」で止まる | apt が CVE-2026-109518 の修正版になっていない | 時間をおいて `-Resume` でやり直す（サーバーの同期が遅れていることがあります） |
 | 検証 A3 が FAIL | Apache（apache2）が入っている | 不要なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って `apt purge apache2` などで削除 |
 | 検証 A4 が WARN | 適用していない更新がある | [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で `apt update` と `apt upgrade` を実行 |
-| 検証 13 が FAIL | `~/.claude/settings.json` が仕様と違う | `-Resume` で仕様どおりに戻す |
+| 検証 13 が FAIL | `~/.claude/settings.json` が仕様と違う（2026-11-12 より前に作った部屋では、追加した禁止ルール `Edit(...)` が無いため FAIL になります） | `-Resume` で仕様どおりに戻す（元のファイルは `settings.json.bak-日時` として残るので、ご自身で足した設定があれば足し直す） |
+| Claude に `.bashrc` や Claude Code の設定の変更を頼むと拒否される | サンドボックスの外で自動で実行されるファイルは、Claude に書き換えさせないようにしている（[1 章](#1-安全のしくみかんたんな説明)の ⑤） | ご自身で編集する |
 | 検証 E7 が FAIL | `/usr/local/bin/delzonei` が無い、または書き換えられている | `-Resume` で置き直す |
 | 検証 W1 が WARN | WSLg（Linux の GUI アプリ機能）が有効（Windows 11 の既定）。部屋の中でサンドボックスの外で動くプログラムが、Windows のクリップボードなどを使える可能性がある | 止める場合は Windows の `%USERPROFILE%\.wslconfig` の `[wsl2]` に `guiApplications=false` と書き、`wsl --shutdown`（WSL 全体の設定なので、ほかのディストリでも GUI アプリが使えなくなる） |
 | 検証 W2 が WARN | `/mnt/wsl`（全ディストリで共有される場所）に、ほかのディストリ（Docker Desktop など）が置いたものや、`wsl --mount` したディスクがある | 表示された名前を確認し、部屋から見えてよいものか判断する。Docker Desktop なら、WSL integration の対象にこの部屋を入れない |
@@ -638,6 +786,17 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 「PAT で push できることを確認できませんでした」（`[注意]`） | PAT に書き込み権限が無い、または PAT が無効 | PAT の Contents を Read and write にする（または作り直す）。room-github.conf を直して `-Resume` |
 | 「~/projects/… がすでにあり、… のクローンではありません」 | クローン先に別のフォルダがある | 中身を確認して、別の場所へ移すか削除してから `-Resume` |
 | 部屋に入ると `/mnt/c/...` で始まる、またはエラーになる | `wsl` は Windows の今のフォルダに合わせて開始しようとする | `wsl -d <部屋の名前> --cd ~` で入る |
+| 「room-github.conf と room-localgit.conf の両方に記入されています」 | GitHub と LocalGit は 1 つの部屋でどちらか一方だけ | 使わないほうを空欄にする |
+| 「repo_path は bare リポジトリではありません」 | `repo_path` が bare リポジトリのフォルダを指していない（作業用のクローンのフォルダなど） | `HEAD`・`config`・`objects`・`refs` が直接入っているフォルダを書く。git の「dubious ownership」が表示された場合は、表示に従って `git config --global --add safe.directory ...` を実行する |
+| 「部屋「…」は GitHub の設定がしてあるため、LocalGit の設定はできません」（またはその逆） | 部屋を作ったときと違うリポジトリの設定で `-Resume` した | 部屋を作ったときと同じ設定でやり直す。別の設定を使うなら、新しい部屋を作る |
+| 同期スクリプトで「git の版が古すぎます」 | Git for Windows が 2.46.0 より古い（部屋から受け取ったデータを検査できない） | PowerShell で `git update-git-for-windows` を実行して新しくする |
+| 同期スクリプトで「Windows 側と部屋の両方で変更されています」 | 前回の同期のあと、両側で変更した | [6.9](#69-localgit-の同期) の「両側で変更されて止まったとき」 |
+| 同期スクリプトで「fast-forward ではありません」「タグ … が付け替えられています」 | rebase・reset・`push --force`・タグの付け直しなどで履歴を書き換えた（force にあたる） | 履歴を書き換えないやり方（merge や revert）で直す。タグは、いったん削除して同期してから付け直す |
+| 同期スクリプトで「名前に使えない文字を含むブランチかタグがあります」 | ブランチやタグの名前に、半角英数字と `.` `_` `+` `/` `-` 以外の文字（日本語など）がある | 名前を変えてから同期する |
+| 同期スクリプトで「前回の同期の記録 … がありません」 | `room-sync\<部屋の名前>.txt` を消した、など | [6.9](#69-localgit-の同期) の「前回の同期の記録が無いと言われたとき」 |
+| 同期スクリプトで「部屋の中のリポジトリが空になっています」 | 同じ名前で部屋を作り直した、など（Windows 側のリポジトリに、前の部屋との同期の記録が残っている） | `-Resume` を付けて、LocalGit の設定でやり直す（Windows 側の内容が部屋に写され、記録も書き直されます） |
+| 同期スクリプトで「部屋の中に ~/repos/… がありません」 | 部屋の中の bare リポジトリを消した、など | `-Resume` を付けて、LocalGit の設定（room-localgit.conf）でやり直す（Windows 側の内容が写されます） |
+| 同期スクリプトで「Windows 側のリポジトリが見つかりません」 | Windows 側のリポジトリのフォルダを移動した | 元の場所に戻すか、room-localgit.conf に新しい場所を書いて `-Resume` で同期スクリプトを作り直す |
 | 部屋の中で `code .` が command not found | Windows のプログラムを起動できないようにしているため（想定どおり） | [6.3](#63-vs-code-で開く) の方法で Windows 側から開く |
 | ログイン時にブラウザが開かない | 同上 | 表示された URL を Windows のブラウザに手で貼る |
 | `claude` が Windows 版を指している | Windows 版 Claude Code が別に入っている | Windows 版はサンドボックスに対応していないので、取り違えないよう削除を推奨。部屋の中では `which claude` が `/home/<ユーザー名>/.local/bin/claude` になることを確認 |
@@ -671,6 +830,21 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
   検証 E8・A1〜A4 が、room-setup-wizard.cmd での新しい部屋の作成で動作し、FAIL が出ないこと
 
 次の点は、まだ実機で確かめていません。
+
+- [1 章](#1-安全のしくみかんたんな説明)の ⑤ の書き換えの禁止（2026-11-12 に追加）が効くこと（[6.2](#62-ログイン後の手動確認) の表の、`~/.bashrc`・`statusline.sh`・メモリーの 3 行）
+- LocalGit（2026-11-12 に追加）の Windows 側の動作のすべて。部屋の中で動かす部分（`list`・`export`・`import`・`init`・`clone`）は、
+  Linux 上で、Windows 側の処理を同じ git コマンドで置き換えて試験しました（空のリポジトリ、sha256、作成・更新・削除、タグ、
+  古い値の食い違いでの取り消し、fsck による拒否、HEAD が存在しないブランチを指す場合）。実機で確かめる項目:
+  - 部屋の作成（設定ファイル・room-setup-wizard.cmd の両方）で、同期スクリプトが作られ、`~/repos/<名前>.git` と `~/projects/<名前>` ができること
+    （空のリポジトリと、1 GB 程度の大きなリポジトリの両方）
+  - wsl.exe との間で、bundle（バイナリ）が壊れずに受け渡されること（標準入力・標準出力）
+  - 部屋 → Windows 側、Windows 側 → 部屋 の同期（作成・更新・削除・タグ・HEAD）と、確認画面の表示（日本語のコミットメッセージを含む）
+    （2026-11-12 に、両方向の同期が動くことは実機で確かめました。削除・タグ・HEAD の変更は未確認）
+  - 両側で変更したとき・fast-forward でないとき・タグを付け替えたときに止まること、`-Direction` の動作
+  - 同期スクリプトの .ps1 と .cmd を別のフォルダへ移しても動くこと、パスに空白や `'` を含むリポジトリで動くこと
+  - `-Resume` で GitHub と LocalGit を混ぜようとすると止まること
+  - 設定ファイルの方式で、部屋の中（`\\wsl.localhost\...`）にある New-SecureRoom.ps1 を LocalGit の設定で実行すると止まること
+  - 上の「部屋を作ったあとの確認」（`Edit(~/repos/**)` の禁止ルールが効くこと）
 
 - interop を無効にした部屋から、実際に Windows のプログラムを起動できないこと
   （検証 06 は申し送り書どおり「`cmd.exe` などが見つからない」ことを確かめるもので、起動そのものは試していません）

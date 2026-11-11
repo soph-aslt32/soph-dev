@@ -296,6 +296,21 @@ check_13() {
     # want 'permissions.blockReadsOutsideWorkingDirectories が true' '.permissions.blockReadsOutsideWorkingDirectories == true'
     want 'permissions.deny に "Read(//mnt/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(//mnt/**)")'
     want 'permissions.deny に "Read(~/.git-credentials)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.git-credentials)")'
+    # Claude のファイル編集機能（Edit・Write など）で書き換えさせないもの。どれも、サンドボックスの外で
+    # 自動で実行されるか（シェルの起動、git、VS Code、Claude Code 自身）、LocalGit の部屋の bare リポジトリ（~/repos）。
+    # templates/claude-settings.json.tmpl の permissions.deny と同じ一覧（変えるときは両方）
+    local rule
+    for rule in 'Edit(~/repos/**)' \
+        'Edit(~/.bash*)' 'Edit(~/.profile)' 'Edit(~/.gitconfig)' 'Edit(~/.config/**)' \
+        'Edit(~/.local/**)' 'Edit(~/.cargo/**)' 'Edit(~/.rustup/**)' 'Edit(~/.vscode-server/**)' \
+        'Edit(~/.ssh/**)' 'Edit(~/.npmrc)' \
+        'Edit(~/.claude/settings.json)' 'Edit(~/.claude/statusline.sh)' 'Edit(~/.claude.json)' \
+        'Edit(~/.claude/plugins/**)' 'Edit(~/.claude/dev-mods/**)'; do
+        if ! jq -e --arg r "$rule" '(.permissions.deny // []) | any(.[]; . == $r)' "$f" > /dev/null 2>&1; then
+            detail "NG: permissions.deny に \"$rule\" がない"
+            bad=1
+        fi
+    done
     want 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
     want 'sandbox.credentials.files で ~/.ssh が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.ssh" and .mode == "deny")'
     want 'sandbox.credentials.files で ~/.aws が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.aws" and .mode == "deny")'

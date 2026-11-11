@@ -10,12 +10,17 @@
       2. ディストリビューション名と部屋の名前の質問
       3. wsl --install による部屋の作成（room.conf の linux_user と同じユーザー名と、パスワードをご自身で入力します）
       4. 部屋の中での設定（root 用の設定 → 再起動 → マウント設定 → 一般ユーザー用の設定
-         → GitHub の設定とクローン（room-github.conf に記入があるときだけ） → 再起動）
+         → リポジトリの設定（room-github.conf か room-localgit.conf に記入があるときだけ） → 再起動）
       5. 自動検証（verify-room.sh）
 
     room-github.conf（room.conf と同じフォルダ）は、room.conf と違い部屋の中へコピーしません。
     中身（特に PAT）は、このスクリプトが確認したうえで標準入力で部屋に渡し、PAT は部屋の
     ~/.git-credentials（Claude Code からは読めないように設定してある）にだけ保存します。
+
+    room-localgit.conf（room.conf と同じフォルダ）に Windows 側の bare リポジトリを書くと、その内容を部屋の
+    ~/repos/<名前>.git に写して ~/projects/<名前> にクローンし、この部屋専用の同期スクリプト
+    （このフォルダの rooms\<部屋の名前>\Sync-<部屋の名前>.cmd）を作ります（LocalGit モード）。
+    room-github.conf と room-localgit.conf は、どちらか一方だけに記入します。
 
     部屋をすでに作ってある場合は -Resume（設定のやり直し）や -VerifyOnly（検証だけ）を使います。
     このスクリプトが部屋を削除すること（wsl --unregister）はありません。
@@ -117,10 +122,15 @@ $script:ReGitHubPat         = '^[A-Za-z0-9_]{20,255}$'
 # リポジトリの URL。末尾の .git と / は省略可（https://github.com/OWNER/REPOSITORY.git の形にそろえて使う）
 $script:ReGitHubRepoUrl     = '^https://(?i:github\.com)/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\.git)?/?$'
 
+# LocalGit モード: 同期スクリプトのひな形と、部屋の中で使う名前（Windows 側の bare リポジトリのフォルダ名から決める）
+$script:SyncTemplate = 'templates/Sync-Room.ps1.tmpl'
+$script:ReRepoName  = '^[A-Za-z0-9._-]+$'   # GitHub モードのリポジトリ名と同じ規則（ReGitHubRepoUrl）
+
 $script:LastWslExit = 0
 $script:Conf = $null     # room.conf の内容（対話モードでは入力した内容）
 $script:ConfBytes = $null   # 部屋の中へコピーする room.conf の中身（読んだ・組み立てたバイト列そのもの）
 $script:GitHub = $null   # room-github.conf の内容（記入が無ければ $null。対話モードでは入力した内容）
+$script:LocalGit = $null # room-localgit.conf の内容（RepoPath・RepoName。記入が無ければ $null）。GitHub とはどちらか一方だけ
 
 # 対話モードの入口と、メニューの項目（やり直しの案内でも同じ名前を使う）
 $script:WizardCmd = 'room-setup-wizard.cmd'
@@ -381,6 +391,11 @@ function Test-PayloadFiles {
             Stop-Setup "$rel の改行コードが CRLF（Windows 形式）になっています。" @('Linux 側で使うファイルは改行コードが LF でなければなりません。README の「トラブルシューティング」を参照してください。')
         }
     }
+    # LocalGit モードの同期スクリプトのひな形（部屋の中へはコピーしない）
+    $tmpl = Get-LocalPayloadPath $script:SyncTemplate
+    if (-not (Test-Path -LiteralPath $tmpl -PathType Leaf)) {
+        Stop-Setup "必要なファイルが見つかりません: $tmpl" @('wsl-room-setup フォルダの中身を、すべてそろえてから実行してください。')
+    }
 }
 
 # ----- room.conf の各項目のチェック（規則は lib.sh の load_room_conf と同じ。変えるときは両方） -----
@@ -631,6 +646,70 @@ function Read-GitHubConf {
     if ($null -ne $repo.Error) { Stop-Setup "$name の $($lineOf['repo_url']) 行目: $($repo.Error.Message)" $repo.Error.Hint }
     return (New-GitHubSettings -UserName $values['user_name'] -UserEmail $values['user_email'] -Pat $values['pat'] -Repo $repo)
 }
+
+# ----- room-localgit.conf（LocalGit モード） -----
+
+# repo_path（Windows 側の bare リポジトリのフォルダ）を確かめて、RepoPath・RepoName（部屋の中で使う名前）・Error を返す
+function ConvertFrom-LocalGitRepoPath([string]$Value) {
+    $path = $Value.TrimEnd('\')
+    $name = ''
+    $err = $null
+    $isNetwork = $false
+    if ($path -match '^[A-Za-z]:\\') {
+        try { $isNetwork = ((New-Object System.IO.DriveInfo $path.Substring(0, 2)).DriveType -eq [System.IO.DriveType]::Network) } catch { $isNetwork = $false }
+    }
+    if ($path -notmatch '^[A-Za-z]:\\.') {
+        $err = New-InputError "repo_path が正しくありません: $Value" @('C:\repos\foo.git のように、ドライブ名から始まるフォルダのパスで書いてください（\\ で始まる場所は使えません）。')
+    } elseif ($isNetwork) {
+        $err = New-InputError "repo_path がネットワークドライブにあります: $Value" @('Windows のローカルのフォルダにある bare リポジトリを指定してください。')
+    } elseif (-not (Test-Path -LiteralPath $path -PathType Container)) {
+        $err = New-InputError "repo_path のフォルダが見つかりません: $Value"
+    } elseif (-not (Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue)) {
+        $err = New-InputError 'git が見つかりません（LocalGit には Windows 側の git が必要です）。' @('Git for Windows（https://git-scm.com/）をインストールしてから、もう一度実行してください。')
+    } else {
+        $ErrorActionPreference = 'Continue'
+        $out = & git.exe "--git-dir=$path" rev-parse --is-bare-repository
+        if ($LASTEXITCODE -ne 0 -or "$out".Trim() -ne 'true') {
+            $err = New-InputError "repo_path は bare リポジトリではありません: $Value" @(
+                'HEAD・config・objects・refs などが直接入っているフォルダ（git init --bare で作ったもの）を指定してください。')
+        } else {
+            $name = (Split-Path -Leaf $path) -replace '(?i)\.git$', ''
+            if ($name -cnotmatch $script:ReRepoName -or $name -eq '.' -or $name -eq '..') {
+                $err = New-InputError "repo_path のフォルダ名「$(Split-Path -Leaf $path)」は使えません。" @(
+                    '部屋の ~/repos/<名前>.git と ~/projects/<名前> に、フォルダ名（末尾の .git を除く）を使います。',
+                    'フォルダ名は、半角英数字と . _ - だけにしてください。')
+            }
+        }
+    }
+    return [pscustomobject]@{ RepoPath = $path; RepoName = $name; Error = $err }
+}
+
+# room-localgit.conf を読んで内容を確認する。ファイルが無い、または repo_path が空欄なら $null を返す（LocalGit の設定をしない）。
+function Read-LocalGitConf {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    $name = Split-Path -Leaf $Path
+    $value = ''
+    $at = 0
+    $lineNo = 0
+    foreach ($raw in ((Read-ConfFileUtf8 $Path).Text -split "`r?`n")) {
+        $lineNo++
+        $line = $raw.Trim()
+        if ($line -eq '' -or $line.StartsWith('#')) { continue }
+        if ($line -cnotmatch '^([a-z_]+)\s*=(.*)$') {
+            Stop-Setup "$name の $lineNo 行目の書き方が正しくありません: $line" @('「名前 = 値」の形で書いてください。')
+        }
+        if ($Matches[1] -cne 'repo_path') { Stop-Setup "$name の $lineNo 行目: 知らない項目名です: $($Matches[1])" @('使える項目は repo_path だけです。') }
+        if ($at -ne 0) { Stop-Setup "$name の $lineNo 行目: repo_path が 2 回書かれています。" }
+        $at = $lineNo
+        $value = $Matches[2].Trim()
+        if ($value.Length -ge 2 -and $value.StartsWith('"') -and $value.EndsWith('"')) { $value = $value.Substring(1, $value.Length - 2) }
+    }
+    if ($value -eq '') { return $null }
+    $repo = ConvertFrom-LocalGitRepoPath $value
+    if ($null -ne $repo.Error) { Stop-Setup "$name の $at 行目: $($repo.Error.Message)" $repo.Error.Hint }
+    return $repo
+}
 # =============================================================================
 # 部屋の名前など
 # =============================================================================
@@ -764,17 +843,23 @@ function Show-Summary([bool]$Creating) {
     if ($script:Conf.AllowedDomains.Count -gt 0) { $domains = $script:Conf.AllowedDomains -join ', ' } else { $domains = '（なし）' }
     Write-Info "通信を許可するドメイン : $domains"
     if (-not $VerifyOnly) {
-        $ghName = Split-Path -Leaf $script:GitHubConfigFile
         if ($null -ne $script:GitHub) {
             if ($Interactive) { $src = 'この画面で入力。PAT は入力済み（表示しません）' } else { $src = $script:GitHubConfigFile }
             Write-Info "GitHub の設定          : する（$src）"
             Write-Info "クローンするリポジトリ : $($script:GitHub.RepoUrl) → ~/projects/$($script:GitHub.RepoName)"
             Write-Info "コミットの作者         : $($script:GitHub.UserName) <$($script:GitHub.UserEmail)>"
+        } elseif ($null -ne $script:LocalGit) {
+            if ($Interactive) { $src = 'この画面で入力' } else { $src = $script:LocalGitConfigFile }
+            $lg = $script:LocalGit
+            Write-Info "LocalGit の設定        : する（$src）"
+            Write-Info "同期するリポジトリ     : $($lg.RepoPath) ⇔ 部屋の ~/repos/$($lg.RepoName).git（作業用のクローン: ~/projects/$($lg.RepoName)）"
+            Write-Info "同期スクリプト         : $(Get-SyncScriptDir)\Sync-$($script:Room).cmd"
         } else {
-            if ($Interactive) { $why = '「しない」を選んだ' }
-            elseif (Test-Path -LiteralPath $script:GitHubConfigFile -PathType Leaf) { $why = "$ghName が空欄" } else { $why = "$ghName が無い" }
-            if ($Resume) { $why += '。すでにある GitHub の設定はそのまま' }
-            Write-Info "GitHub の設定          : しない（$why）"
+            $ghName = Split-Path -Leaf $script:GitHubConfigFile
+            $lgName = Split-Path -Leaf $script:LocalGitConfigFile
+            if ($Interactive) { $why = '「しない」を選んだ' } else { $why = "$ghName と $lgName に記入が無い" }
+            if ($Resume) { $why += '。すでにある設定はそのまま' }
+            Write-Info "リポジトリの設定       : しない（$why）"
         }
     }
     if ($Interactive) { Write-Info '設定の入力元           : この画面で入力（ファイルには保存しません）' }
@@ -961,6 +1046,85 @@ function Invoke-GitHubSetup {
         -What "リポジトリのクローン（$user）: $($gh.RepoUrl) → ~/projects/$($gh.RepoName)"
 }
 
+# -Resume のとき、GitHub モードと LocalGit モードが 1 つの部屋に混ざらないようにする。
+# 部屋に記録は残さず、今の状態（~/.git-credentials・~/repos があるかどうか。中身は読まない）で判断する。
+function Test-RepoModeConflict {
+    if (-not $Resume) { return }
+    if ($null -ne $script:LocalGit) { $mine = 'LocalGit'; $path = '.git-credentials'; $other = 'GitHub' }
+    elseif ($null -ne $script:GitHub) { $mine = 'GitHub'; $path = 'repos'; $other = 'LocalGit' }
+    else { return }
+    $null = Invoke-WslCapture @('-d', $script:Room, '-u', $script:LinuxUser, '--cd', '~', '--exec', 'test', '-e', $path)
+    if ($script:LastWslExit -eq 0) {
+        Stop-Setup "部屋「$($script:Room)」は $other の設定がしてあるため、$mine の設定はできません（~/$path があります）。" @(
+            'GitHub と LocalGit は、1 つの部屋でどちらか一方だけを使えます。',
+            "$mine を使う場合は、新しい部屋を作ってください。")
+    }
+}
+
+# LocalGit モードの同期スクリプトを置くフォルダ（このフォルダの rooms\<部屋の名前>）
+function Get-SyncScriptDir { return (Join-Path (Join-Path $script:ScriptRoot 'rooms') $script:Room) }
+
+# ひな形から、この部屋専用の同期スクリプト（.ps1）と、それをダブルクリックで起動する .cmd を作る。.ps1 のパスを返す。
+function New-SyncScript {
+    $lg = $script:LocalGit
+    $values = [ordered]@{
+        '__ROOM_NAME__'    = $script:Room
+        '__LINUX_USER__'   = $script:LinuxUser
+        '__REPO_PATH__'    = $lg.RepoPath
+        '__REPO_NAME__'    = $lg.RepoName
+        '__GENERATED_AT__' = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+    }
+    $text = [System.IO.File]::ReadAllText((Get-LocalPayloadPath $script:SyncTemplate), (New-Object System.Text.UTF8Encoding($false)))
+    # 値はひな形の中で '...'（単一引用符の文字列）に入るので、' は '' にする
+    foreach ($k in $values.Keys) { $text = $text.Replace($k, $values[$k].Replace("'", "''")) }
+
+    $dir = Get-SyncScriptDir
+    $null = New-Item -ItemType Directory -Path $dir -Force
+    $name = "Sync-$($script:Room)"
+    $ps1 = Join-Path $dir "$name.ps1"
+    # Windows PowerShell 5.1 が日本語を正しく読めるよう、BOM 付きの UTF-8 で書く
+    [System.IO.File]::WriteAllText($ps1, $text, (New-Object System.Text.UTF8Encoding($true)))
+    # cmd.exe はバッチファイルをコンソールのコードページで読むので、.cmd は ASCII の文字だけ・改行は CRLF にする
+    $cmd = @(
+        '@echo off',
+        "rem $name.cmd - runs $name.ps1 in this folder (LocalGit sync for the WSL room `"$($script:Room)`").",
+        "rem Keep $name.cmd and $name.ps1 together in the same folder; the folder itself can be anywhere.",
+        'rem Generated by New-SecureRoom.ps1 (wsl-room-setup). Arguments are passed to the .ps1 as they are.',
+        'setlocal',
+        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%~dp0$name.ps1`" %*",
+        'set "RC=%ERRORLEVEL%"',
+        'echo.',
+        'rem Keep the window open when started by double-click.',
+        'pause',
+        'exit /b %RC%') -join "`r`n"
+    [System.IO.File]::WriteAllText((Join-Path $dir "$name.cmd"), "$cmd`r`n", [System.Text.Encoding]::ASCII)
+    return $ps1
+}
+
+# room-localgit.conf に記入があるとき（対話モードでは LocalGit を選んだとき）だけ、同期スクリプトを作り、
+# それを -Initialize 付きで実行して、部屋の ~/repos/<名前>.git と ~/projects/<名前> を用意する。
+# Windows 側と部屋の間のやりとりは、すべて同期スクリプトが行う（ここでは同じことを二重に書かない）。
+function Invoke-LocalGitSetup {
+    $lg = $script:LocalGit
+    if ($null -eq $lg) { return }
+    $what = "LocalGit の設定: 同期スクリプトの作成と、部屋の ~/repos/$($lg.RepoName).git・~/projects/$($lg.RepoName) の準備"
+    Write-Step $what
+    if ($DryRun) {
+        Write-DryRun "$(Get-SyncScriptDir)\Sync-$($script:Room).ps1 と .cmd を作り、-Initialize を付けて実行する"
+        return
+    }
+    $ps1 = New-SyncScript
+    Write-Ok "同期スクリプトを作りました: $ps1"
+    $p = Start-Process -FilePath 'powershell.exe' -NoNewWindow -PassThru -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$ps1`"", '-Initialize')
+    $null = $p.Handle   # これを先に取っておかないと、終了コードが取れないことがある
+    $p.WaitForExit()
+    if ($p.ExitCode -ne 0) {
+        Stop-Setup "「$what」に失敗しました（終了コード $($p.ExitCode)）。" (@('上に表示されたメッセージを確認してください。') +
+            (Get-RerunHint '原因を取り除いたら、{0}続きからやり直せます（部屋は消えません）:' 'Resume'))
+    }
+}
+
 # 部屋を停止して起動し直す（wsl.conf の変更は、これをしないと反映されない）
 function Restart-Room {
     Write-Step "部屋「$($script:Room)」を再起動します（設定を反映させるため）"
@@ -1024,6 +1188,17 @@ function Show-NextSteps {
             Write-Note "$(Split-Path -Leaf $script:GitHubConfigFile) の PAT などは、もう不要です。空欄に戻してください（$($script:GitHubConfigFile)）。"
         }
     }
+    if ($null -ne $script:LocalGit) {
+        $repo = $script:LocalGit.RepoName
+        $dir = Get-SyncScriptDir
+        Write-Info "4. Windows 側のリポジトリ（$($script:LocalGit.RepoPath)）の内容を部屋の ~/repos/$repo.git に写し、"
+        Write-Info "   ~/projects/$repo にクローンしてあります。VS Code で開くときは:"
+        Write-Info "     code --remote wsl+$room /home/$user/projects/$repo"
+        Write-Info "   同期するときは、次のファイルをダブルクリックします:"
+        Write-Info "     $dir\Sync-$room.cmd"
+        Write-Info "   Sync-$room.cmd と Sync-$room.ps1 を同じフォルダに置けば、PC のどこへ移しても動きます。"
+        Write-Info '   使い方は README の「LocalGit の同期」（6.9）を読んでください。'
+    }
 }
 
 # =============================================================================
@@ -1035,13 +1210,14 @@ function Show-NextSteps {
 
 # このスクリプトが WSL の部屋の中にあるときは停止する。部屋の中のファイルは部屋の中のプログラム（Claude Code を含む）が
 # 書き換えられるため、書き換えられたスクリプトに PAT を入力したり、Windows の権限で実行したりしてしまうおそれがある。
-function Test-WizardLocation {
+# $Why には、止める理由（対話モードでは PAT の入力、LocalGit では同期スクリプトの作成）を渡す。
+function Test-ScriptLocation([string]$Why) {
     # 「Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...」の形で渡されることがあるので、前置きを外して調べる
     $root = $script:ScriptRoot -replace '^Microsoft\.PowerShell\.Core\\FileSystem::', ''
     $hint = @(
         '部屋の中のファイルは、部屋の中のプログラム（Claude Code を含む）が書き換えられます。',
-        '書き換えられたスクリプトに PAT などを入力してしまわないよう、対話モードは部屋の中にあるファイルからは起動できません。',
-        "wsl-room-setup フォルダを Windows 側の自分のフォルダにコピーし、中身を確かめてから、コピーしたほうの $($script:WizardCmd) を起動してください（README の 3 章）。")
+        $Why,
+        'wsl-room-setup フォルダを Windows 側の自分のフォルダにコピーし、中身を確かめてから、コピーしたほうから起動してください（README の 3 章）。')
     if (Test-PathInsideWsl $root) { Stop-Setup "このスクリプトは WSL の部屋の中にあります: $root" $hint }
     # \\wsl.localhost\... をドライブ文字に割り当てて開いた場合も止める
     if ($root -match '^([A-Za-z]):') {
@@ -1067,9 +1243,9 @@ function Start-Wizard {
         Stop-Setup '-Interactive と、-ConfigPath・-GitHubConfigPath は同時に指定できません。' @(
             '対話モードでは設定ファイルを使わず、必要な値をこの画面で入力します。')
     }
-    Test-WizardLocation
+    Test-ScriptLocation '書き換えられたスクリプトに PAT などを入力してしまわないよう、対話モードは部屋の中にあるファイルからは起動できません。'
     Write-Host ''
-    Write-Info '設定ファイル（room.conf・room-github.conf）の代わりに、必要な値をこの画面で順に聞きます。'
+    Write-Info '設定ファイル（room.conf・room-github.conf・room-localgit.conf）の代わりに、必要な値をこの画面で順に聞きます。'
     Write-Info '入力した値は、ファイルには保存しません。'
     Write-Info '途中でやめるときは Ctrl+C を押してください（最後の確認で y を入力するまでは、何も変更しません）。'
     if (-not ($Resume -or $VerifyOnly)) {
@@ -1210,19 +1386,45 @@ function Read-WizardPat([System.Security.SecureString]$Previous) {
     }
 }
 
-# GitHub の設定をするかを聞き、する場合は room-github.conf にあたる値を聞いて $script:GitHub を決める
-function Read-WizardGitHub {
-    Write-Step 'GitHub の設定を決めます（room-github.conf に書く内容と同じです）'
-    $prev = $script:GitHub
-    if ($Resume) { $skip = 'n を選ぶと、この部屋にすでにある GitHub の設定はそのまま残します。' }
-    else { $skip = 'n を選ぶと GitHub の設定をしません（あとで GitHub.md の手順で設定することもできます）。' }
-    $do = Read-WizardYesNo 'GitHub の設定（git の設定・PAT の保存・リポジトリのクローン）をしますか？' @(
-        'y を選ぶと、user_name・user_email・pat・repo_url の 4 つを続けて聞きます。',
-        $skip) ($null -ne $prev)
-    if (-not $do) {
+# リポジトリの設定（しない・GitHub・LocalGit のどれか 1 つ）を選び、選んだほうの値を聞く
+function Read-WizardRepo {
+    Write-Step 'リポジトリの設定を決めます'
+    if ($Resume) { $none = 'しない（この部屋にすでにある設定は、そのまま残す）' }
+    else { $none = 'しない（あとで GitHub.md の手順で GitHub を設定することもできます）' }
+    $n = Read-WizardChoice 'リポジトリの設定を番号で選んでください' @(
+        $none,
+        'GitHub（git の設定・PAT の保存・GitHub のリポジトリのクローン。room-github.conf に書く内容と同じ）',
+        'LocalGit（Windows 側の bare リポジトリを部屋に写し、同期スクリプトを作る。room-localgit.conf に書く内容と同じ）') @(
+        'GitHub と LocalGit は、1 つの部屋でどちらか一方だけを使えます。')
+    if ($n -eq 2) {
+        $script:LocalGit = $null
+        Read-WizardGitHub
+    } elseif ($n -eq 3) {
         $script:GitHub = $null
-        return
+        Read-WizardLocalGit
+    } else {
+        $script:GitHub = $null
+        $script:LocalGit = $null
     }
+}
+
+# room-localgit.conf にあたる値（repo_path）を聞いて $script:LocalGit を決める
+function Read-WizardLocalGit {
+    Write-Step 'LocalGit の設定を入力します（room-localgit.conf に書く内容と同じです）'
+    $def = ''
+    if ($null -ne $script:LocalGit) { $def = $script:LocalGit.RepoPath }
+    $path = Read-WizardValue -Title 'repo_path（Windows 側の bare リポジトリのフォルダ）' -Default $def -Help @(
+        'HEAD・config・objects・refs などが直接入っているフォルダを、ドライブ名から入力します（例: C:\repos\foo.git）。',
+        '部屋の ~/repos/<名前>.git と ~/projects/<名前> の名前は、フォルダ名（末尾の .git を除く）になります。') -Validate {
+        param($v) (ConvertFrom-LocalGitRepoPath $v).Error }
+    $script:LocalGit = ConvertFrom-LocalGitRepoPath $path
+    Write-Ok "LocalGit の設定の入力を確認しました（名前: $($script:LocalGit.RepoName)）。"
+}
+
+# room-github.conf にあたる値を聞いて $script:GitHub を決める
+function Read-WizardGitHub {
+    Write-Step 'GitHub の設定を入力します（room-github.conf に書く内容と同じです）'
+    $prev = $script:GitHub
     $defName = ''
     $defEmail = ''
     $defUrl = ''
@@ -1291,6 +1493,16 @@ function Invoke-Main {
             if ($null -ne $script:GitHub) {
                 Write-Ok "GitHub の設定ファイルを確認しました（$($script:GitHubConfigFile)）。"
             }
+            $script:LocalGit = Read-LocalGitConf $script:LocalGitConfigFile
+            if ($null -ne $script:LocalGit) {
+                if ($null -ne $script:GitHub) {
+                    Stop-Setup "$(Split-Path -Leaf $script:GitHubConfigFile) と $(Split-Path -Leaf $script:LocalGitConfigFile) の両方に記入されています。" @(
+                        'GitHub と LocalGit は、1 つの部屋でどちらか一方だけを使えます。使わないほうを空欄にしてください。')
+                }
+                # 同期スクリプトはこのフォルダの rooms\ に作るので、このフォルダが部屋の中にあると、同期スクリプトも部屋の中にできてしまう
+                Test-ScriptLocation 'LocalGit の同期スクリプトは Windows のあなたの権限で動くので、部屋の中には作れません（部屋の中にあるファイルからは起動できません）。'
+                Write-Ok "LocalGit の設定ファイルを確認しました（$($script:LocalGitConfigFile)）。"
+            }
         }
         $err = Test-VSCodeWslExtension $script:Conf.WindowsUser
         if ($null -ne $err) { Stop-Setup $err.Message $err.Hint }
@@ -1304,7 +1516,7 @@ function Invoke-Main {
     while ($true) {
         if ($Interactive) {
             Read-WizardSettings $creating
-            if (-not $VerifyOnly) { Read-WizardGitHub }
+            if (-not $VerifyOnly) { Read-WizardRepo }
         }
         Show-Summary $creating
         if ($DryRun) { break }
@@ -1324,6 +1536,7 @@ function Invoke-Main {
     if (-not ($DryRun -and $creating)) {
         Test-RoomIsWsl2
         Test-RoomDefaultUser
+        Test-RepoModeConflict
     }
 
     Copy-PayloadToRoom
@@ -1337,6 +1550,7 @@ function Invoke-Main {
         Invoke-ProvisionStep -User $script:LinuxUser -ScriptName 'provision-user.sh' `
             -What "一般ユーザーの設定（$($script:LinuxUser)）: Claude Code、PATH、uv、Rust、settings.json、ステータスライン、~/projects"
         Invoke-GitHubSetup
+        Invoke-LocalGitSetup
         Restart-Room
     }
     Invoke-Verify
@@ -1357,6 +1571,8 @@ if ($GitHubConfigPath) {
     # room.conf と同じフォルダの room-github.conf（-ConfigPath で別の場所を指定したときは、そのフォルダ）
     $script:GitHubConfigFile = Join-Path (Split-Path -Parent $script:ConfigFile) 'room-github.conf'
 }
+# LocalGit の設定ファイルは、いつも room.conf と同じフォルダの room-localgit.conf
+$script:LocalGitConfigFile = Join-Path (Split-Path -Parent $script:ConfigFile) 'room-localgit.conf'
 
 $exitCode = 0
 $savedConsoleEncoding = $null
