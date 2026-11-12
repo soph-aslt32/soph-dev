@@ -293,9 +293,14 @@ check_13() {
     want 'sandbox.enabled が true' '.sandbox.enabled == true'
     want 'sandbox.failIfUnavailable が true' '.sandbox.failIfUnavailable == true'
     want 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
-    # want 'permissions.blockReadsOutsideWorkingDirectories が true' '.permissions.blockReadsOutsideWorkingDirectories == true'
+    # permissions.blockReadsOutsideWorkingDirectories は設定しない（README「このツールの考え方」・6.4）。
+    # 部屋の中では作業フォルダの外も Claude に読ませる設計で、読ませないものは下の Read(...) で個別に禁止する。
+    # true にすると、サンドボックスの中のコマンドもホームフォルダの中を読めなくなり、uv や Rust を使えなくなる見込み。
     want 'permissions.deny に "Read(//mnt/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(//mnt/**)")'
     want 'permissions.deny に "Read(~/.git-credentials)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.git-credentials)")'
+    # sandbox.credentials はサンドボックスの中のコマンドにしか効かないので、Claude のファイル読み取り機能は Read(...) で止める
+    want 'permissions.deny に "Read(~/.ssh/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.ssh/**)")'
+    want 'permissions.deny に "Read(~/.aws/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.aws/**)")'
     # Claude のファイル編集機能（Edit・Write など）で書き換えさせないもの。どれも、サンドボックスの外で
     # 自動で実行されるか（シェルの起動、git、VS Code、Claude Code 自身）、LocalGit の部屋の bare リポジトリ（~/repos）。
     # templates/claude-settings.json.tmpl の permissions.deny と同じ一覧（変えるときは両方）
