@@ -60,7 +60,7 @@ Windows側のデータとして意図的に見せているもの
 
 | 守り | 何をしているか | 何を防ぐか |
 |---|---|---|
-| ① wsl.conf | C ドライブを部屋に見せない。部屋から Windows のプログラムを起動できなくする | 部屋の中のすべて（Claude Code を含む）から Windows のファイル・プログラムへのアクセス |
+| ① wsl.conf | C ドライブを部屋に見せない。部屋から Windows のプログラムを起動できなくする。ホスト名を部屋の名前にし、Windows の hosts ファイルを写さない | 部屋の中のすべて（Claude Code を含む）から Windows のファイル・プログラムへのアクセス。Windows のコンピューター名と hosts ファイルの中身が部屋に入ること |
 | ② fstab | VS Code の接続に必要なフォルダ 1 つだけを**読み取り専用**で見せる | Windows 側で実行されるファイルの改ざん |
 | ③ 部屋の中では root になれない | 部屋のユーザーを sudo などの管理者のグループから外す。管理作業は Windows 側から `wsl -d <部屋の名前> -u root` で入って行う | Claude や、部屋の中で動くほかのプログラムが root（管理者）になって ①② を元に戻すこと |
 | ④ サンドボックス | Claude が実行するコマンドを閉じ込める | 作業フォルダの外への書き込み、許可していない通信 |
@@ -305,7 +305,7 @@ Set-ExecutionPolicy -Scope Process Bypass
            WSLg（Linux の GUI アプリ機能）が有効です:
              /mnt/wslg がマウントされています。
 ...
-結果: PASS 28 / FAIL 0 / SKIP 2 / WARN 1
+結果: PASS 29 / FAIL 0 / SKIP 2 / WARN 1
 FAIL はありません。
 WARN の項目は失敗ではありませんが、上の説明を確認してください。
   [完了] 自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します。WARN の項目があれば、その説明を確認してください）。
@@ -463,6 +463,21 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
 - 部屋のユーザーのパスワードを Claude に教えないでください。
 - `~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json` などを変えたいときは、ご自身で編集してください
   （Claude には書き換えられないようにしてあります。[1 章](#1-安全のしくみかんたんな説明)の ⑤）。
+- **コミットする前に、git の作者（`user.name`・`user.email`）を設定してください。**
+  部屋のホスト名にはドメインが無いので、git は作者を自動で決められず、設定が無いと commit は
+  `Author identity unknown`・`fatal: unable to auto-detect email address` で止まります
+  （作者を自動で決めさせると、ホスト名などがコミットの履歴に入るため、この状態にしています）。
+  Claude が実行するコマンドからは git の設定ファイルに書き込めないので、ご自身でターミナルから設定します。
+
+  ```bash
+  cd ~/projects/<プロジェクト名>
+  git config user.name "dev-room"
+  git config user.email "dev-room@example.com"
+  ```
+
+  部屋のすべてのプロジェクトで同じにするなら `--global` を付けます。GitHub の設定をした部屋では、room-github.conf の値が設定済みです。
+  メールアドレスは、実在する誰かのものと一致しないよう、`example.com` などの例示用のドメインにするのがおすすめです
+  （[4 章](#4-設定ファイル-roomconf-を編集する)の `user_email` と同じ理由です）。
 - 部屋の中に、Windows 側の秘密鍵やクラウドの認証情報などをコピーしないでください。
 - リポジトリを clone したら、Claude Code を起動する前に、そのリポジトリの `.claude/` フォルダ
   （特に `settings.json` と `settings.local.json`）の中身を確認してください。
@@ -560,6 +575,9 @@ apt upgrade
   `/etc/apt/sources.list.d/ubuntu.sources` の `URIs:` を http に戻さないでください。
 - 終わったら `exit` で root のシェルを抜けてください。root のシェルを開いたまま Claude Code を使わないでください。
 - Claude Code 自体は、自動で更新されます。
+- 部屋の `/etc/hosts` には、Windows の hosts ファイルの項目を写していません（[1 章](#1-安全のしくみかんたんな説明)の ①）。
+  Windows の hosts に書いた名前（`host.docker.internal` や社内のサーバー名など）を部屋の中で使う場合は、
+  root で入って `/etc/hosts` に書き足してください（検証 E9 は、仕様に無い行として WARN になります）。
 
 部屋を作るときに入れた **uv と Rust は、自動では更新されません**。root ではなく部屋のユーザーとして入れてあるので、
 部屋の中のターミナルで（Claude Code の外で）更新します。
@@ -594,6 +612,7 @@ Windows 側の bare リポジトリ（正本）  ⇔（同期スクリプト）�
 **ふだんの流れ**
 
 1. 部屋の `~/projects/<名前>` で作業し（Claude Code もここで起動します）、コミットします。
+   初めてコミットする前に、git の作者を設定しておきます（[6.4](#64-ふだんの使い方の約束)）。
 2. 内容を確かめてから、**ご自身で** `git push` します（部屋の `~/repos/<名前>.git` へ）。
    Claude は `~/repos` に書き込めないので、push できません（サンドボックスと `Edit(~/repos/**)` の禁止ルール）。
 3. Windows 側で `Sync-<部屋の名前>.cmd` をダブルクリックします。写す内容（ブランチ・タグの作成・更新・削除と、コミットの一覧）が表示されるので、
@@ -758,8 +777,9 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 4. スクリプト一式と room.conf を部屋の中へコピーし、ハッシュ値で一致を確認
 5. `provision-root.sh --phase base`: apt の取得先を https に書き換え（すべて https になったことを確認）、パッケージの更新
    （apt が CVE-2026-109518 の修正版になったことを確認してから、必要なものを入れる）、部屋のユーザーを管理者のグループ（sudo など）から外す、
-   `/etc/wsl.conf`、AppArmor、`/usr/local/bin/delzonei`
-6. 部屋を再起動（C ドライブが見えなくなる）
+   `/etc/wsl.conf`、ホスト名（`/etc/hostname`）と `/etc/hosts`（部屋の名前だけの内容にする。部屋の名前は環境変数 `WSL_DISTRO_NAME` から読む）、
+   AppArmor、`/usr/local/bin/delzonei`
+6. 部屋を再起動（C ドライブが見えなくなり、ホスト名が部屋の名前になる）
 7. `provision-root.sh --phase mount`: VS Code 拡張フォルダの読み取り専用マウント
    （C ドライブが見えている間にやると本物の C ドライブの上にフォルダを作ってしまうので、再起動後に行う）と、/mnt の片付け
    （初回起動時に WSL が作ったドライブ用のフォルダのうち、`/mnt/c` 以外の空のものを削除し、
@@ -797,6 +817,11 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 検証 06 が FAIL | Windows のプログラムを呼べる状態（とても危険） | `-Resume` でやり直す。直るまでこの部屋で Claude Code を使わない |
 | 検証 08・R1・R2 が FAIL | パスワードなしで sudo できる設定がある | Windows の PowerShell から `wsl -d <部屋の名前> -u root` で入り、表示された行を `visudo`（または `visudo -f <ファイル>`）で削除 |
 | 検証 E8 が FAIL | 部屋のユーザーが sudo などの管理者のグループに入っている | `-Resume` でやり直す（グループから外します） |
+| 検証 E4 が FAIL | `/etc/wsl.conf` が仕様と違う（2026-11-15 より前に作った部屋には `[network]` の節が無いため、FAIL になります） | `-Resume` で仕様どおりに戻す |
+| 検証 E9 が FAIL | ホスト名が部屋の名前でない、`/etc/hosts` が WSL に作り直されている、または仕様の行が無い（2026-11-15 より前に作った部屋など） | `-Resume` で仕様どおりに戻す（部屋の再起動で、ホスト名も部屋の名前になります） |
+| 検証 E9 が WARN | `/etc/hosts` に仕様に無い行がある、または IPv6 の行が無い | ご自身で足したもの（[6.8](#68-部屋の管理作業パッケージの追加更新など)）なら問題ありません。そうでなければ `-Resume` で戻す |
+| 検証 E4・E9 が SKIP（部屋の名前が分からない） | `su -` などで入ったターミナルで実行したため、環境変数 `WSL_DISTRO_NAME` が無い | Windows から `wsl -d <部屋の名前>` で入ったターミナルで実行する |
+| `git commit` が `Author identity unknown`・`unable to auto-detect email address` で止まる | git の作者（`user.name`・`user.email`）が設定されていない（部屋のホスト名にはドメインが無いので、git は作者を自動で決めない） | [6.4](#64-ふだんの使い方の約束) の手順で、ご自身でターミナルから設定する（Claude が実行するコマンドからは設定できません） |
 | 検証 A1 が FAIL | apt の取得先に http のものがある | `-Resume` でやり直す（Ubuntu 公式のものは https に書き換えます）。自分で追加した取得先なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って https に直す |
 | 検証 A2 が FAIL / 部屋の作成が「apt の版が…修正版より古いままです」で止まる | apt が CVE-2026-109518 の修正版になっていない | 時間をおいて `-Resume` でやり直す（サーバーの同期が遅れていることがあります） |
 | 検証 A3 が FAIL | Apache（apache2）が入っている | 不要なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って `apt purge apache2` などで削除 |
@@ -862,6 +887,13 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
 - apt の取得先の https への書き換え、apt の版の確認、部屋のユーザーを管理者のグループから外す処理と、
   検証 E8・A1〜A4 が、room-setup-wizard.cmd での新しい部屋の作成で動作し、FAIL が出ないこと
 
+2026-11-15 に、次のことを実機で確かめました。
+
+- LocalGit の設定で新しい部屋を作ると、ホスト名・`/etc/hostname`・`/etc/hosts` が部屋の名前だけの内容になること
+  （`/etc/hosts` に Windows の hosts ファイルの項目とコンピューター名が無く、`getent hosts <部屋の名前>` がすぐに返ること）。
+  git の作者を設定していない状態でも、部屋の作成（LocalGit の `~/projects/<名前>` への clone）が最後まで進むこと
+- 部屋の再起動（`wsl --terminate`）と `wsl --shutdown` のあとも、それが保たれること（systemd から見たホスト名も同じ）
+
 次の点は、まだ実機で確かめていません。
 
 - [1 章](#1-安全のしくみかんたんな説明)の ⑤ の書き換えの禁止（2026-11-12 に追加）が効くこと（[6.2](#62-ログイン後の手動確認) の表の、`~/.bashrc`・`statusline.sh`・メモリーの 3 行）
@@ -881,6 +913,9 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
   - 設定ファイルの方式で、部屋の中（`\\wsl.localhost\...`）にある New-SecureRoom.ps1 を LocalGit の設定で実行すると止まること
   - 上の「部屋を作ったあとの確認」（`Edit(~/repos/**)` の禁止ルールが効くこと）
 
+- ホスト名と `/etc/hosts`（2026-11-15 に追加）の残り: VS Code での接続と Claude Code のサンドボックスの通信が今までどおり動くこと、
+  git の作者を設定していないと commit が止まること、検証 E9 が WSL の作り直した `/etc/hosts` を見分けられること
+  （目印の文言 `automatically generated by WSL` が、今の WSL の書き方と合っていること）
 - interop を無効にした部屋から、実際に Windows のプログラムを起動できないこと
   （検証 06 は申し送り書どおり「`cmd.exe` などが見つからない」ことを確かめるもので、起動そのものは試していません）
 - AppArmor の設定が必要な場合（値が `1`）の手順（Ubuntu 26.04 の WSL では不要だったため）

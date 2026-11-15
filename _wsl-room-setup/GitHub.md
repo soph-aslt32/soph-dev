@@ -25,7 +25,7 @@ chmod 600 ~/.git-credentials
 ```
 
 ```bash
-# コミットの作者（GitHubのアカウントと関係のないダミーでよい）
+# コミットの作者（必須．設定しないとコミットできない．GitHubのアカウントと関係のないダミーでよい）
 git config --global user.name "dev-room"
 git config --global user.email "dev-room@example.com"
 ```

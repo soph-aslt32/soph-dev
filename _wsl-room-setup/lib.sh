@@ -19,6 +19,8 @@ readonly RE_LINUX_USER='^[a-z_][a-z0-9_-]{0,31}$'
 readonly RE_WIN_USER='^[A-Za-z0-9._-]+$'
 # ドメイン名。先頭の「*.」（サブドメインすべて）だけはワイルドカードとして許可する
 readonly RE_DOMAIN='^(\*\.)?[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'
+# 部屋の名前（New-SecureRoom.ps1 の ReRoomName と同じ規則。変えるときは両方）。ホスト名にもそのまま使える
+readonly RE_ROOM_NAME='^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$'
 # 空行とコメント行（# で始まる行）
 readonly RE_SKIP_LINE='^[[:space:]]*(#|$)'
 
@@ -192,6 +194,18 @@ parse_allowed_domains() {
         done
         CONF_ALLOWED_DOMAINS+=("$d")
     done
+}
+
+# ---------------------------------------------------------------------------
+# 部屋の名前
+# ---------------------------------------------------------------------------
+# room.conf には部屋の名前が無いので、WSL が部屋の中のプログラムに渡す環境変数 WSL_DISTRO_NAME から読む。
+# ホスト名（/etc/wsl.conf の [network] hostname）と /etc/hosts に使う。
+
+# 読み込んで CONF_ROOM_NAME に入れる。無い・規則に合わないときは 1 を返す（止めるか、検証を飛ばすかは呼ぶ側が決める）
+load_room_name() {
+    CONF_ROOM_NAME=${WSL_DISTRO_NAME:-}
+    [[ $CONF_ROOM_NAME =~ $RE_ROOM_NAME ]]
 }
 
 # ---------------------------------------------------------------------------

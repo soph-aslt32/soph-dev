@@ -7,8 +7,8 @@
 #   bash provision-root.sh --phase base [--config <room.conf のパス>]
 #       apt の取得先を https にしてからパッケージを更新・導入（apt が修正版か確認）、
 #       部屋のユーザーを管理者のグループ（sudo など）から外す、/etc/wsl.conf の書き換え、
-#       AppArmor の確認、delzonei の配置。
-#       wsl.conf の変更（C ドライブを隠す）は、このあと部屋を再起動するまで反映されない。
+#       ホスト名（/etc/hostname）と /etc/hosts を部屋の名前だけの内容にする、AppArmor の確認、delzonei の配置。
+#       wsl.conf の変更（C ドライブを隠す、ホスト名）は、このあと部屋を再起動するまで反映されない。
 #
 #   bash provision-root.sh --phase mount [--config <room.conf のパス>]
 #       VS Code 拡張フォルダを読み取り専用でマウントする設定（/etc/fstab）と、/mnt の片付け
@@ -16,7 +16,8 @@
 #       再起動前に実行すると、本物の C ドライブの上にフォルダを作ってしまうので、
 #       C ドライブが見えなくなったことを確認してから進む。
 #
-# Linux ユーザー名と Windows ユーザー名は room.conf（省略時はこのスクリプトと同じフォルダのもの）から読みます。
+# Linux ユーザー名と Windows ユーザー名は room.conf（省略時はこのスクリプトと同じフォルダのもの）から、
+# 部屋の名前は WSL が設定する環境変数 WSL_DISTRO_NAME から読みます。
 # どちらにも --dry-run を付けると、何も変更せずに実行内容だけを表示します。
 # =============================================================================
 set -Eeuo pipefail
@@ -85,11 +86,14 @@ phase_base() {
         "room.conf の linux_user（$CONF_LINUX_USER）というユーザーが、部屋の中にありません。" \
         "部屋を作るときに入力したユーザー名と、room.conf の linux_user が同じか確認してください。"
     [[ $uid != 0 ]] || die "$CONF_LINUX_USER は root（UID 0）です。一般ユーザーを指定してください。"
+    load_room_name || die "部屋の名前を確認できません（環境変数 WSL_DISTRO_NAME: '${WSL_DISTRO_NAME:-}'）。" \
+        "部屋の名前は、半角英小文字・数字・ハイフンだけで 32 文字以内のはずです。" \
+        "Windows 側の New-SecureRoom.ps1 から実行してください。"
 
-    step "1/6 apt の取得先を https に書き換えます（CVE-2026-109518 への対策）"
+    step "1/7 apt の取得先を https に書き換えます（CVE-2026-109518 への対策）"
     switch_apt_to_https
 
-    step "2/6 パッケージを更新します（数分かかります）"
+    step "2/7 パッケージを更新します（数分かかります）"
     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
     run apt-get "${APT_OPTS[@]}" update
     run apt-get "${APT_OPTS[@]}" -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
@@ -98,16 +102,19 @@ phase_base() {
     run apt-get "${APT_OPTS[@]}" install "${PACKAGES[@]}"
     ok "パッケージの準備ができました（${PACKAGES[*]}）。"
 
-    step "3/6 $CONF_LINUX_USER を管理者のグループ（sudo など）から外します"
+    step "3/7 $CONF_LINUX_USER を管理者のグループ（sudo など）から外します"
     remove_admin_groups "$CONF_LINUX_USER"
 
-    step "4/6 /etc/wsl.conf を仕様どおりの内容に置き換えます"
-    install_wsl_conf "$CONF_LINUX_USER"
+    step "4/7 /etc/wsl.conf を仕様どおりの内容に置き換えます"
+    install_wsl_conf "$CONF_LINUX_USER" "$CONF_ROOM_NAME"
 
-    step "5/6 AppArmor の追加設定が必要か確認します"
+    step "5/7 ホスト名と /etc/hosts を、部屋の名前（$CONF_ROOM_NAME）だけの内容にします（Windows のコンピューター名と hosts ファイルを写さない）"
+    install_host_files "$CONF_ROOM_NAME"
+
+    step "6/7 AppArmor の追加設定が必要か確認します"
     setup_apparmor_if_needed
 
-    step "6/6 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
+    step "7/7 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
     install_delzonei
 
     ok "base 段階が終わりました。部屋を再起動してから --phase mount を実行します。"
@@ -183,10 +190,11 @@ install_delzonei() {
 }
 
 install_wsl_conf() {
-    local user=$1 tmpl="$SCRIPT_DIR/templates/wsl.conf.tmpl" content
+    local user=$1 room=$2 tmpl="$SCRIPT_DIR/templates/wsl.conf.tmpl" content
     [[ -r $tmpl ]] || die "テンプレート $tmpl が見つかりません。"
     content=$(< "$tmpl")
     content=${content//__LINUX_USER__/$user}
+    content=${content//__ROOM_NAME__/$room}
 
     if [[ -f /etc/wsl.conf && "$(< /etc/wsl.conf)" == "$content" ]]; then
         ok "すでに仕様どおりです（変更なし）。"
@@ -195,6 +203,38 @@ install_wsl_conf() {
     backup_file /etc/wsl.conf
     printf '%s\n' "$content" | write_file_atomic /etc/wsl.conf 644
     ok "/etc/wsl.conf を書き換えました（部屋の再起動後に反映されます）。"
+}
+
+# /etc/hostname と /etc/hosts を、部屋の名前だけの内容にする（README 1 章の ①）。
+# 初回起動時に WSL が書いたもの（Windows のコンピューター名と、Windows の hosts ファイルの項目）を消すのが目的なので、
+# ほかの設定ファイルと違い、元のファイルのバックアップは残さない（残すと、消したい内容が部屋に残るため）。
+# 以後は wsl.conf の generateHosts=false で、WSL が /etc/hosts を作り直さなくなる。
+# /etc/hosts の内容は verify-room.sh の check_E9 と同じ（変えるときは両方）。localhost の行は、
+# Claude Code のサンドボックスが通信を localhost のプロキシに通すために必要。
+install_host_files() {
+    local room=$1
+    printf '%s\n' "$room" | write_if_changed /etc/hostname
+    write_if_changed /etc/hosts <<EOF
+# Written by wsl-room-setup. Entries from the Windows hosts file are not copied.
+127.0.0.1 localhost
+127.0.1.1 $room
+::1 localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+EOF
+    ok "ホスト名と /etc/hosts は $room だけの内容です（ホスト名の変更は、部屋の再起動後に反映されます）。"
+}
+
+# 標準入力の内容が $1 と違うときだけ、root 所有・モード 644 で書き換える（バックアップは残さない）
+write_if_changed() {
+    local dest=$1 content
+    content=$(cat)
+    if [[ -f $dest && ! -L $dest && "$(< "$dest")" == "$content" ]]; then
+        info "$dest: すでに仕様どおりです（変更なし）。"
+        return 0
+    fi
+    printf '%s\n' "$content" | write_file_atomic "$dest" 644
+    (( DRY_RUN )) || info "$dest を書き換えました。"
 }
 
 setup_apparmor_if_needed() {

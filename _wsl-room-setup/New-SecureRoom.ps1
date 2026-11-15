@@ -1198,6 +1198,11 @@ function Show-NextSteps {
         Write-Info "     $dir\Sync-$room.cmd"
         Write-Info "   Sync-$room.cmd と Sync-$room.ps1 を同じフォルダに置けば、PC のどこへ移しても動きます。"
         Write-Info '   使い方は README の「LocalGit の同期」（6.9）を読んでください。'
+        Write-Info "   コミットする前に、~/projects/$repo で git の作者（user.name・user.email）を設定してください（README 6.4）。"
+    }
+    # GitHub の設定をした部屋では、room-github.conf の値で作者を設定済み
+    if ($null -eq $script:GitHub -and $null -eq $script:LocalGit) {
+        Write-Info '4. git でコミットする前に、作者（user.name・user.email）を設定してください（まだ設定していなければ。README 6.4）。'
     }
 }
 
@@ -1543,7 +1548,7 @@ function Invoke-Main {
     if (-not $VerifyOnly) {
         Invoke-ProvisionStep -User 'root' -ScriptName 'provision-root.sh' `
             -ScriptArgs @('--phase', 'base') `
-            -What '部屋の基本設定（root）: パッケージ、wsl.conf、AppArmor、delzonei'
+            -What '部屋の基本設定（root）: パッケージ、wsl.conf、ホスト名、AppArmor、delzonei'
         Restart-Room
         Invoke-ProvisionStep -User 'root' -ScriptName 'provision-root.sh' -ScriptArgs @('--phase', 'mount') `
             -What 'VS Code 拡張フォルダの読み取り専用マウントと /mnt の片付け（root）'
