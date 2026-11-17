@@ -497,6 +497,10 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
   `~/.claude/settings.json` にも同じものがありますが（組織のアカウントで使うとき用。[1 章](#1-安全のしくみかんたんな説明)）、
   そこにある守りの設定は、消したり緩めたりしないでください。変えるときは room.conf を直して `-Resume` を付けて実行します
   （両方が置き直されます。通信を許可するドメインを、1 つのプロジェクトだけで増やす方法は [6.8](#68-部屋の管理作業パッケージの追加更新など)）。
+- `/sandbox` の Mode（Claude が実行するコマンドを、サンドボックスの中で動くなら確認なしで実行するか）は、お好みで選んでください。
+  「Sandbox commands, with auto-allow」にしても、このツールの守りは変わりません。サンドボックスの制限（書き込める場所・通信先・認証情報）は
+  どちらのモードでも同じで、サンドボックスの外で動かし直すことは禁止してあり、Claude のファイル読み取り・編集機能はモードに関係なく
+  [1 章](#1-安全のしくみかんたんな説明)の ⑤ の禁止に従うためです。選んだモードは、そのプロジェクトの `.claude/settings.local.json` に保存されます。
 - **コミットする前に、git の作者（`user.name`・`user.email`）を設定してください。**
   部屋のホスト名にはドメインが無いので、git は作者を自動で決められず、設定が無いと commit は
   `Author identity unknown`・`fatal: unable to auto-detect email address` で止まります
@@ -518,6 +522,9 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
   サンドボックスを無効にする設定などは managed settings で固定してあるので効きませんが（[1 章](#1-安全のしくみかんたんな説明)）、
   hooks（サンドボックスの外で動くコマンド）や、書き込める場所・通信先を増やす設定（`sandbox.filesystem.allowWrite`・
   `sandbox.network.allowedDomains` など。一覧の形の設定は足し合わされる）が入っていると、それは効いてしまいます。
+  組織のアカウントで部屋の managed settings が使われていないときは、サンドボックスを無効にする設定（`sandbox.enabled: false`）や、
+  ファイルの隔離を止める設定（`sandbox.filesystem.disabled: true`）も効いてしまうので、それらが無いことも確かめてください
+  （ファイルの隔離が止まっていると、auto-allow のモードでは、確認なしのコマンドが作業フォルダの外にも書けるようになります）。
 - clone に使うトークンなどを git に保存させる場合、保存先の `~/.git-credentials` は
   Claude が実行するコマンドからも、Claude のファイル読み取り機能からも読めないように設定してあります
   （トークンを保存してから Claude Code を起動してください）。
@@ -1003,6 +1010,10 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
 - 2026-11-17 の変更（守りの設定を managed settings に移したこと、検証 13・R1 の変更など）を入れた状態で、新しい部屋の作成が最後まで進むこと
 - `/status` の Setting sources に `Enterprise managed settings (file)` が出て（個人の Pro プランでも出ます）、
   managed settings（`/etc/claude-code/managed-settings.json`）の守りの設定が効いていること
+- 2026-11-17 のそのあとの変更（`.git` の中とプロジェクトの `.claude/settings*.json` の禁止の追加、`~/.claude/settings.json` への守りの設定）を入れた状態で、
+  新しい部屋を作り、自動検証の検証 13 が PASS になること（個人のアカウントと組織のアカウントの両方。managed settings と `~/.claude/settings.json` の両方に、
+  守りの設定がすべて入っていて、守りを弱める設定が無いことになります）
+- 組織のアカウント（組織の managed settings があり、部屋の managed settings が使われない）で、`~/.claude/settings.json` の守りの設定が効くこと（別のユーザーの環境）
 
 次の点は、まだ実機で確かめていません。
 
@@ -1014,8 +1025,9 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
   Claude が実行するコマンドからも `.claude/settings.local.json` を書けないこと、Claude Code 自身の書き込みは止まらないことを含む）
 - provision-github.sh を `/` で動かすようにしたこと（2026-11-17）: GitHub の設定をした部屋で `-Resume` が今までどおり進むこと
 - 守りの設定を `~/.claude/settings.json` にも置いたこと（2026-11-17）: 組織のアカウント（組織の managed settings があり、`/status` が `(remote)`）で、
-  [6.2](#62-ログイン後の手動確認) の表の結果が個人のアカウントと同じになること。個人のアカウントで、今までの結果が変わらないこと
-  （組織の managed settings があると部屋の managed settings が使われないことは、2026-11-17 に別のユーザーの環境で確かめました）
+  [6.2](#62-ログイン後の手動確認) の表の結果がすべて個人のアカウントと同じになること。個人のアカウントで、今までの結果が変わらないこと
+  （組織の managed settings があると部屋の managed settings が使われないこと、そのとき `~/.claude/settings.json` の守りの設定が効くこと、
+  検証 13 が PASS になることは、2026-11-17 に確かめました）
 
 - [1 章](#1-安全のしくみかんたんな説明)の ⑤ の書き換えの禁止（2026-11-12 に追加）が効くこと（[6.2](#62-ログイン後の手動確認) の表の、`~/.bashrc`・`statusline.sh`・メモリーの 3 行）
 - ⑤ の読み取りの禁止に加えた `~/.ssh`・`~/.aws`（2026-11-12 に追加）が効くことと、作業フォルダの外を初めて読むときの確認で「Yes, and keep allowing …」を選んだあとの動作
