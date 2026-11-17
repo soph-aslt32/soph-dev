@@ -10,7 +10,7 @@
 #       PAT の保存（~/.git-credentials、モード 600）。
 #
 #   bash provision-github.sh --phase clone <リポジトリの URL>
-#       ~/projects/<リポジトリ名> へのクローンと、PAT で push できるかの確認。
+#       ~/projects/<リポジトリ名> へのクローンと、PAT で push できるかの確認（新しくクローンしたときだけ）。
 #       認証には、credentials の段階で保存した PAT を使う。
 #
 # room-github.conf の中身（特に PAT）を部屋の中の Claude Code から見えないようにするため、
@@ -23,7 +23,7 @@
 #   - PAT はコマンドライン引数・環境変数に置かない（ほかのプロセスから見えるため）。
 #     git へも標準入力（パイプ）で渡す
 #   - PAT を画面に表示しない（エラーの表示にも含めない）
-#   - PAT の保存先は ~/.git-credentials だけ。Claude からは、~/.claude/settings.json の
+#   - PAT の保存先は ~/.git-credentials だけ。Claude からは、managed settings（/etc/claude-code/managed-settings.json）の
 #     sandbox.credentials（Claude が実行するコマンド）と permissions.deny（Claude の読み取り機能）で
 #     読めないようにしてある
 #
@@ -101,7 +101,6 @@ phase_credentials() {
             *) die "標準入力で受け取った設定に、知らない項目があります: $key" ;;
         esac
     done < <(printf '%s\n' "$payload")
-    payload=''
 
     [[ -n $name ]] || die "user_name が空です。"
     if [[ $name =~ [[:cntrl:]] || $name == *[\<\>]* ]]; then
@@ -140,8 +139,6 @@ phase_credentials() {
     got=$(printf 'url=%s\n\n' "$url" | git_noprompt credential fill 2> /dev/null) || got=''
     [[ $'\n'$got$'\n' == *$'\n'"password=$pat"$'\n'* ]] || die "保存した PAT を git が取り出せませんでした。" \
         "~/.gitconfig の credential.helper と、~/.git-credentials の中身を確認してください。"
-    got=''
-    pat=''
     mode=$(stat -c %a -- "$CRED_FILE")
     [[ $mode == 600 ]] || die "$CRED_FILE のモードが $mode になっています（600 のはずです）。" \
         "chmod 600 ~/.git-credentials を実行してから、もう一度実行してください。"
@@ -153,7 +150,7 @@ phase_credentials() {
 # -----------------------------------------------------------------------------
 
 phase_clone() {
-    local url=$1 dest origin
+    local url=$1 dest origin cloned=0
     command -v git > /dev/null || die "git が見つかりません。"
     parse_repo_url "$url"
     dest="$PROJECTS_DIR/$REPO_NAME"
@@ -177,11 +174,18 @@ phase_clone() {
             "  - PAT が有効か（有効期限が切れていないか）" \
             "  - PAT がこのリポジトリにアクセスできるか（fine-grained PAT なら Repository access と Contents の権限）" \
             "直したら、room-github.conf を直して -Resume を付けて実行してください。"
+        cloned=1
         ok "クローンしました（~/projects/$REPO_NAME）。"
     fi
 
     step "2/3 PAT で push できるか（書き込み権限があるか）を確かめます（--dry-run なので何も送りません）"
-    check_push "$dest"
+    if (( cloned )); then
+        check_push "$dest"
+    else
+        # 既存のクローンの .git/config やフックは、部屋の中で書き換えられている可能性がある。
+        # その中で git push を動かすと、書き込まれたコマンド（credential.helper など）がサンドボックスの外で動き、PAT を渡してしまう
+        info "既存のクローンなので確かめません（そのリポジトリの git の設定を、サンドボックスの外で動かさないため）。"
+    fi
 
     step "3/3 リポジトリに Claude Code の設定ファイルが含まれていないか確認します"
     check_claude_files "$dest"
@@ -214,8 +218,8 @@ check_claude_files() {
         return 0
     fi
     warn "このリポジトリには Claude Code の設定（${found[*]}）が含まれています。"
-    warn "Claude Code を起動する前に中身を確認してください。プロジェクトの設定はこの部屋の設定より優先されるため、"
-    warn "サンドボックスを弱める設定（\"sandbox\": {\"enabled\": false} など）が入っていると守りが外れます（README 6.4）。"
+    warn "Claude Code を起動する前に中身を確認してください。hooks（サンドボックスの外で動く）や、"
+    warn "書き込める場所・通信先を増やす設定（sandbox.filesystem.allowWrite など）が入っていると、それが効きます（README 6.4）。"
 }
 
 # -----------------------------------------------------------------------------
@@ -236,6 +240,9 @@ main() {
     done
 
     require_not_root
+    # カレントフォルダの .git（~/.git など）の設定を git に使わせないため、Claude が書けない / で動かす
+    # （このスクリプトで使うパスは、すべて絶対パス）
+    cd /
     load_room_conf "$SCRIPT_DIR/room.conf"
     [[ $(id -un) == "$CONF_LINUX_USER" ]] || die \
         "このスクリプトは room.conf の linux_user（$CONF_LINUX_USER）として実行してください（今は $(id -un)）。"

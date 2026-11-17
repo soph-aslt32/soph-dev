@@ -28,10 +28,12 @@
     -Interactive（room-setup-wizard.cmd から起動したとき）では、room.conf と room-github.conf を読む代わりに、
     同じ内容をこの画面で順に聞きます（行うこと・ドライランにするかも聞きます）。入力した値はファイルに保存しません。
     room.conf にあたる内容はメモリ上で組み立てて部屋の中へコピーし、GitHub の情報は上と同じく標準入力で渡します。
-    部屋の中（\\wsl.localhost\... など）にあるこのスクリプトを -Interactive で実行しようとすると、停止します。
+
+    部屋の中（\\wsl.localhost\... など）にあるこのスクリプトを実行しようとすると、どの起動方法でも停止します。
 
 .PARAMETER Distro
-    インストールするディストリビューション名（wsl -l -o の NAME 列）。省略すると質問します。
+    インストールするディストリビューション名（wsl -l -o の NAME 列）。対応しているのは Ubuntu-26.04 だけです。
+    省略すると質問します。
 
 .PARAMETER RoomName
     部屋の名前（半角英小文字・数字・ハイフン）。省略すると質問します。
@@ -47,7 +49,8 @@
     途中で止まった部屋に対して、作成以外の手順をもう一度実行します（部屋は消しません）。
 
 .PARAMETER VerifyOnly
-    既存の部屋に対して、自動検証だけを実行します。
+    既存の部屋に対して、自動検証だけを実行します。部屋の中にある検証用のファイルと room.conf
+    （前回この部屋を設定したときに置いたもの）をそのまま使い、部屋の中は変更しません。
 
 .PARAMETER DryRun
     何も変更せず、実行する予定の内容だけを表示します。
@@ -106,6 +109,7 @@ $script:PayloadFiles = @(
     'statusline.sh',
     'delzonei.sh',
     'templates/wsl.conf.tmpl',
+    'templates/managed-settings.json.tmpl',
     'templates/claude-settings.json.tmpl'
 )
 
@@ -336,6 +340,35 @@ function Test-WslAvailable {
     if ($script:LastWslExit -ne 0) {
         Stop-Setup 'wsl --version が失敗しました。WSL が古いか、正しくインストールされていません。' @(
             'PowerShell で wsl --update を実行して、WSL を新しくしてください。')
+    }
+}
+
+# このスクリプトが WSL の部屋の中にあるときは停止する。部屋の中のファイルは部屋の中のプログラム（Claude Code を含む）が
+# 書き換えられるため、書き換えられたスクリプトを Windows のあなたの権限と部屋の root の権限で実行したり、
+# それに PAT を入力したり、それが作る同期スクリプト（LocalGit）を実行したりしてしまうおそれがある。
+function Test-ScriptLocation {
+    # 「Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...」の形で渡されることがあるので、前置きを外して調べる
+    $root = $script:ScriptRoot -replace '^Microsoft\.PowerShell\.Core\\FileSystem::', ''
+    $hint = @(
+        '部屋の中のファイルは、部屋の中のプログラム（Claude Code を含む）が書き換えられます。',
+        'このスクリプトは Windows のあなたの権限と部屋の root の権限で動くので、部屋の中にあるファイルからは起動できません。',
+        'wsl-room-setup フォルダを Windows 側の自分のフォルダにコピーし、中身を確かめてから、コピーしたほうから起動してください（README の 3 章）。')
+    if (Test-PathInsideWsl $root) { Stop-Setup "このスクリプトは WSL の部屋の中にあります: $root" $hint }
+    # \\wsl.localhost\... をドライブ文字に割り当てて開いた場合も止める
+    if ($root -match '^([A-Za-z]):') {
+        $drive = "$($Matches[1].ToUpperInvariant()):"
+        $isNetwork = $false
+        try { $isNetwork = ((New-Object System.IO.DriveInfo $drive).DriveType -eq [System.IO.DriveType]::Network) } catch { $isNetwork = $false }
+        if ($isNetwork) {
+            $unc = $null
+            try { $unc = (Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$drive'" -ErrorAction Stop).ProviderName } catch { $unc = $null }
+            if (-not $unc) {
+                Stop-Setup "このスクリプトがあるネットワークドライブ（$drive）の接続先を確認できませんでした: $root" $hint
+            }
+            if (Test-PathInsideWsl $unc) {
+                Stop-Setup "このスクリプトは、WSL の部屋の中を割り当てたドライブ（$drive → $unc）にあります: $root" $hint
+            }
+        }
     }
 }
 
@@ -750,18 +783,21 @@ function Select-Distro([string]$Current) {
                 $listed = $true
             }
             if ($Interactive) {
-                Write-WizardQuestion 'ディストリビューションの名前' @('上の一覧の NAME 列から、そのまま入力してください（例: Ubuntu-26.04）。')
+                Write-WizardQuestion 'ディストリビューションの名前' @('上の一覧の NAME 列から、Ubuntu-26.04 を入力してください（ほかのものには対応していません）。')
                 $Current = Read-WizardLine
             } else {
-                $Current = (Read-Host '  使うディストリビューションの名前を、NAME 列からそのまま入力してください（例: Ubuntu-26.04）').Trim()
+                $Current = (Read-Host '  使うディストリビューションの名前を、NAME 列からそのまま入力してください（Ubuntu-26.04 だけに対応）').Trim()
             }
         }
         $match = $null
         foreach ($n in $names) { if ($n -ieq $Current) { $match = $n; break } }
         if (-not $match) {
             $err = New-InputError "「$Current」は、インストールできるディストリビューションの一覧にありません。" @('wsl -l -o で表示される NAME 列の名前を入力してください。')
-        } elseif ($match -notlike 'Ubuntu*') {
-            $err = New-InputError "このスクリプトは Ubuntu でのみ動作を確認しています（指定: $match）。" @('Ubuntu-26.04 などの Ubuntu を選んでください。')
+        } elseif ($match -ne 'Ubuntu-26.04') {
+            # 部屋の中で確かめる apt の修正版（lib.sh の APT_MIN_VERSION）が、Ubuntu 26.04 のものだけのため
+            $err = New-InputError "このスクリプトは Ubuntu-26.04 にだけ対応しています（指定: $match）。" @(
+                'apt の脆弱性（CVE-2026-109518）への対策で確かめる apt の修正版が、Ubuntu の版ごとに違うためです。',
+                'Ubuntu-26.04 を選んでください。')
         } else {
             return $match
         }
@@ -838,29 +874,31 @@ function Show-Summary([bool]$Creating) {
     elseif ($Resume) { $mode = '既存の部屋の設定をやり直す（部屋は消しません）' }
     else { $mode = '新しく作る' }
     Write-Info "行うこと               : $mode"
+    if ($VerifyOnly) {
+        Write-Info "検証の基準             : 部屋の中の $($script:InstallDir)/room.conf（前回この部屋を設定したときの内容）"
+        return
+    }
     Write-Info "Linux のユーザー名     : $($script:Conf.LinuxUser)"
     Write-Info "部屋に見せるフォルダ   : $(Get-VSCodeExtensionsDir $script:Conf.WindowsUser)（読み取り専用）"
     if ($script:Conf.AllowedDomains.Count -gt 0) { $domains = $script:Conf.AllowedDomains -join ', ' } else { $domains = '（なし）' }
     Write-Info "通信を許可するドメイン : $domains"
-    if (-not $VerifyOnly) {
-        if ($null -ne $script:GitHub) {
-            if ($Interactive) { $src = 'この画面で入力。PAT は入力済み（表示しません）' } else { $src = $script:GitHubConfigFile }
-            Write-Info "GitHub の設定          : する（$src）"
-            Write-Info "クローンするリポジトリ : $($script:GitHub.RepoUrl) → ~/projects/$($script:GitHub.RepoName)"
-            Write-Info "コミットの作者         : $($script:GitHub.UserName) <$($script:GitHub.UserEmail)>"
-        } elseif ($null -ne $script:LocalGit) {
-            if ($Interactive) { $src = 'この画面で入力' } else { $src = $script:LocalGitConfigFile }
-            $lg = $script:LocalGit
-            Write-Info "LocalGit の設定        : する（$src）"
-            Write-Info "同期するリポジトリ     : $($lg.RepoPath) ⇔ 部屋の ~/repos/$($lg.RepoName).git（作業用のクローン: ~/projects/$($lg.RepoName)）"
-            Write-Info "同期スクリプト         : $(Get-SyncScriptDir)\Sync-$($script:Room).cmd"
-        } else {
-            $ghName = Split-Path -Leaf $script:GitHubConfigFile
-            $lgName = Split-Path -Leaf $script:LocalGitConfigFile
-            if ($Interactive) { $why = '「しない」を選んだ' } else { $why = "$ghName と $lgName に記入が無い" }
-            if ($Resume) { $why += '。すでにある設定はそのまま' }
-            Write-Info "リポジトリの設定       : しない（$why）"
-        }
+    if ($null -ne $script:GitHub) {
+        if ($Interactive) { $src = 'この画面で入力。PAT は入力済み（表示しません）' } else { $src = $script:GitHubConfigFile }
+        Write-Info "GitHub の設定          : する（$src）"
+        Write-Info "クローンするリポジトリ : $($script:GitHub.RepoUrl) → ~/projects/$($script:GitHub.RepoName)"
+        Write-Info "コミットの作者         : $($script:GitHub.UserName) <$($script:GitHub.UserEmail)>"
+    } elseif ($null -ne $script:LocalGit) {
+        if ($Interactive) { $src = 'この画面で入力' } else { $src = $script:LocalGitConfigFile }
+        $lg = $script:LocalGit
+        Write-Info "LocalGit の設定        : する（$src）"
+        Write-Info "同期するリポジトリ     : $($lg.RepoPath) ⇔ 部屋の ~/repos/$($lg.RepoName).git（作業用のクローン: ~/projects/$($lg.RepoName)）"
+        Write-Info "同期スクリプト         : $(Get-SyncScriptDir)\Sync-$($script:Room).cmd"
+    } else {
+        $ghName = Split-Path -Leaf $script:GitHubConfigFile
+        $lgName = Split-Path -Leaf $script:LocalGitConfigFile
+        if ($Interactive) { $why = '「しない」を選んだ' } else { $why = "$ghName と $lgName に記入が無い" }
+        if ($Resume) { $why += '。すでにある設定はそのまま' }
+        Write-Info "リポジトリの設定       : しない（$why）"
     }
     if ($Interactive) { Write-Info '設定の入力元           : この画面で入力（ファイルには保存しません）' }
     else { Write-Info "設定ファイル           : $($script:ConfigFile)" }
@@ -1033,10 +1071,7 @@ function Invoke-GitHubSetup {
         if ($null -ne $gh.PatSecure) { $pat = ConvertFrom-SecureToPlain $gh.PatSecure }
         $payload = "user_name=$($gh.UserName)`nuser_email=$($gh.UserEmail)`npat=$pat`nrepo_url=$($gh.RepoUrl)`n"
         $b64 = [Convert]::ToBase64String((New-Object System.Text.UTF8Encoding($false)).GetBytes($payload))
-        $payload = $null
-        $pat = $null
         $code = Invoke-WslWithInput -Text $b64 -Arguments $wslArgs
-        $b64 = $null
         if ($code -ne 0) {
             Stop-Setup "「$what」に失敗しました（終了コード $code）。" (@('上に表示されたメッセージを確認してください。') +
                 (Get-RerunHint '原因を取り除いたら、{0}続きからやり直せます（部屋は消えません）:' 'Resume'))
@@ -1160,7 +1195,7 @@ function Invoke-Verify {
         Stop-Setup '自動検証で FAIL になった項目があります。' (@('上の [FAIL] の行と、その下の説明を確認してください。') +
             (Get-RerunHint '直したあと、{0}検証だけをやり直せます:' 'VerifyOnly'))
     }
-    Write-Ok '自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します。WARN の項目があれば、その説明を確認してください）。'
+    Write-Ok '自動検証で FAIL はありませんでした（WARN や SKIP の項目があれば、その説明を確認してください）。'
 }
 
 function Show-NextSteps {
@@ -1213,42 +1248,12 @@ function Show-NextSteps {
 # 入力した値はファイルに保存しない。room.conf にあたる内容はメモリ上で組み立てて部屋の中へコピーし（$script:ConfBytes）、
 # GitHub の情報（PAT を含む）は Invoke-GitHubSetup が標準入力で部屋に渡す。
 
-# このスクリプトが WSL の部屋の中にあるときは停止する。部屋の中のファイルは部屋の中のプログラム（Claude Code を含む）が
-# 書き換えられるため、書き換えられたスクリプトに PAT を入力したり、Windows の権限で実行したりしてしまうおそれがある。
-# $Why には、止める理由（対話モードでは PAT の入力、LocalGit では同期スクリプトの作成）を渡す。
-function Test-ScriptLocation([string]$Why) {
-    # 「Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...」の形で渡されることがあるので、前置きを外して調べる
-    $root = $script:ScriptRoot -replace '^Microsoft\.PowerShell\.Core\\FileSystem::', ''
-    $hint = @(
-        '部屋の中のファイルは、部屋の中のプログラム（Claude Code を含む）が書き換えられます。',
-        $Why,
-        'wsl-room-setup フォルダを Windows 側の自分のフォルダにコピーし、中身を確かめてから、コピーしたほうから起動してください（README の 3 章）。')
-    if (Test-PathInsideWsl $root) { Stop-Setup "このスクリプトは WSL の部屋の中にあります: $root" $hint }
-    # \\wsl.localhost\... をドライブ文字に割り当てて開いた場合も止める
-    if ($root -match '^([A-Za-z]):') {
-        $drive = "$($Matches[1].ToUpperInvariant()):"
-        $isNetwork = $false
-        try { $isNetwork = ((New-Object System.IO.DriveInfo $drive).DriveType -eq [System.IO.DriveType]::Network) } catch { $isNetwork = $false }
-        if ($isNetwork) {
-            $unc = $null
-            try { $unc = (Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$drive'" -ErrorAction Stop).ProviderName } catch { $unc = $null }
-            if (-not $unc) {
-                Stop-Setup "このスクリプトがあるネットワークドライブ（$drive）の接続先を確認できませんでした: $root" $hint
-            }
-            if (Test-PathInsideWsl $unc) {
-                Stop-Setup "このスクリプトは、WSL の部屋の中を割り当てたドライブ（$drive → $unc）にあります: $root" $hint
-            }
-        }
-    }
-}
-
 # 行うこと（新規作成・やり直し・検証だけ）と、ドライランにするかを聞く。コマンドラインで指定されたものは聞かない。
 function Start-Wizard {
     if ($ConfigPath -or $GitHubConfigPath) {
         Stop-Setup '-Interactive と、-ConfigPath・-GitHubConfigPath は同時に指定できません。' @(
             '対話モードでは設定ファイルを使わず、必要な値をこの画面で入力します。')
     }
-    Test-ScriptLocation '書き換えられたスクリプトに PAT などを入力してしまわないよう、対話モードは部屋の中にあるファイルからは起動できません。'
     Write-Host ''
     Write-Info '設定ファイル（room.conf・room-github.conf・room-localgit.conf）の代わりに、必要な値をこの画面で順に聞きます。'
     Write-Info '入力した値は、ファイルには保存しません。'
@@ -1475,6 +1480,7 @@ function Read-WizardConfirm {
 function Invoke-Main {
     Write-Host ''
     Write-Host '=== Claude Code 用の隔離された WSL の部屋をつくります（wsl-room-setup）===' -ForegroundColor Cyan
+    Test-ScriptLocation
     if ($Interactive) { Start-Wizard }
     if ($DryRun) { Write-Note 'ドライランです。何も変更せず、実行する予定の内容だけを表示します。' }
     if ($Resume -and $VerifyOnly) { Stop-Setup '-Resume と -VerifyOnly は同時に指定できません。' }
@@ -1485,29 +1491,26 @@ function Invoke-Main {
     Write-Ok 'WSL が使えます。'
     Test-PayloadFiles
     Write-Ok 'スクリプト一式がそろっています。'
-    # 対話モードでは、設定ファイルを読む代わりに、部屋の名前を決めたあとで同じ内容を聞く（Read-WizardSettings）
-    if (-not $Interactive) {
+    # 対話モードでは、設定ファイルを読む代わりに、部屋の名前を決めたあとで同じ内容を聞く（Read-WizardSettings）。
+    # 検証だけのときは、部屋の中の room.conf を基準にするので、設定ファイルは読まない（聞かない）
+    if (-not ($Interactive -or $VerifyOnly)) {
         $script:Conf = Read-RoomConf $script:ConfigFile
         $script:LinuxUser = $script:Conf.LinuxUser
         Write-Ok "設定ファイルを確認しました（$($script:ConfigFile)）。"
-        if (-not $VerifyOnly) {
-            if ($GitHubConfigPath -and -not (Test-Path -LiteralPath $script:GitHubConfigFile -PathType Leaf)) {
-                Stop-Setup "GitHub の設定ファイルが見つかりません: $($script:GitHubConfigFile)"
-            }
-            $script:GitHub = Read-GitHubConf $script:GitHubConfigFile
+        if ($GitHubConfigPath -and -not (Test-Path -LiteralPath $script:GitHubConfigFile -PathType Leaf)) {
+            Stop-Setup "GitHub の設定ファイルが見つかりません: $($script:GitHubConfigFile)"
+        }
+        $script:GitHub = Read-GitHubConf $script:GitHubConfigFile
+        if ($null -ne $script:GitHub) {
+            Write-Ok "GitHub の設定ファイルを確認しました（$($script:GitHubConfigFile)）。"
+        }
+        $script:LocalGit = Read-LocalGitConf $script:LocalGitConfigFile
+        if ($null -ne $script:LocalGit) {
             if ($null -ne $script:GitHub) {
-                Write-Ok "GitHub の設定ファイルを確認しました（$($script:GitHubConfigFile)）。"
+                Stop-Setup "$(Split-Path -Leaf $script:GitHubConfigFile) と $(Split-Path -Leaf $script:LocalGitConfigFile) の両方に記入されています。" @(
+                    'GitHub と LocalGit は、1 つの部屋でどちらか一方だけを使えます。使わないほうを空欄にしてください。')
             }
-            $script:LocalGit = Read-LocalGitConf $script:LocalGitConfigFile
-            if ($null -ne $script:LocalGit) {
-                if ($null -ne $script:GitHub) {
-                    Stop-Setup "$(Split-Path -Leaf $script:GitHubConfigFile) と $(Split-Path -Leaf $script:LocalGitConfigFile) の両方に記入されています。" @(
-                        'GitHub と LocalGit は、1 つの部屋でどちらか一方だけを使えます。使わないほうを空欄にしてください。')
-                }
-                # 同期スクリプトはこのフォルダの rooms\ に作るので、このフォルダが部屋の中にあると、同期スクリプトも部屋の中にできてしまう
-                Test-ScriptLocation 'LocalGit の同期スクリプトは Windows のあなたの権限で動くので、部屋の中には作れません（部屋の中にあるファイルからは起動できません）。'
-                Write-Ok "LocalGit の設定ファイルを確認しました（$($script:LocalGitConfigFile)）。"
-            }
+            Write-Ok "LocalGit の設定ファイルを確認しました（$($script:LocalGitConfigFile)）。"
         }
         $err = Test-VSCodeWslExtension $script:Conf.WindowsUser
         if ($null -ne $err) { Stop-Setup $err.Message $err.Hint }
@@ -1519,13 +1522,13 @@ function Invoke-Main {
     $script:Room = Select-RoomName $RoomName (-not $creating)
 
     while ($true) {
-        if ($Interactive) {
+        if ($Interactive -and -not $VerifyOnly) {
             Read-WizardSettings $creating
-            if (-not $VerifyOnly) { Read-WizardRepo }
+            Read-WizardRepo
         }
         Show-Summary $creating
         if ($DryRun) { break }
-        if ($Interactive) {
+        if ($Interactive -and -not $VerifyOnly) {
             $answer = Read-WizardConfirm
             if ($answer -eq 'y') { break }
             if ($answer -eq 'r') { continue }
@@ -1540,15 +1543,27 @@ function Invoke-Main {
     if ($creating) { New-Room }
     if (-not ($DryRun -and $creating)) {
         Test-RoomIsWsl2
-        Test-RoomDefaultUser
-        Test-RepoModeConflict
+        if ($VerifyOnly) {
+            # 部屋に入ったときのユーザーは、verify-room.sh（07）が部屋の中の room.conf と比べる
+            $verifier = "$($script:InstallDir)/verify-room.sh"
+            $null = Invoke-WslCapture @('-d', $script:Room, '-u', 'root', '--cd', '/', '--exec', 'test', '-f', $verifier)
+            if ($script:LastWslExit -ne 0) {
+                Stop-Setup "部屋の中に検証用のファイル（$verifier）がありません。" (@(
+                    'この部屋は、このスクリプトでの設定が終わっていない可能性があります。') +
+                    (Get-RerunHint '{0}設定をやり直せます（部屋は消えません）:' 'Resume'))
+            }
+        } else {
+            Test-RoomDefaultUser
+            Test-RepoModeConflict
+        }
     }
 
-    Copy-PayloadToRoom
+    # 検証だけのときは、部屋の中に置いてある検証用のファイル（root 所有）をそのまま使い、部屋の中は変えない
     if (-not $VerifyOnly) {
+        Copy-PayloadToRoom
         Invoke-ProvisionStep -User 'root' -ScriptName 'provision-root.sh' `
             -ScriptArgs @('--phase', 'base') `
-            -What '部屋の基本設定（root）: パッケージ、wsl.conf、ホスト名、AppArmor、delzonei'
+            -What '部屋の基本設定（root）: パッケージ、wsl.conf、ホスト名、AppArmor、delzonei、Claude Code の守りの設定（managed settings）'
         Restart-Room
         Invoke-ProvisionStep -User 'root' -ScriptName 'provision-root.sh' -ScriptArgs @('--phase', 'mount') `
             -What 'VS Code 拡張フォルダの読み取り専用マウントと /mnt の片付け（root）'

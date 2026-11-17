@@ -4,7 +4,7 @@
 #
 # 通常は Windows 側の New-SecureRoom.ps1 が自動で呼び出します。
 #
-#   bash provision-user.sh [--config <room.conf のパス>] [--dry-run]
+#   bash provision-user.sh [--config <room.conf のパス>]
 #
 # 行うこと:
 #   1. Claude Code のインストール（公式のインストールスクリプト）
@@ -14,7 +14,8 @@
 #   -  Rust のインストール（公式の rustup https://sh.rustup.rs。stable の default プロファイルを ~/.cargo と ~/.rustup に入れ、
 #      ~/.bashrc に「. "$HOME/.cargo/env"」を追記）。リンクに使う C コンパイラなどは provision-root.sh が入れる
 #      （build-essential・pkg-config・libssl-dev）
-#   3. ~/.claude/settings.json の配置（サンドボックス等の設定。room.conf の allowed_domains を反映）
+#   3. ~/.claude/settings.json の配置（ステータスラインなどの好みの設定。守りの設定（サンドボックスと権限ルール）は、
+#      provision-root.sh が managed settings として置く）
 #   4. ステータスライン（statusline.sh）を ~/.claude/statusline.sh に配置
 #   5. ~/projects の作成
 #
@@ -45,17 +46,13 @@ readonly RUSTC_BIN="$HOME/.cargo/bin/rustc"
 readonly CARGO_ENV_LINE='. "$HOME/.cargo/env"'
 
 usage() {
-    echo '使い方: bash provision-user.sh [--config <room.conf のパス>] [--dry-run]'
+    echo '使い方: bash provision-user.sh [--config <room.conf のパス>]'
 }
 
 install_claude() {
     step "1/5 Claude Code をインストールします"
     if [[ -x $CLAUDE_BIN ]]; then
         ok "インストール済みです（$CLAUDE_BIN）。"
-        return 0
-    fi
-    if (( DRY_RUN )); then
-        info "[dry-run] curl -fsSL $INSTALL_URL | bash"
         return 0
     fi
     curl -fsSL "$INSTALL_URL" | bash
@@ -70,10 +67,6 @@ add_path_line() {
         ok "すでに追加されています（変更なし）。"
         return 0
     fi
-    if (( DRY_RUN )); then
-        info "[dry-run] ~/.bashrc に次の行を追記: $PATH_LINE"
-        return 0
-    fi
     printf '\n# Claude Code（wsl-room-setup が追加）\n%s\n' "$PATH_LINE" >> "$HOME/.bashrc"
     ok "~/.bashrc に追記しました。"
 }
@@ -83,10 +76,6 @@ install_uv() {
     step "uv をインストールします"
     if [[ -x $UV_BIN ]]; then
         ok "インストール済みです（$("$UV_BIN" --version)）。"
-        return 0
-    fi
-    if (( DRY_RUN )); then
-        info "[dry-run] curl --proto '=https' --tlsv1.2 -LsSf $UV_INSTALL_URL | env UV_NO_MODIFY_PATH=1 sh"
         return 0
     fi
     # ~/.local/bin は add_path_line で PATH に入るので、
@@ -102,19 +91,11 @@ install_rust() {
     step "Rust（rustup）をインストールします"
 
     # Rust はリンクに C コンパイラ（cc）を使う。無いと cargo build が失敗する
-    if ! command -v cc > /dev/null; then
-        if (( DRY_RUN )); then
-            warn "cc が見つかりません。provision-root.sh で build-essential を入れる必要があります。"
-        else
-            die "C コンパイラ（cc）が見つかりません。" \
-                "provision-root.sh のパッケージに build-essential を追加して、先に実行してください。"
-        fi
-    fi
+    command -v cc > /dev/null || die "C コンパイラ（cc）が見つかりません。" \
+        "provision-root.sh のパッケージに build-essential を追加して、先に実行してください。"
 
     if [[ -x $RUSTC_BIN ]]; then
         ok "インストール済みです（$("$RUSTC_BIN" --version)）。"
-    elif (( DRY_RUN )); then
-        info "[dry-run] curl --proto '=https' --tlsv1.2 -sSf $RUSTUP_URL | sh -s -- -y --no-modify-path --profile default --default-toolchain stable"
     else
         curl --proto '=https' --tlsv1.2 -sSf "$RUSTUP_URL" \
             | sh -s -- -y --no-modify-path --profile default --default-toolchain stable
@@ -126,75 +107,44 @@ install_rust() {
     # ~/.cargo/bin を PATH に入れる行を ~/.bashrc に追加（すでにあれば追記しない）
     if [[ -f $HOME/.bashrc ]] && grep -Fxq -- "$CARGO_ENV_LINE" "$HOME/.bashrc"; then
         ok "~/.bashrc の設定はすでにあります（変更なし）。"
-    elif (( DRY_RUN )); then
-        info "[dry-run] ~/.bashrc に次の行を追記: $CARGO_ENV_LINE"
     else
         printf '\n# Rust（wsl-room-setup が追加）\n%s\n' "$CARGO_ENV_LINE" >> "$HOME/.bashrc"
         ok "~/.bashrc に追記しました。"
     fi
 }
 
-install_settings() {
-    step "3/5 Claude Code の設定ファイル（$SETTINGS_FILE）を配置します"
-    command -v jq > /dev/null || die "jq が見つかりません。" \
-        "provision-root.sh（root 用の設定）が先に完了している必要があります。"
-    [[ -r $SETTINGS_TEMPLATE ]] || die "テンプレート $SETTINGS_TEMPLATE が見つかりません。"
-
-    # テンプレートの allowedDomains を room.conf の内容で置き換える。
-    # jq を通すので、JSON として正しいことも同時に保証される。
-    local domains_json new
-    domains_json=$(jq -nc '$ARGS.positional' --args "${CONF_ALLOWED_DOMAINS[@]}")
-    new=$(jq --indent 2 --argjson domains "$domains_json" \
-        '.sandbox.network.allowedDomains = $domains' "$SETTINGS_TEMPLATE")
-    info "通信を許可するドメイン: ${CONF_ALLOWED_DOMAINS[*]:-（なし）}"
-
-    if [[ -f $SETTINGS_FILE && "$(< "$SETTINGS_FILE")" == "$new" ]]; then
+# $1 を $2 に置く（同じ内容なら何もしない。違えば元のファイルを「元の名前.bak-日時」として残す）
+install_user_file() {
+    local src=$1 dest=$2 bak
+    [[ -r $src ]] || die "$src が見つかりません。"
+    if [[ -f $dest ]] && cmp -s -- "$src" "$dest"; then
         ok "すでに同じ内容です（変更なし）。"
         return 0
     fi
-    if (( DRY_RUN )); then
-        info "[dry-run] $SETTINGS_FILE に次の内容を書き込みます:"
-        printf '%s\n' "$new" | sed 's/^/      | /'
-        return 0
-    fi
-    mkdir -p -- "${SETTINGS_FILE%/*}"
-    if [[ -e $SETTINGS_FILE ]]; then
-        local bak
-        bak="$SETTINGS_FILE.bak-$(date +%Y%m%d-%H%M%S)"
-        cp -p -- "$SETTINGS_FILE" "$bak"
+    mkdir -p -- "${dest%/*}"
+    if [[ -e $dest ]]; then
+        bak="$dest.bak-$(date +%Y%m%d-%H%M%S)"
+        cp -p -- "$dest" "$bak"
         info "元のファイルを $bak に保存しました。"
     fi
-    printf '%s\n' "$new" > "$SETTINGS_FILE.tmp"
-    mv -f -- "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
+    install -m 644 -- "$src" "$dest"
     ok "配置しました。"
+}
+
+install_settings() {
+    step "3/5 Claude Code の設定ファイル（$SETTINGS_FILE）を配置します"
+    install_user_file "$SETTINGS_TEMPLATE" "$SETTINGS_FILE"
 }
 
 # settings.json の statusLine（bash ~/.claude/statusline.sh）から実行されるファイルを置く
 install_statusline() {
     step "4/5 ステータスライン（$STATUSLINE_DEST）を配置します"
-    [[ -r $STATUSLINE_SRC ]] || die "$STATUSLINE_SRC が見つかりません。"
-    if [[ -f $STATUSLINE_DEST ]] && cmp -s -- "$STATUSLINE_SRC" "$STATUSLINE_DEST"; then
-        ok "すでに同じ内容です（変更なし）。"
-        return 0
-    fi
-    if (( DRY_RUN )); then
-        info "[dry-run] $STATUSLINE_SRC を $STATUSLINE_DEST にコピー"
-        return 0
-    fi
-    mkdir -p -- "${STATUSLINE_DEST%/*}"
-    if [[ -e $STATUSLINE_DEST ]]; then
-        local bak
-        bak="$STATUSLINE_DEST.bak-$(date +%Y%m%d-%H%M%S)"
-        cp -p -- "$STATUSLINE_DEST" "$bak"
-        info "元のファイルを $bak に保存しました。"
-    fi
-    install -m 644 -- "$STATUSLINE_SRC" "$STATUSLINE_DEST"
-    ok "配置しました。"
+    install_user_file "$STATUSLINE_SRC" "$STATUSLINE_DEST"
 }
 
 create_projects_dir() {
     step "5/5 プロジェクト用のフォルダ ~/projects を作成します"
-    run mkdir -p -- "$HOME/projects"
+    mkdir -p -- "$HOME/projects"
     ok "~/projects を用意しました。Claude Code は必ず ~/projects/<プロジェクト名> の中で起動してください。"
 }
 
@@ -205,14 +155,12 @@ main() {
             --config)
                 (( $# >= 2 )) || die "--config の後にファイルのパスを指定してください。"
                 config=$2; shift 2 ;;
-            --dry-run) DRY_RUN=1; shift ;;
             -h|--help) usage; exit 0 ;;
             *) die "知らないオプションです: $1" "$(usage)" ;;
         esac
     done
 
     require_not_root
-    (( DRY_RUN )) && warn "ドライランです。何も変更しません。"
     load_room_conf "$config"
     [[ $(id -un) == "$CONF_LINUX_USER" ]] || die \
         "このスクリプトは room.conf の linux_user（$CONF_LINUX_USER）として実行してください（今は $(id -un)）。"

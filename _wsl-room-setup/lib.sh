@@ -35,14 +35,7 @@ else
 fi
 
 step() { printf '\n%s==> %s%s\n' "$C_CYAN" "$*" "$C_RESET"; }
-# ドライランのときは実際には何もしていないので、[完了] ではなく [予定] と表示する
-ok() {
-    if (( ${DRY_RUN:-0} )); then
-        printf '  [予定] %s\n' "$*"
-    else
-        printf '%s  [完了] %s%s\n' "$C_GREEN" "$*" "$C_RESET"
-    fi
-}
+ok() { printf '%s  [完了] %s%s\n' "$C_GREEN" "$*" "$C_RESET"; }
 info() { printf '  %s\n' "$*"; }
 warn() { printf '%s  [注意] %s%s\n' "$C_YELLOW" "$*" "$C_RESET" >&2; }
 
@@ -61,21 +54,6 @@ on_error() {
     printf '%s[エラー] %s の %s 行目で予期しないエラーが起きたため停止しました（終了コード %s）。%s\n' \
         "$C_RED" "${0##*/}" "$line" "$rc" "$C_RESET" >&2
     printf '        直前に表示されたメッセージを確認してください。\n' >&2
-}
-
-# ---------------------------------------------------------------------------
-# ドライラン
-# ---------------------------------------------------------------------------
-
-DRY_RUN=0
-
-# コマンドを実行する。--dry-run のときは実行せずに表示だけする。
-run() {
-    if (( DRY_RUN )); then
-        printf '  [dry-run] %s\n' "$*"
-        return 0
-    fi
-    "$@"
 }
 
 # ---------------------------------------------------------------------------
@@ -116,6 +94,14 @@ fstab_expected_line() {
     printf '%s %s drvfs defaults,ro 0 0' \
         'C:\\Users\\'"$1"'\\.vscode\\extensions' "$(win_ext_mountpoint "$1")"
 }
+
+# ---------------------------------------------------------------------------
+# Claude Code の守りの設定
+# ---------------------------------------------------------------------------
+# サンドボックスと権限ルールは、managed settings（root 所有）として置く（provision-root.sh）。
+# Claude Code はこのファイルを、ユーザー設定（~/.claude/settings.json）やプロジェクトの .claude/settings.json より
+# 優先するので、それらのファイルでは外せない（一覧の形の設定は、すべてのファイルの内容が足し合わされる）。
+readonly MANAGED_SETTINGS=/etc/claude-code/managed-settings.json
 
 # ---------------------------------------------------------------------------
 # 設定ファイル（room.conf）

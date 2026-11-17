@@ -12,7 +12,8 @@
 # [WARN] は失敗ではなく、部屋の設定では止められないが知っておいてほしいこと（WSL 全体の設定で決まるものなど）です。
 #
 # 項目番号:
-#   01〜14  申し送り書 第 6 章の表（12 の claude doctor はログインが必要なため手動確認に回す）
+#   01〜14  申し送り書 第 6 章の表（09 と 12 は欠番。09 の sudo の設定は R1 で確かめ、
+#           12 の claude doctor はログインが必要なため手動で確認する）
 #   E1〜E6  追加の申し送り EX1（重要ファイルの所有者・権限、wsl.conf と fstab の内容）
 #   E7      delzonei（/usr/local/bin/delzonei）の所有者・権限・内容
 #   E8      部屋のユーザーが管理者のグループ（sudo など）に入っていない（部屋の中で root になれない）
@@ -26,7 +27,7 @@
 # 期待値（Linux ユーザー名、Windows ユーザー名、許可ドメイン）は、このスクリプトと同じフォルダの
 # room.conf から読みます（部屋の中では root 所有なので、一般ユーザーや Claude は書き換えられません）。
 # 部屋の名前（E4・E9）は、WSL が設定する環境変数 WSL_DISTRO_NAME から読みます。
-#   R1〜R2  root でしか確認できない sudo の設定
+#   R1      root でしか確認できない sudo の権限（パスワードが必要なものも含めて、一つも無いこと）
 #
 # Claude Code 自体は起動しません。
 # =============================================================================
@@ -209,27 +210,14 @@ check_07() {
 }
 
 check_08() {
-    local bad=0
     sudo -k 2> /dev/null || true
-    if sudo -n true > /dev/null 2>&1; then
-        detail "パスワードなしで sudo を実行できました。"
-        bad=1
-    fi
-    # sudo -l（権限一覧の表示）は、既定ではパスワード不要の設定が 1 つでもあるとパスワードなしで通る
-    sudo -k 2> /dev/null || true
+    # sudo -l（権限一覧の表示）は、既定ではパスワード不要の設定が 1 つでもあるとパスワードなしで通る。
+    # パスワードが必要な権限は、一般ユーザーからは見分けられないので R1 で確かめる
     if sudo -n -l > /dev/null 2>&1; then
         detail "パスワードなしで sudo -l を実行できました。NOPASSWD の設定がある可能性があります。"
-        bad=1
-    fi
-    if (( bad )); then
-        detail "→ Claude が root になって、ここで検査している設定を書き換えられる状態です。R1・R2 の結果も確認してください。"
+        detail "→ Claude が root になって、ここで検査している設定を書き換えられる状態です。R1 の結果も確認してください。"
         return 1
     fi
-}
-
-check_09() {
-    detail "sudo の設定ファイルは root しか読めないため、R1 で確認します。"
-    return 2
 }
 
 check_10() {
@@ -269,74 +257,101 @@ check_11() {
     fi
 }
 
-check_12() {
-    detail "claude doctor はログイン後に手動で確認します（README「ログイン後の手動確認」）。"
-    return 2
-}
-
+# Claude Code の設定。守りの設定（サンドボックスと権限ルール）は managed settings（root 所有）に置き、Claude Code は
+# それをユーザー設定・プロジェクト設定より優先する。ただし一覧の形の設定は、すべてのファイルの内容が足し合わされ、
+# permissions.defaultMode はユーザー設定で決まるので、それらは ~/.claude/settings.json も確かめる。
 check_13() {
-    local f="$HOME/.claude/settings.json" owner domains_json bad=0
-    if [[ ! -f $f ]]; then detail "$f がありません。"; return 1; fi
-    owner=$(stat -c %U -- "$f")
-    if [[ $owner != "$U" ]]; then
-        detail "所有者が $owner になっています（期待: $U）。"
-        bad=1
-    fi
+    local m=$MANAGED_SETTINGS f="$HOME/.claude/settings.json" owner domains_json rule p bad=0
     if ! command -v jq > /dev/null 2>&1; then detail "jq が見つからないため検査できません。"; return 1; fi
-    if ! jq -e . "$f" > /dev/null 2>&1; then detail "JSON として読めません（書き方の誤り）。"; return 1; fi
 
-    # want <説明> <jq の条件式>
+    # want <ファイル> <説明> <jq の条件式>
     want() {
-        if ! jq -e "$2" "$f" > /dev/null 2>&1; then
-            detail "NG: $1"
+        if ! jq -e "$3" "$1" > /dev/null 2>&1; then
+            detail "NG: ${1/#"$HOME"/\~} の $2"
             bad=1
         fi
     }
-    want 'sandbox.enabled が true' '.sandbox.enabled == true'
-    want 'sandbox.failIfUnavailable が true' '.sandbox.failIfUnavailable == true'
-    want 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
-    # permissions.blockReadsOutsideWorkingDirectories は設定しない（README「このツールの考え方」・6.4）。
-    # 部屋の中では作業フォルダの外も Claude に読ませる設計で、読ませないものは下の Read(...) で個別に禁止する。
-    # true にすると、サンドボックスの中のコマンドもホームフォルダの中を読めなくなり、uv や Rust を使えなくなる見込み。
-    want 'permissions.deny に "Read(//mnt/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(//mnt/**)")'
-    want 'permissions.deny に "Read(~/.git-credentials)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.git-credentials)")'
-    # sandbox.credentials はサンドボックスの中のコマンドにしか効かないので、Claude のファイル読み取り機能は Read(...) で止める
-    want 'permissions.deny に "Read(~/.ssh/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.ssh/**)")'
-    want 'permissions.deny に "Read(~/.aws/**)" がある' '(.permissions.deny // []) | any(.[]; . == "Read(~/.aws/**)")'
-    # Claude のファイル編集機能（Edit・Write など）で書き換えさせないもの。どれも、サンドボックスの外で
-    # 自動で実行されるか（シェルの起動、git、VS Code、Claude Code 自身）、LocalGit の部屋の bare リポジトリ（~/repos）。
-    # templates/claude-settings.json.tmpl の permissions.deny と同じ一覧（変えるときは両方）
-    local rule
-    for rule in 'Edit(~/repos/**)' \
-        'Edit(~/.bash*)' 'Edit(~/.profile)' 'Edit(~/.gitconfig)' 'Edit(~/.config/**)' \
-        'Edit(~/.local/**)' 'Edit(~/.cargo/**)' 'Edit(~/.rustup/**)' 'Edit(~/.vscode-server/**)' \
-        'Edit(~/.ssh/**)' 'Edit(~/.npmrc)' \
-        'Edit(~/.claude/settings.json)' 'Edit(~/.claude/statusline.sh)' 'Edit(~/.claude.json)' \
-        'Edit(~/.claude/plugins/**)' 'Edit(~/.claude/dev-mods/**)'; do
-        if ! jq -e --arg r "$rule" '(.permissions.deny // []) | any(.[]; . == $r)' "$f" > /dev/null 2>&1; then
-            detail "NG: permissions.deny に \"$rule\" がない"
+
+    # --- managed settings（templates/managed-settings.json.tmpl と同じ内容のはず） ---
+    check_root_only_writable "${m%/*}" || bad=1
+    if ! check_root_only_writable "$m"; then
+        bad=1
+    elif ! jq -e . "$m" > /dev/null 2>&1; then
+        detail "$m が JSON として読めません（書き方の誤り）。"
+        bad=1
+    else
+        want "$m" 'sandbox.enabled が true' '.sandbox.enabled == true'
+        want "$m" 'sandbox.failIfUnavailable が true' '.sandbox.failIfUnavailable == true'
+        want "$m" 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
+        # 次の 3 つは既定値も false だが、managed で false に固定して、ほかの設定ファイルから有効にできないようにしている
+        want "$m" 'sandbox.enableWeakerNestedSandbox が false' '.sandbox.enableWeakerNestedSandbox == false'
+        want "$m" 'sandbox.filesystem.disabled が false' '.sandbox.filesystem.disabled == false'
+        want "$m" 'sandbox.network.allowAllUnixSockets が false' '.sandbox.network.allowAllUnixSockets == false'
+        want "$m" 'sandbox.excludedCommands が空' '((.sandbox.excludedCommands // []) | length) == 0'
+        want "$m" 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
+        # permissions.blockReadsOutsideWorkingDirectories は設定しない（README「このツールの考え方」・6.4）。
+        # 部屋の中では作業フォルダの外も Claude に読ませる設計で、読ませないものは下の Read(...) で個別に禁止する。
+        # true にすると、サンドボックスの中のコマンドもホームフォルダの中を読めなくなり、uv や Rust を使えなくなる見込み。
+        # sandbox.credentials はサンドボックスの中のコマンドにしか効かないので、Claude のファイル読み取り機能は Read(...) で止める。
+        # Edit(...) は、Claude のファイル編集機能（Edit・Write など）で書き換えさせないもの。どれも、サンドボックスの外で
+        # 自動で実行されるか（シェルの起動、git、VS Code、Claude Code 自身）、LocalGit の部屋の bare リポジトリ（~/repos）。
+        # ~/**/.git と ~/**/.claude/settings*.json は、ホームフォルダの下のどこにあるものも（~/.git、~/projects/<名前>/.git など）。
+        # templates/managed-settings.json.tmpl の permissions.deny と同じ一覧（変えるときは両方）
+        for rule in 'Read(//mnt/**)' 'Read(~/.git-credentials)' 'Read(~/.claude/.credentials.json)' \
+            'Read(~/.ssh/**)' 'Read(~/.aws/**)' \
+            'Edit(~/repos/**)' \
+            'Edit(~/.bash*)' 'Edit(~/.profile)' 'Edit(~/.gitconfig)' 'Edit(~/**/.git)' 'Edit(~/**/.git/**)' \
+            'Edit(~/.config/**)' \
+            'Edit(~/.local/**)' 'Edit(~/.cargo/**)' 'Edit(~/.rustup/**)' 'Edit(~/.vscode-server/**)' \
+            'Edit(~/.ssh/**)' 'Edit(~/.npmrc)' \
+            'Edit(~/.claude/settings.json)' 'Edit(~/**/.claude/settings.json)' 'Edit(~/**/.claude/settings.local.json)' \
+            'Edit(~/.claude/statusline.sh)' 'Edit(~/.claude.json)' \
+            'Edit(~/.claude/plugins/**)' 'Edit(~/.claude/dev-mods/**)'; do
+            if ! jq -e --arg r "$rule" '(.permissions.deny // []) | any(.[]; . == $r)' "$m" > /dev/null 2>&1; then
+                detail "NG: $m の permissions.deny に \"$rule\" がない"
+                bad=1
+            fi
+        done
+        # 設定ファイルに書かれた文字列のまま比べるので、~ は展開しない
+        # shellcheck disable=SC2088
+        for p in '~/.ssh' '~/.aws' '~/.git-credentials' '~/.claude/.credentials.json'; do
+            if ! jq -e --arg p "$p" '(.sandbox.credentials.files // []) | any(.[]; .path == $p and .mode == "deny")' "$m" > /dev/null 2>&1; then
+                detail "NG: $m の sandbox.credentials.files で $p が deny になっていない"
+                bad=1
+            fi
+        done
+        domains_json=$(jq -nc '$ARGS.positional' --args "${CONF_ALLOWED_DOMAINS[@]}")
+        if ! jq -e --argjson want "$domains_json" '.sandbox.network.allowedDomains == $want' "$m" > /dev/null 2>&1; then
+            detail "NG: $m の sandbox.network.allowedDomains が room.conf の allowed_domains と一致しない"
+            detail "    room.conf: ${CONF_ALLOWED_DOMAINS[*]:-（なし）}"
+            detail "    実際    : $(jq -c '.sandbox.network.allowedDomains' "$m" 2> /dev/null)"
             bad=1
         fi
-    done
-    want 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
-    want 'sandbox.credentials.files で ~/.ssh が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.ssh" and .mode == "deny")'
-    want 'sandbox.credentials.files で ~/.aws が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.aws" and .mode == "deny")'
-    want 'sandbox.credentials.files で ~/.git-credentials が deny' '(.sandbox.credentials.files // []) | any(.[]; .path == "~/.git-credentials" and .mode == "deny")'
-    want 'permissions.defaultMode が bypassPermissions ではない' '(.permissions.defaultMode // "") != "bypassPermissions"'
-    want 'sandbox.allowNestedUserNamespaces が有効ではない' '(.sandbox.allowNestedUserNamespaces // false) != true'
-    want 'sandbox.filesystem.disabled が有効ではない' '(.sandbox.filesystem.disabled // false) != true'
-    want 'sandbox.enableWeakerNestedSandbox が有効ではない' '(.sandbox.enableWeakerNestedSandbox // false) != true'
-    want 'sandbox.excludedCommands が空' '((.sandbox.excludedCommands // []) | length) == 0'
+    fi
 
-    domains_json=$(jq -nc '$ARGS.positional' --args "${CONF_ALLOWED_DOMAINS[@]}")
-    if ! jq -e --argjson want "$domains_json" '.sandbox.network.allowedDomains == $want' "$f" > /dev/null 2>&1; then
-        detail "NG: sandbox.network.allowedDomains が room.conf の allowed_domains と一致しない"
-        detail "    room.conf: ${CONF_ALLOWED_DOMAINS[*]:-（なし）}"
-        detail "    実際    : $(jq -c '.sandbox.network.allowedDomains' "$f" 2> /dev/null)"
+    # --- ~/.claude/settings.json（managed では止められない、守りを弱める設定が無いこと） ---
+    # 通信を許可するドメインの追加（sandbox.network.allowedDomains）は、ここやプロジェクトの設定で行ってよい（README 6.8）
+    if [[ ! -f $f ]]; then
+        detail "$f がありません。"
         bad=1
+    else
+        owner=$(stat -c %U -- "$f")
+        if [[ $owner != "$U" ]]; then
+            detail "$f の所有者が $owner になっています（期待: $U）。"
+            bad=1
+        fi
+        if ! jq -e . "$f" > /dev/null 2>&1; then
+            detail "$f が JSON として読めません（書き方の誤り）。"
+            bad=1
+        else
+            want "$f" 'permissions.defaultMode が bypassPermissions ではない' '(.permissions.defaultMode // "") != "bypassPermissions"'
+            want "$f" 'sandbox.excludedCommands が空' '((.sandbox.excludedCommands // []) | length) == 0'
+            want "$f" 'sandbox.filesystem.allowWrite が空' '((.sandbox.filesystem.allowWrite // []) | length) == 0'
+            want "$f" 'permissions.additionalDirectories が空' '((.permissions.additionalDirectories // []) | length) == 0'
+        fi
     fi
     if (( bad )); then
-        detail "→ 仕様（3.6）どおりに戻すには、Windows 側で New-SecureRoom.ps1 -RoomName <部屋の名前> -Resume を実行してください。"
+        detail "→ 仕様どおりに戻すには、Windows 側で New-SecureRoom.ps1 -RoomName <部屋の名前> -Resume を実行してください。"
     fi
     return $bad
 }
@@ -629,30 +644,16 @@ check_W3() {
 # root として行う検査
 # =============================================================================
 
+# 部屋のユーザーに sudo の権限が一つも無いこと（パスワードが必要なものも含む。部屋の中では sudo を使わない設計）
 check_R1() {
-    local hits l
-    local -a files=(/etc/sudoers)
-    shopt -s dotglob nullglob
-    files+=(/etc/sudoers.d/*)
-    shopt -u dotglob nullglob
-    hits=$(grep -HnE '^[^#]*(NOPASSWD|!authenticate)' -- "${files[@]}" 2> /dev/null || true)
-    if [[ -z $hits ]]; then
-        return 0
-    fi
-    detail "パスワードなしで sudo できる設定が見つかりました:"
-    while IFS= read -r l; do detail "  $l"; done <<< "$hits"
-    detail "→ 該当する行を削除してください（sudo visudo、または sudo visudo -f <ファイル>）。"
-    return 1
-}
-
-check_R2() {
     local out l
+    command -v sudo > /dev/null 2>&1 || return 0
     out=$(LC_ALL=C sudo -l -U "$U" 2>&1) || true
-    if ! grep -qE 'NOPASSWD|!authenticate' <<< "$out"; then
-        return 0
-    fi
-    detail "$U の sudo の権限に、パスワード不要のものが含まれています:"
-    while IFS= read -r l; do detail "  $l"; done < <(grep -E 'NOPASSWD|!authenticate' <<< "$out" || true)
+    [[ $out != *"is not allowed to run sudo"* ]] || return 0
+    detail "$U に sudo の権限があります（sudo -l -U $U の結果）:"
+    while IFS= read -r l; do detail "  $l"; done <<< "$out"
+    detail "→ 管理者のグループに入っている場合は、-Resume でやり直すと外します（E8）。"
+    detail "→ sudo の設定ファイルに $U の行がある場合は、その行を削除してください（visudo、または visudo -f <ファイル>）。"
     return 1
 }
 
@@ -830,8 +831,7 @@ main() {
     if [[ $mode == root ]]; then
         require_root
         printf '== 部屋の検証（root の権限で行う項目）==\n'
-        run_check R1 'sudo の設定ファイルに NOPASSWD などが無い' check_R1
-        run_check R2 "$U の sudo 権限にパスワード不要のものが無い" check_R2
+        run_check R1 "$U に sudo の権限が無い（パスワードが必要なものも含む）" check_R1
         run_check E3 '/etc/sudoers と /etc/sudoers.d/ が root 所有で root 以外は書き込めない' check_E3
     else
         [[ $(id -u) != 0 ]] || die "一般ユーザーとして実行してください（root の検査は --root を付けます）。"
@@ -846,11 +846,9 @@ main() {
         run_check 06 'Windows のプログラムを呼べない（interop 無効）' check_06
         run_check 07 "部屋に入ると $U になる（root ではない）" check_07
         run_check 08 'パスワードなしで sudo できない' check_08
-        run_check 09 'sudo の設定に NOPASSWD が無い' check_09
         run_check 10 'サンドボックスの土台（bubblewrap・socat）が動く' check_10
         run_check 11 "claude は部屋の中のもの（$HOME/.local/bin/claude）が使われる" check_11
-        run_check 12 'claude doctor' check_12
-        run_check 13 '~/.claude/settings.json が仕様（3.6）どおり' check_13
+        run_check 13 "Claude Code の守りの設定（$MANAGED_SETTINGS）が仕様どおりで、~/.claude/settings.json に守りを弱める設定が無い" check_13
         run_check 14 '~/projects がある' check_14
         run_check E1 '/etc/wsl.conf が root 所有で root 以外は書き込めない' check_E1
         run_check E2 '/etc/fstab が root 所有で root 以外は書き込めない' check_E2

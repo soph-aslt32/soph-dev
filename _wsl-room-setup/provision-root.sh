@@ -7,7 +7,8 @@
 #   bash provision-root.sh --phase base [--config <room.conf のパス>]
 #       apt の取得先を https にしてからパッケージを更新・導入（apt が修正版か確認）、
 #       部屋のユーザーを管理者のグループ（sudo など）から外す、/etc/wsl.conf の書き換え、
-#       ホスト名（/etc/hostname）と /etc/hosts を部屋の名前だけの内容にする、AppArmor の確認、delzonei の配置。
+#       ホスト名（/etc/hostname）と /etc/hosts を部屋の名前だけの内容にする、AppArmor の確認、delzonei の配置、
+#       Claude Code の守りの設定（managed settings。サンドボックスと権限ルール）の配置。
 #       wsl.conf の変更（C ドライブを隠す、ホスト名）は、このあと部屋を再起動するまで反映されない。
 #
 #   bash provision-root.sh --phase mount [--config <room.conf のパス>]
@@ -18,7 +19,6 @@
 #
 # Linux ユーザー名と Windows ユーザー名は room.conf（省略時はこのスクリプトと同じフォルダのもの）から、
 # 部屋の名前は WSL が設定する環境変数 WSL_DISTRO_NAME から読みます。
-# どちらにも --dry-run を付けると、何も変更せずに実行内容だけを表示します。
 # =============================================================================
 set -Eeuo pipefail
 
@@ -37,19 +37,14 @@ readonly DELZONEI_DEST=/usr/local/bin/delzonei
 usage() {
     cat <<'EOF'
 使い方:
-  bash provision-root.sh --phase base  [--config <room.conf のパス>] [--dry-run]
-  bash provision-root.sh --phase mount [--config <room.conf のパス>] [--dry-run]
+  bash provision-root.sh --phase base  [--config <room.conf のパス>]
+  bash provision-root.sh --phase mount [--config <room.conf のパス>]
 EOF
 }
 
 # 標準入力の内容を、root 所有・指定のモードでファイルに書く（途中で止まっても壊れたファイルを残さない）
 write_file_atomic() {
     local dest=$1 mode=$2 tmp
-    if (( DRY_RUN )); then
-        info "[dry-run] $dest に次の内容を書き込みます（モード $mode）:"
-        sed 's/^/      | /'
-        return 0
-    fi
     tmp=$(mktemp "$dest.tmp.XXXXXX")
     cat > "$tmp"
     chown root:root "$tmp"
@@ -62,8 +57,8 @@ backup_file() {
     local f=$1 bak
     [[ -e $f ]] || return 0
     bak="$f.bak-$(date +%Y%m%d-%H%M%S)"
-    run cp -p -- "$f" "$bak"
-    (( DRY_RUN )) || info "元のファイルを $bak に保存しました。"
+    cp -p -- "$f" "$bak"
+    info "元のファイルを $bak に保存しました。"
 }
 
 systemd_running() {
@@ -90,32 +85,35 @@ phase_base() {
         "部屋の名前は、半角英小文字・数字・ハイフンだけで 32 文字以内のはずです。" \
         "Windows 側の New-SecureRoom.ps1 から実行してください。"
 
-    step "1/7 apt の取得先を https に書き換えます（CVE-2026-109518 への対策）"
+    step "1/8 apt の取得先を https に書き換えます（CVE-2026-109518 への対策）"
     switch_apt_to_https
 
-    step "2/7 パッケージを更新します（数分かかります）"
+    step "2/8 パッケージを更新します（数分かかります）"
     export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
-    run apt-get "${APT_OPTS[@]}" update
-    run apt-get "${APT_OPTS[@]}" -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
+    apt-get "${APT_OPTS[@]}" update
+    apt-get "${APT_OPTS[@]}" -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
     # 必要なものは、apt が修正版になったことを確かめてから入れる
     check_apt_version
-    run apt-get "${APT_OPTS[@]}" install "${PACKAGES[@]}"
+    apt-get "${APT_OPTS[@]}" install "${PACKAGES[@]}"
     ok "パッケージの準備ができました（${PACKAGES[*]}）。"
 
-    step "3/7 $CONF_LINUX_USER を管理者のグループ（sudo など）から外します"
+    step "3/8 $CONF_LINUX_USER を管理者のグループ（sudo など）から外します"
     remove_admin_groups "$CONF_LINUX_USER"
 
-    step "4/7 /etc/wsl.conf を仕様どおりの内容に置き換えます"
+    step "4/8 /etc/wsl.conf を仕様どおりの内容に置き換えます"
     install_wsl_conf "$CONF_LINUX_USER" "$CONF_ROOM_NAME"
 
-    step "5/7 ホスト名と /etc/hosts を、部屋の名前（$CONF_ROOM_NAME）だけの内容にします（Windows のコンピューター名と hosts ファイルを写さない）"
+    step "5/8 ホスト名と /etc/hosts を、部屋の名前（$CONF_ROOM_NAME）だけの内容にします（Windows のコンピューター名と hosts ファイルを写さない）"
     install_host_files "$CONF_ROOM_NAME"
 
-    step "6/7 AppArmor の追加設定が必要か確認します"
+    step "6/8 AppArmor の追加設定が必要か確認します"
     setup_apparmor_if_needed
 
-    step "7/7 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
+    step "7/8 Zone.Identifier ファイルを削除するコマンド（$DELZONEI_DEST）を置きます"
     install_delzonei
+
+    step "8/8 Claude Code の守りの設定（サンドボックスと権限ルール）を $MANAGED_SETTINGS に置きます"
+    install_managed_settings
 
     ok "base 段階が終わりました。部屋を再起動してから --phase mount を実行します。"
 }
@@ -127,9 +125,8 @@ switch_apt_to_https() {
     [[ -f $APT_SOURCES ]] || die "apt の取得先の設定ファイル（$APT_SOURCES）がありません。" \
         "このスクリプトは、Ubuntu 26.04 の設定ファイルの形（deb822 形式）を前提にしています。"
     if grep -qE 'http://(([a-z]+\.)?archive|security)\.ubuntu\.com' "$APT_SOURCES"; then
-        run sed -Ei 's!http://((([a-z]+\.)?archive|security)\.ubuntu\.com)!https://\1!g' "$APT_SOURCES"
+        sed -Ei 's!http://((([a-z]+\.)?archive|security)\.ubuntu\.com)!https://\1!g' "$APT_SOURCES"
     fi
-    if (( DRY_RUN )); then return 0; fi
     bad=$(apt_non_https_uris)
     if [[ -n $bad ]]; then
         die "apt の取得先に、https でないものがあります:"$'\n'"$bad" \
@@ -142,10 +139,6 @@ switch_apt_to_https() {
 # apt が CVE-2026-109518 の修正版（$APT_MIN_VERSION）以上であることを確かめる（apt-get upgrade のあとに呼ぶ）
 check_apt_version() {
     local v
-    if (( DRY_RUN )); then
-        info "[dry-run] apt の版が $APT_MIN_VERSION 以上であることを確かめます。"
-        return 0
-    fi
     v=$(dpkg-query -W -f='${Version}' apt)
     dpkg --compare-versions "$v" ge "$APT_MIN_VERSION" || die \
         "apt の版（$v）が、CVE-2026-109518 の修正版（$APT_MIN_VERSION）より古いままです。" \
@@ -164,9 +157,8 @@ remove_admin_groups() {
         return 0
     fi
     for g in "${found[@]}"; do
-        run gpasswd -d "$user" "$g"
+        gpasswd -d "$user" "$g"
     done
-    if (( DRY_RUN )); then return 0; fi
     found=()
     while IFS= read -r g; do found+=("$g"); done < <(user_admin_groups "$user")
     (( ${#found[@]} == 0 )) || die "$user を管理者のグループ（${found[*]}）から外せませんでした。"
@@ -179,10 +171,6 @@ install_delzonei() {
     if [[ -f $DELZONEI_DEST && ! -L $DELZONEI_DEST ]] && cmp -s -- "$DELZONEI_SRC" "$DELZONEI_DEST" &&
         [[ $(stat -c '%u %a' -- "$DELZONEI_DEST") == '0 755' ]]; then
         ok "すでに同じ内容です（変更なし）。"
-        return 0
-    fi
-    if (( DRY_RUN )); then
-        info "[dry-run] $DELZONEI_SRC を $DELZONEI_DEST に置きます（root 所有、モード 755）"
         return 0
     fi
     write_file_atomic "$DELZONEI_DEST" 755 < "$DELZONEI_SRC"
@@ -234,7 +222,7 @@ write_if_changed() {
         return 0
     fi
     printf '%s\n' "$content" | write_file_atomic "$dest" 644
-    (( DRY_RUN )) || info "$dest を書き換えました。"
+    info "$dest を書き換えました。"
 }
 
 setup_apparmor_if_needed() {
@@ -260,7 +248,7 @@ profile bwrap /usr/bin/bwrap flags=(unconfined) {
 }
 EOF
             if systemd_running; then
-                run systemctl reload apparmor
+                systemctl reload apparmor
                 ok "AppArmor プロファイルを追加して読み込みました。"
             else
                 ok "AppArmor プロファイルを追加しました（次回の起動時に読み込まれます）。"
@@ -272,12 +260,26 @@ EOF
     esac
 }
 
+# Claude Code の守りの設定（templates/managed-settings.json.tmpl）を、root 所有の managed settings として置く。
+# allowedDomains は room.conf の allowed_domains で置き換える（jq を通すので、JSON として正しいことも保証される）。
+# 部屋のために作ったファイルなので、バックアップは残さない。
+install_managed_settings() {
+    local tmpl="$SCRIPT_DIR/templates/managed-settings.json.tmpl" domains_json new
+    [[ -r $tmpl ]] || die "テンプレート $tmpl が見つかりません。"
+    domains_json=$(jq -nc '$ARGS.positional' --args "${CONF_ALLOWED_DOMAINS[@]}")
+    new=$(jq --indent 2 --argjson domains "$domains_json" '.sandbox.network.allowedDomains = $domains' "$tmpl")
+    info "通信を許可するドメイン: ${CONF_ALLOWED_DOMAINS[*]:-（なし）}"
+    install -d -m 755 -o root -g root -- "${MANAGED_SETTINGS%/*}"
+    printf '%s\n' "$new" | write_if_changed "$MANAGED_SETTINGS"
+    ok "置きました（root 所有。部屋のユーザーやプロジェクトの .claude/settings.json では外せません）。"
+}
+
 # -----------------------------------------------------------------------------
 # --phase mount
 # -----------------------------------------------------------------------------
 
 phase_mount() {
-    local mp line
+    local mp line opts
     mp=$(win_ext_mountpoint "$CONF_WINDOWS_USER")
     line=$(fstab_expected_line "$CONF_WINDOWS_USER")
 
@@ -293,7 +295,7 @@ phase_mount() {
     if mountpoint -q "$mp"; then
         ok "すでにマウントされています。"
     else
-        run mkdir -p -- "$mp"
+        mkdir -p -- "$mp"
         ok "用意しました。"
     fi
 
@@ -303,21 +305,18 @@ phase_mount() {
     step "4/5 マウントします"
     if wait_for_systemd; then
         # systemd は fstab の内容を覚えているので、読み直させてからマウントする（9 章）
-        run systemctl daemon-reload
+        systemctl daemon-reload
     else
         warn "systemd が動いていないため daemon-reload は行いません。"
     fi
     if mountpoint -q "$mp"; then
         info "すでにマウントされています。"
     else
-        run mount "$mp"
+        mount "$mp"
     fi
-    if (( ! DRY_RUN )); then
-        local opts
-        opts=$(awk -v mp="$mp" '$2 == mp { print $4 }' /proc/self/mounts | tail -n 1)
-        [[ ,$opts, == *,ro,* ]] || die "$mp が読み取り専用でマウントされていません（オプション: ${opts:-なし}）。" \
-            "安全のため、ここで停止します。/etc/fstab の内容を確認してください。"
-    fi
+    opts=$(awk -v mp="$mp" '$2 == mp { print $4 }' /proc/self/mounts | tail -n 1)
+    [[ ,$opts, == *,ro,* ]] || die "$mp が読み取り専用でマウントされていません（オプション: ${opts:-なし}）。" \
+        "安全のため、ここで停止します。/etc/fstab の内容を確認してください。"
     ok "$mp を読み取り専用でマウントしました。"
 
     step "5/5 /mnt を片付けます（初回起動時に WSL が作ったドライブ用のフォルダ）"
@@ -348,16 +347,15 @@ tidy_mnt() {
             warn "$d は空ではないため、削除せずに残します。中身を確認してください。"
             continue
         fi
-        run rmdir -- "$d"
+        rmdir -- "$d"
         ok "使っていない空のフォルダ $d を削除しました。"
     done
 
     for d in /mnt/c /mnt/c/Users "/mnt/c/Users/$w" "/mnt/c/Users/$w/.vscode"; do
-        if [[ ! -e $d ]] && (( DRY_RUN )); then continue; fi   # ドライランでは 2/5 のフォルダが作られていない
         [[ -d $d && ! -L $d ]] || die "$d がフォルダではありません（想定外）。"
         [[ $(stat -c '%u:%g %a' -- "$d") != '0:0 755' ]] || continue
-        run chown root:root -- "$d"
-        run chmod u=rwx,go=rx,ug-s,-t -- "$d"
+        chown root:root -- "$d"
+        chmod u=rwx,go=rx,ug-s,-t -- "$d"
         ok "$d を root だけが変更できる状態（root 所有・755）にしました。"
     done
     ok "/mnt の片付けが終わりました。"
@@ -409,14 +407,12 @@ main() {
                 if [[ $1 == --phase ]]; then phase=$2; else config=$2; fi
                 shift 2
                 ;;
-            --dry-run) DRY_RUN=1; shift ;;
             -h|--help) usage; exit 0 ;;
             *) die "知らないオプションです: $1" "$(usage)" ;;
         esac
     done
 
     require_root
-    (( DRY_RUN )) && warn "ドライランです。何も変更しません。"
     load_room_conf "$config"
     case $phase in
         base) phase_base ;;

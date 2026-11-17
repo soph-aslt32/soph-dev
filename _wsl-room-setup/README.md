@@ -34,7 +34,7 @@ Windows側のデータとして意図的に見せているもの
 - **部屋の中から来るものは信用しない**: 部屋の中のファイルは Claude が書き換えられます。Windows 側やサンドボックスの外で使うものは、
   Windows 側に置いたものを使うか、中身を確かめてから使います（[3 章](#3-ファイルを-windows-側に用意する)、[6.9](#69-localgit-の同期)）。
 
-仕様はこの README です。まだ決めていないことは [DEV.md](DEV.md) に書きます。
+要件は [SPEC.md](SPEC.md) に、使い方と仕組みの説明はこの README に書きます。まだ決めていないことは [DEV.md](DEV.md) に書きます。
 守りを緩める変更はしないでください。守りを変えたときは、自動検証（`verify-room.sh`）も合わせて直します。
 
 ---
@@ -64,28 +64,42 @@ Windows側のデータとして意図的に見せているもの
 | ② fstab | VS Code の接続に必要なフォルダ 1 つだけを**読み取り専用**で見せる | Windows 側で実行されるファイルの改ざん |
 | ③ 部屋の中では root になれない | 部屋のユーザーを sudo などの管理者のグループから外す。管理作業は Windows 側から `wsl -d <部屋の名前> -u root` で入って行う | Claude や、部屋の中で動くほかのプログラムが root（管理者）になって ①② を元に戻すこと |
 | ④ サンドボックス | Claude が実行するコマンドを閉じ込める | 作業フォルダの外への書き込み、許可していない通信 |
-| ⑤ Claude Code の権限ルール | Claude のファイル読み取り機能・編集機能を制限する | 認証情報（`~/.git-credentials`・Claude Code のログイン情報・`~/.ssh`・`~/.aws`）と `/mnt` の読み取り。サンドボックスの外で自動で実行されるファイル（`~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json` など）と、`~/repos`（LocalGit の部屋の bare リポジトリ）の書き換え |
+| ⑤ Claude Code の権限ルール | Claude のファイル読み取り機能・編集機能を制限する | 認証情報（`~/.git-credentials`・Claude Code のログイン情報・`~/.ssh`・`~/.aws`）と `/mnt` の読み取り。サンドボックスの外で自動で実行されるファイル（`~/.bashrc`・`~/.gitconfig`・`.git` の中・Claude Code の設定ファイルなど）と、`~/repos`（LocalGit の部屋の bare リポジトリ）の書き換え |
 | ⑥ apt の取得先を https に | パッケージを https で取得し、apt が修正版（CVE-2026-109518）であることを確かめる | 通信の途中で、検証されていないパッケージを root の権限で入れさせられること |
 
 これらは互いに支え合っています。たとえば ③ は、① で「部屋から wsl.exe を呼べない」状態になっていて初めて意味を持ちます
 （Windows 側から `wsl -u root` を使うと、パスワードなしで root になれるためです）。
 
+④ と ⑤ の設定は、root 所有の `/etc/claude-code/managed-settings.json`（Claude Code の managed settings）に置きます。
+Claude Code はこのファイルを、`~/.claude/settings.json` やプロジェクトの `.claude/settings.json` より優先するので、
+それらのファイルに `"sandbox": {"enabled": false}` などが書かれても、守りは外れません（③ により、部屋の中ではこのファイルを書き換えられません）。
+ただし、一覧の形の設定（通信を許可するドメインなど）は、すべてのファイルの内容が足し合わされます（[6.4](#64-ふだんの使い方の約束)）。
+
 ⑤ の書き換えの禁止は、④ を補うものです。Claude が実行するコマンドは ④ で作業フォルダの外に書き込めませんが、
 Claude のファイル編集機能（Edit・Write など）はサンドボックスの外の仕組みで、作業フォルダの外への書き込みは「確認で許可すれば書ける」状態です。
-そこで、許可しても書けないように、次のものを禁止しています（`~/.claude/settings.json` の `permissions.deny`）。
+そこで、許可しても書けないように、次のものを禁止しています（`/etc/claude-code/managed-settings.json` の `permissions.deny`）。
 どれも、あなたがターミナルを開く・git を使う・VS Code で接続する・Claude Code を起動する、といったふつうの操作で、
 **サンドボックスの外で自動で実行される**ものです。
 
 - シェルの設定: `~/.bash*`（`.bashrc` など）、`~/.profile`
 - git などの設定: `~/.gitconfig`、`~/.config/` の下、`~/.ssh/` の下、`~/.npmrc`
+- git のリポジトリ: ホームフォルダの下のすべての `.git`（`~/projects/<名前>/.git`、`~/.git` など）。
+  `.git/config` や `.git/hooks` に書かれたものは、VS Code が裏で動かす git や、あなたの commit・push で実行されます
 - PATH にあるプログラム: `~/.local/` の下（Claude Code・uv の本体）、`~/.cargo/` と `~/.rustup/` の下（Rust）
 - VS Code の部屋の側: `~/.vscode-server/` の下
 - Claude Code 自身が実行するもの: `~/.claude/settings.json`、`~/.claude/statusline.sh`、`~/.claude.json`、
-  `~/.claude/plugins/` と `~/.claude/dev-mods/` の下
+  `~/.claude/plugins/` と `~/.claude/dev-mods/` の下、ホームフォルダの下のすべてのプロジェクトの
+  `.claude/settings.json`・`.claude/settings.local.json`（hooks や、サンドボックスを広げる設定を書けるため）
+
+`.git` の中とプロジェクトの `.claude/settings*.json` は、作業フォルダの中にあっても、Claude Code の確認で許可すれば書ける状態なので、同じく禁止しています。
 
 禁止しているのは Claude による書き換えだけで、あなた自身はこれまでどおり編集できます。Claude が読むことや、`~/.claude` のほかの場所
-（メモリー・`CLAUDE.md`・`skills` など）を書くことは、これまでどおりです。そのかわり、Claude に「`.bashrc` に PATH を足して」
-「ステータスラインを作り直して」（`/statusline`）のように頼んだり、Claude に mod を作らせたりすることはできません（拒否されます）。
+（メモリー・`CLAUDE.md`・`skills` など）とプロジェクトの `.claude` のほかの場所（`skills`・`agents` など）を書くことは、これまでどおりです。
+git の操作（コミットなど）は Claude が実行するコマンドで行うので、これもこれまでどおりできます。
+Claude Code 自身が設定ファイルに書くこと（確認の画面で「Yes, and don't ask again」を選んだとき、`/permissions` で許可を足したときなど）も、これまでどおりです。
+そのかわり、Claude に「`.bashrc` に PATH を足して」「ステータスラインを作り直して」（`/statusline`）
+「このプロジェクトの `.claude/settings.json` に hooks を足して」のように頼んだり、Claude に mod を作らせたりすることはできません（拒否されます）。
+Claude に書く内容を示してもらい、ご自身で書いてください。
 
 ⑤ で読み取りを禁止しているのは、認証情報の置き場所と `/mnt` だけです（④ のサンドボックスも、Claude が実行するコマンドに同じ場所を読ませません）。
 それ以外の部屋の中のファイルは、作業フォルダの外のもの（ほかのプロジェクトなど）も Claude から読めます。
@@ -110,6 +124,7 @@ sudo を使った直後のパスワード不要の時間に便乗したりする
   - 入っていなければ PowerShell で: `code --install-extension ms-vscode-remote.remote-wsl`
 - Windows のユーザーフォルダが `C:\Users\<半角英数字の名前>` であること（[11 章](#11-対応していない環境まだ確認できていないこと)参照）
 - インターネット接続
+- Windows 側の WSL の設定（`%USERPROFILE%\.wslconfig`）が [6.10](#610-windows-側の-wsl-の設定と運用) のとおりであること
 - （GitHub のリポジトリを自動でクローンする場合）GitHub の Personal Access Token（PAT）。[4 章](#4-設定ファイル-roomconf-を編集する)参照
 - （LocalGit を使う場合）Windows 側の Git for Windows（**2.46.0 以上**）と、Windows のローカルのフォルダにある bare リポジトリ。[4 章](#4-設定ファイル-roomconf-を編集する)参照
 
@@ -133,6 +148,8 @@ Windows からは次の場所に見えています（`<今の部屋の名前>` �
 1. Windows 側の自分のフォルダにコピーし、
 2. 中身（特に `New-SecureRoom.ps1`）に見覚えのない変更が無いことを確かめてから、
 3. コピーしたほうを実行してください。
+
+部屋の中にあるファイル（`\\wsl.localhost\...` や、それを割り当てたドライブ）から起動すると、どの起動方法でもスクリプトは止まります。
 
 コピーは PowerShell で次のようにできます（`<今の部屋の名前>` と `<Linuxのユーザー名>` は置き換えてください）。
 
@@ -171,8 +188,8 @@ allowed_domains = registry.npmjs.org, pypi.org, files.pythonhosted.org
 - `windows_user`: Windows のユーザーフォルダの名前です。エクスプローラーで `C:\Users` を開くと確認できます。
   VS Code の拡張機能フォルダ `C:\Users\<windows_user>\.vscode\extensions` を、部屋に読み取り専用で見せるために使います。
   半角英数字と `.` `_` `-` だけに対応しています（[11 章](#11-対応していない環境まだ確認できていないこと)参照）。
-- `allowed_domains`: Claude が実行するコマンド（`npm install` など）が通信してよいドメインです。
-  ここに無いドメインへの通信はブロックされます。`*.example.com` のように先頭に `*.` を付けると、
+- `allowed_domains`: Claude が実行するコマンド（`npm install` など）が、すべてのプロジェクトで通信してよいドメインです。
+  ここに無いドメインへの通信はブロックされます（1 つのプロジェクトだけでドメインを足す方法は [6.8](#68-部屋の管理作業パッケージの追加更新など)）。`*.example.com` のように先頭に `*.` を付けると、
   サブドメインをまとめて許可できます。`*`（すべて許可）は使えません。
 - 保存するときの文字コードは **UTF-8** にしてください（メモ帳の既定は UTF-8 です）。
 
@@ -267,7 +284,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 途中で次のことを聞かれます。
 
-1. **ディストリビューション名**: 表示された一覧の NAME 列から、`Ubuntu-26.04` のようにそのまま入力します。
+1. **ディストリビューション名**: 表示された一覧の NAME 列から、`Ubuntu-26.04` と入力します（ほかのものには対応していません。[11 章](#11-対応していない環境まだ確認できていないこと)参照）。
 2. **部屋の名前**: 半角英小文字・数字・ハイフンで入力します（例: `dev`）。すでにある名前は使えません。
 3. **確認**: 内容を見て、よければ `y` を入力します。
 4. **Linux のユーザー名とパスワード**（`wsl --install` の画面）:
@@ -287,31 +304,25 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 ==> 自動検証（root の権限で行う項目）
 == 部屋の検証（root の権限で行う項目）==
-[PASS] R1  sudo の設定ファイルに NOPASSWD などが無い
-[PASS] R2  taro の sudo 権限にパスワード不要のものが無い
+[PASS] R1  taro に sudo の権限が無い（パスワードが必要なものも含む）
 [PASS] E3  /etc/sudoers と /etc/sudoers.d/ が root 所有で root 以外は書き込めない
 ...
 == 部屋の検証（一般ユーザーとして行う項目）==
 [PASS] 01  C ドライブ全体が見えない
 [PASS] 02  Windows への窓は VS Code 拡張フォルダの 1 つだけで、読み取り専用
 ...
-[SKIP] 09  sudo の設定に NOPASSWD が無い
-           sudo の設定ファイルは root しか読めないため、R1 で確認します。
-...
-[SKIP] 12  claude doctor
-           claude doctor はログイン後に手動で確認します（README「ログイン後の手動確認」）。
-...
 [WARN] W1  WSLg（Linux の GUI アプリ機能）が無効で、Windows のクリップボードなどに届かない
            WSLg（Linux の GUI アプリ機能）が有効です:
              /mnt/wslg がマウントされています。
 ...
-結果: PASS 29 / FAIL 0 / SKIP 2 / WARN 1
+結果: PASS 29 / FAIL 0 / SKIP 0 / WARN 1
 FAIL はありません。
 WARN の項目は失敗ではありませんが、上の説明を確認してください。
-  [完了] 自動検証で FAIL はありませんでした（SKIP の項目は、ログイン後に手動で確認します。WARN の項目があれば、その説明を確認してください）。
+  [完了] 自動検証で FAIL はありませんでした（WARN や SKIP の項目があれば、その説明を確認してください）。
 ```
 
-`[SKIP]` は「この方法では確認しない（別の場所で確認する）」という意味で、失敗ではありません。
+`[SKIP]` は「この方法では確認できなかった」という意味で、失敗ではありません（部屋の名前が分からないときなどに出ます）。
+`claude doctor` などログインが必要な確認は、自動検証には含めず、最後に表示される「続けて次の作業」のとおり手動で行います（[6.2](#62-ログイン後の手動確認)）。
 `[WARN]` も失敗ではありません。部屋の設定（wsl.conf など）では止められない、WSL の仕組みとしての窓口があることを知らせるものです
 （Claude Code が実行するコマンドからは使えませんが、部屋の中でサンドボックスの外で動くプログラムからは届きます）。
 表示された説明を読んで、必要なら対処してください（[10 章](#10-トラブルシューティング)）。
@@ -329,12 +340,13 @@ Windows 側にコピーしたフォルダ（[3 章](#3-ファイルを-windows-�
 3. **ディストリビューション名と部屋の名前**（5.4 と同じ）
 4. **room.conf にあたる値**: `linux_user`、`windows_user`、`allowed_domains`
    - 新しく作るときは、`allowed_domains` だけ、このフォルダの room.conf の値を既定値として表示します。`linux_user` と `windows_user` は推測しません。
-   - やり直し・検証だけのときは、部屋の中にある root 所有の `room.conf`（前回設定したときの内容）を既定値として表示します。
+   - やり直しのときは、部屋の中にある root 所有の `room.conf`（前回設定したときの内容）を既定値として表示します。
+   - 検証だけのときは聞きません（部屋の中の `room.conf` をそのまま検証の基準にします）。
    - 通信を許可するドメインが無い場合は `-` を入力します。
 5. **リポジトリの設定**（検証だけのときは聞きません）: 「しない」「GitHub」「LocalGit」から番号で選びます。
    - GitHub: `user_name`、`user_email`、`pat`、`repo_url` を聞きます。PAT は入力（貼り付け）しても `*` で表示されます。
    - LocalGit: `repo_path`（Windows 側の bare リポジトリのフォルダ）を聞きます。
-6. **最後の確認**: `y` で進める、`r` で 4. から入力し直す、`n` で中止（何も変更しません）
+6. **最後の確認**: `y` で進める、`r` で 4. から入力し直す、`n` で中止（何も変更しません）。検証だけのときは `y` で進めます
 
 画面の見かた:
 
@@ -357,7 +369,7 @@ Windows 側にコピーしたフォルダ（[3 章](#3-ファイルを-windows-�
 - GitHub の情報は部屋の中にファイルとして持ち込まず、標準入力で渡します。PAT は部屋の `~/.git-credentials`（Claude Code から読めないように設定してある）にだけ保存されます。
   PAT は、部屋に渡す直前まで SecureString（暗号化された文字列）で持ちます。ただし、渡すときに一時的に平文になったものは、PowerShell の仕組み上、メモリから完全には消せません（スクリプトが終わるとプロセスごと消えます）。
 - LocalGit の `repo_path` も、ファイルには保存しません（部屋のために作る同期スクリプトの中にだけ書き込みます）。
-- **部屋の中にあるファイル（`\\wsl.localhost\...` や、それを割り当てたドライブ）から起動すると、何も聞かずに止まります。**
+- **部屋の中にあるファイル（`\\wsl.localhost\...` や、それを割り当てたドライブ）から起動すると、何も聞かずに止まります**（設定ファイルを使う場合も同じです）。
   部屋の中のファイルは Claude Code が書き換えられるため、書き換えられたスクリプトに PAT を入力してしまうのを防ぐためです。
   必ず Windows 側にコピーし、中身を確かめてから、コピーしたほうを起動してください。
 
@@ -400,6 +412,7 @@ claude doctor
 
 ```bash
 mkdir -p ~/projects/sandbox-test
+git init -q ~/projects/sandbox-test
 echo "外のファイル" > ~/outside.txt
 mkdir -p ~/.aws && echo dummy > ~/.aws/wsl-room-probe.txt
 cd ~/projects/sandbox-test
@@ -409,7 +422,7 @@ claude
 | 確認すること | 期待される結果 |
 |---|---|
 | `/sandbox` を開く | 「Dependencies」タブが出ない。Overrides が **Strict sandbox mode** |
-| `/status` を開く | Setting sources に **User settings** がある |
+| `/status` を開く | Setting sources に **Enterprise managed settings (file)** と **User settings** がある |
 | Claude に「`touch ~/sandbox-probe` を実行して」と頼む | Read-only file system で**失敗する** |
 | Claude に「`~/outside.txt` を読んで」と頼む | **読める**（作業フォルダの外でも、部屋の中のファイルは読めます。初めてのときに出る確認には「Yes, and keep allowing …」を選びます。[6.4](#64-ふだんの使い方の約束)） |
 | Claude に「`~/.aws/wsl-room-probe.txt` を読んで」と頼む | **読めない**（[1 章](#1-安全のしくみかんたんな説明)の ⑤。認証情報の置き場所は、作業フォルダの外を読めるようにしても読めない） |
@@ -417,12 +430,18 @@ claude
 | Claude に「このフォルダに `hello.txt` を作って」と頼む | **成功する** |
 | Claude に「`~/.bashrc` の最後に `# test` を書き足して」と頼む | **拒否される**（[1 章](#1-安全のしくみかんたんな説明)の ⑤） |
 | Claude に「`~/.claude/statusline.sh` の先頭にコメントを足して」と頼む | **拒否される** |
+| Claude に「`.git/config` の最後に `# test` を書き足して」と頼む | **拒否される**（`.git` の中は、作業フォルダの中でも書き換えられない） |
+| Claude に「`~/.git/wsl-room-probe.txt` を作って」と頼む | **拒否される**（ホームフォルダの `.git` も同じ） |
+| Claude に「`.claude/settings.local.json` を作って `{}` と書いて」と頼む | **拒否される** |
+| Claude に「`echo '{}' > .claude/settings.local.json` を実行して」と頼む | **失敗する**（Claude が実行するコマンドからも、Claude Code の設定ファイルは書けない） |
+| `/permissions` で許可のルールを 1 つ足す（保存先は、このプロジェクトのローカルの設定） | `.claude/settings.local.json` に保存される（Claude Code 自身が書くことは止めていない） |
 | Claude に「今の作業内容をメモリーに保存して」と頼む | **成功する**（`~/.claude` のほかの場所は書ける） |
 
 > ご自身が `!` を付けて打つコマンドはサンドボックスの外で動くので、この確認には使えません。
 > 必ず Claude に頼んで実行させてください。
 
 確認が終わったら、`~/outside.txt`・`~/.aws/wsl-room-probe.txt`・`~/projects/sandbox-test` は消して構いません。
+`~/.git/wsl-room-probe.txt` ができてしまった場合は、そのファイルを消し（`~/.git` も、この確認で作られたものなら消します）、守りの設定を確かめてください（[8 章](#8-部屋の中で検証をやり直す)の検証 13）。
 
 **(3) VS Code で接続できること**
 
@@ -461,8 +480,11 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
     （選んでしまったときは [10 章](#10-トラブルシューティング)）。
 - 部屋の中では sudo を使えません。管理作業は [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で行ってください。
 - 部屋のユーザーのパスワードを Claude に教えないでください。
-- `~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json` などを変えたいときは、ご自身で編集してください
+- `~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json`・プロジェクトの `.claude/settings.json` などを変えたいときは、ご自身で編集してください
   （Claude には書き換えられないようにしてあります。[1 章](#1-安全のしくみかんたんな説明)の ⑤）。
+- サンドボックスと権限ルール（守りの設定）は、root 所有の `/etc/claude-code/managed-settings.json` にあります。
+  `~/.claude/settings.json` を編集しても変わりません。変えるときは room.conf を直して `-Resume` を付けて実行します
+  （通信を許可するドメインを、1 つのプロジェクトだけで増やす方法は [6.8](#68-部屋の管理作業パッケージの追加更新など)）。
 - **コミットする前に、git の作者（`user.name`・`user.email`）を設定してください。**
   部屋のホスト名にはドメインが無いので、git は作者を自動で決められず、設定が無いと commit は
   `Author identity unknown`・`fatal: unable to auto-detect email address` で止まります
@@ -481,8 +503,9 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
 - 部屋の中に、Windows 側の秘密鍵やクラウドの認証情報などをコピーしないでください。
 - リポジトリを clone したら、Claude Code を起動する前に、そのリポジトリの `.claude/` フォルダ
   （特に `settings.json` と `settings.local.json`）の中身を確認してください。
-  プロジェクトの設定はこの部屋のユーザー設定（`~/.claude/settings.json`）より優先されるため、
-  サンドボックスを弱める設定（`"sandbox": {"enabled": false}` など）が入っていると、守りが外れてしまいます。
+  サンドボックスを無効にする設定などは managed settings で固定してあるので効きませんが（[1 章](#1-安全のしくみかんたんな説明)）、
+  hooks（サンドボックスの外で動くコマンド）や、書き込める場所・通信先を増やす設定（`sandbox.filesystem.allowWrite`・
+  `sandbox.network.allowedDomains` など。一覧の形の設定は足し合わされる）が入っていると、それは効いてしまいます。
 - clone に使うトークンなどを git に保存させる場合、保存先の `~/.git-credentials` は
   Claude が実行するコマンドからも、Claude のファイル読み取り機能からも読めないように設定してあります
   （トークンを保存してから Claude Code を起動してください）。
@@ -502,7 +525,8 @@ Claude Code を起動すると、画面の下にモデル名・作業フォル�
 ### 6.6 GitHub の設定（room-github.conf に記入して部屋を作った場合、または room-setup-wizard.cmd で「する」を選んだ場合）
 
 部屋を作ったときに、git の設定・PAT の保存・`~/projects/<リポジトリ名>` へのクローンが済んでいます。
-また、PAT で push できるか（書き込み権限があるか）を `git push --dry-run` で確かめてあります（何も送っていません）。
+また、新しくクローンしたときは、PAT で push できるか（書き込み権限があるか）を `git push --dry-run` で確かめてあります（何も送っていません）。
+`-Resume` のときなど、クローンがすでにあった場合は確かめません（そのリポジトリの git の設定を、サンドボックスの外で動かさないため）。
 確認できなかった場合は、途中で `[注意]` が表示されています。
 
 **(1) ターミナルで（Claude Code の外で）**
@@ -524,7 +548,7 @@ git pull
 
 > **`~/.git-credentials` そのものを Claude に読ませて確かめないでください。** 守りが効いていなかった場合、
 > PAT が会話の内容として送られてしまいます。`~/.aws` は `~/.git-credentials` と同じ仕組み
-> （settings.json の `sandbox.credentials`）で守っているので、代わりにダミーのファイルで確かめます。
+> （managed settings の `sandbox.credentials`）で守っているので、代わりにダミーのファイルで確かめます。
 > 確認が終わったら `rm ~/.aws/wsl-room-probe.txt` で消してください。
 
 3 つ目の確認が成功してしまった（`git config --local --get wsl-room.probe` で `1` が表示される）場合、Claude がリポジトリの git の設定を
@@ -590,7 +614,19 @@ rustup update
 - Claude Code のサンドボックスの中から通信できるのは、room.conf の `allowed_domains` に書いたドメインだけです。
   Python のパッケージ（`uv add` など）には、初期値の `pypi.org` と `files.pythonhosted.org` が使われます。
   Rust のパッケージ（`cargo build` での依存パッケージの取得）を Claude に取得させる場合は、
-  `index.crates.io` と `static.crates.io` を `allowed_domains` に加えてください（初期値には入っていません）。
+  `index.crates.io` と `static.crates.io` を加えてください（初期値には入っていません）。
+- 通信を許可するドメインを加える方法は 2 つあります。
+  - **すべてのプロジェクトで使う**: room.conf の `allowed_domains` に加えて、`-Resume` を付けて実行します
+    （`/etc/claude-code/managed-settings.json` に反映されます）。
+  - **1 つのプロジェクトだけで使う**（`-Resume` は不要）: そのプロジェクトの `.claude/settings.local.json` に、ご自身で書きます
+    （Claude には書き換えられないようにしてあります。[1 章](#1-安全のしくみかんたんな説明)の ⑤）。room.conf のドメインに足し合わされます。手で作ったファイルは git の管理から自動では外れないので、`.gitignore` に加えてください
+    （リポジトリに含めてよければ `.claude/settings.json` でも構いません）。
+
+    ```json
+    { "sandbox": { "network": { "allowedDomains": ["index.crates.io", "static.crates.io"] } } }
+    ```
+
+  `~/.claude/settings.json` に書いても効きますが、`-Resume` のときにひな形の内容で上書きされます（元のファイルは `settings.json.bak-日時` として残ります）。
 
 ### 6.9 LocalGit の同期
 
@@ -630,7 +666,7 @@ Windows 側で作業した場合は、Windows 側の bare リポジトリへ pus
 | Claude に「`git push` を実行して」と頼む | **失敗する** |
 
 ここで書き込めてしまった場合は、Claude が、あなたの確認を通さずに同期の対象を変えられる状態です。
-`~/.claude/settings.json` を確かめ（[8 章](#8-部屋の中で検証をやり直す)の検証 13）、`-Resume` で直してください。
+Claude Code の設定を確かめ（[8 章](#8-部屋の中で検証をやり直す)の検証 13）、`-Resume` で直してください。
 
 **同期スクリプトが行うこと**
 
@@ -683,6 +719,48 @@ git update-ref -d refs/heads/<ブランチ>            # 新しく作られた�
 
 写す先にしか無いブランチやタグは削除されます。写す内容が表示されるので、確かめてから `y` を入力してください。
 
+### 6.10 Windows 側の WSL の設定と運用
+
+部屋の設定（wsl.conf・fstab）で作っているのは、ファイルとプログラムの壁です。WSL のすべてのディストリビューションは 1 台の軽量な VM の中で
+動いていて、GUI アプリの機能（WSLg）とネットワークは、Windows 側の WSL の設定で決まります。部屋から Windows 側へ届かないように、
+次のように設定・運用してください（あなたの責任で行う部分です）。
+
+**設定**（`%USERPROFILE%\.wslconfig`。すべてのディストリビューションに効き、PowerShell で `wsl --shutdown` を実行したあとに反映されます）
+
+```ini
+[wsl2]
+networkingMode=nat
+guiApplications=false
+```
+
+- `networkingMode=nat` は既定値です。`mirrored` にすると、部屋の `127.0.0.1` が Windows の localhost と同じになり、
+  Windows で localhost だけに向けて待ち受けているサービスにも、部屋から届いてしまいます。
+- `guiApplications=false` で WSLg を止めます（検証 W1）。ほかのディストリビューションでも GUI アプリが使えなくなります。
+- `firewall` は既定（`true`）のままにしてください。
+
+**運用**
+
+1. **Windows 側**: 部屋を使う間は、すべてのネットワークに向けて待ち受けるサーバー（開発サーバーの `--host 0.0.0.0` など）を動かさないでください。
+   NAT では、Windows は部屋から「ゲートウェイの IP」（部屋の中で `ip route` を実行したときの `default via` の値）に見え、
+   そこで待ち受けていてファイアウォールが通しているサービスには、部屋から届きます。Windows で開発サーバーを使うときは、
+   `127.0.0.1` で待ち受けます（NAT では部屋から届きません）。ファイアウォールの「アクセスを許可しますか」には、必要なものだけ許可してください。
+2. **ほかのディストリビューション**: ディストリビューションどうしはネットワーク（localhost を含む）を共有しています。
+   部屋を使う間は、ほかのディストリビューションの localhost で、認証なしで操作できるサーバー（Jupyter、code-server、Docker の TCP の窓口など）を
+   動かさないでください。使っていないディストリビューションは `wsl --terminate <名前>` で止めておくと確実です。
+3. **Docker Desktop**: WSL integration の対象にこの部屋を入れないでください（検証 W2）。
+   「Expose daemon on tcp://localhost:2375 without TLS」も有効にしないでください。
+
+Claude Code の WebFetch（Claude Code 本体がインターネットへ送る通信）や、GitHub の push・pull（あなたが行うもの）は、
+部屋からインターネットへのふつうの通信なので、この設定と運用で使えなくなることはありません。
+
+**確かめ方**（`curl` は部屋のターミナルで、Claude Code の外で実行します）
+
+1. Windows で `python -m http.server 8000` を動かし（ファイアウォールの確認が出たら、拒否のまま試してください）、
+   部屋で `curl http://<ゲートウェイの IP>:8000/` を実行します。**届かなければ OK** です。
+   届いた場合は、Windows 側の設定（`networkingMode`、ファイアウォールの許可）を見直してください。
+2. ほかのディストリビューションで `python3 -m http.server 8000 --bind 127.0.0.1` を動かし、部屋で `curl http://127.0.0.1:8000/` を実行します。
+   届いた場合は、ネットワークを共有している状態です（部屋の設定では止められません）。上の運用 2 を守ってください。
+
 ---
 
 ## 7. オプション
@@ -691,9 +769,9 @@ git update-ref -d refs/heads/<ブランチ>            # 新しく作られた�
 |---|---|
 | `-DryRun` | 何も変更せず、実行する予定の内容だけを表示する |
 | `-Resume` | 既存の部屋に対して、作成以外の手順をやり直す（途中で止まったとき、設定を元に戻したいとき） |
-| `-VerifyOnly` | 既存の部屋に対して、自動検証だけを行う |
+| `-VerifyOnly` | 既存の部屋に対して、自動検証だけを行う（部屋の中にある検証用のファイルと room.conf をそのまま使い、部屋の中は何も変えない） |
 | `-RoomName dev` | 部屋の名前を指定する（質問を省略） |
-| `-Distro Ubuntu-26.04` | ディストリビューションを指定する（質問を省略） |
+| `-Distro Ubuntu-26.04` | ディストリビューションを指定する（質問を省略。`Ubuntu-26.04` だけに対応） |
 | `-ConfigPath <パス>` | room.conf 以外の設定ファイルを使う |
 | `-GitHubConfigPath <パス>` | room-github.conf 以外の GitHub の設定ファイルを使う（省略時は room.conf と同じフォルダの room-github.conf） |
 | `-Interactive` | 設定ファイルを使わず、値を画面で聞く（[5.6](#56-設定ファイルを使わずに画面で答えて実行するroom-setup-wizardcmd)。room-setup-wizard.cmd はこれを付けて起動する）。`-ConfigPath`・`-GitHubConfigPath` とは同時に使えない |
@@ -709,7 +787,8 @@ git update-ref -d refs/heads/<ブランチ>            # 新しく作られた�
 ```
 
 `-Resume` は部屋を途中で 2 回再起動するので、部屋の中で動いている Claude Code やターミナルはすべて終了します。
-また、`~/.claude/settings.json` を仕様どおりの内容に戻します（元のファイルは `settings.json.bak-日時` として残します）。
+また、`/etc/claude-code/managed-settings.json`（守りの設定。room.conf の `allowed_domains` を反映）を置き直し、
+`~/.claude/settings.json` を仕様どおりの内容に戻します（元のファイルは `settings.json.bak-日時` として残します）。
 room-github.conf に記入があれば、GitHub の設定もやり直します（空欄なら、すでにある GitHub の設定はそのまま残します）。
 room-localgit.conf に記入があれば、同期スクリプトを作り直し、部屋を作ったときに終わっていなかった LocalGit の準備を続けます
 （部屋の `~/repos/<名前>.git` がすでにあれば、中身には触れません）。
@@ -741,6 +820,7 @@ wsl -d dev -u root --cd / --exec bash /usr/local/lib/wsl-room-setup/verify-room.
 ```txt
 wsl-room-setup/
 ├── README.md                 この説明書
+├── SPEC.md                   要件（リリースの判定と、実装との突き合わせに使う）
 ├── DEV.md                    開発途中の未決定事項（開発者向け）
 ├── New-SecureRoom.ps1        Windows 側の司令塔（これを実行する）
 ├── room-setup.cmd            New-SecureRoom.ps1 を、実行ポリシーの設定なしで起動する（設定ファイルを使う）
@@ -750,7 +830,7 @@ wsl-room-setup/
 ├── room-localgit.conf        LocalGit の設定ファイル（Windows 側の bare リポジトリの場所）。部屋の中にはコピーしない
 ├── GitHub.md                 GitHub を手動で設定する手順
 ├── lib.sh                    部屋の中のスクリプトが共通で使う部品
-├── provision-root.sh         部屋の中で root として行う設定（wsl.conf、fstab、パッケージ、AppArmor、delzonei、/mnt の片付け）
+├── provision-root.sh         部屋の中で root として行う設定（wsl.conf、fstab、パッケージ、AppArmor、delzonei、managed settings、/mnt の片付け）
 ├── provision-user.sh         部屋の中で一般ユーザーとして行う設定（Claude Code、PATH、uv、Rust、settings.json、ステータスライン、~/projects）
 ├── provision-github.sh       部屋の中で一般ユーザーとして行う GitHub の設定（git の設定、PAT の保存、クローン）
 ├── verify-room.sh            自動検証
@@ -758,7 +838,8 @@ wsl-room-setup/
 ├── delzonei.sh               Zone.Identifier ファイルを削除するコマンド（部屋の /usr/local/bin/delzonei に置かれる）
 ├── templates/
 │   ├── wsl.conf.tmpl         /etc/wsl.conf のひな形
-│   ├── claude-settings.json.tmpl   ~/.claude/settings.json のひな形
+│   ├── managed-settings.json.tmpl  /etc/claude-code/managed-settings.json のひな形（サンドボックスと権限ルール。守りの設定）
+│   ├── claude-settings.json.tmpl   ~/.claude/settings.json のひな形（ステータスラインなどの好みの設定）
 │   └── Sync-Room.ps1.tmpl    LocalGit の同期スクリプトのひな形（部屋の中で動かす部分も含む。部屋の中にはコピーしない）
 ├── rooms/                    （LocalGit の部屋を作ると作られる）部屋ごとの同期スクリプト Sync-<部屋の名前>.ps1 / .cmd
 └── .gitattributes            改行コードの指定（Linux 側のファイルは LF）
@@ -770,15 +851,16 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 
 ### 処理の流れ
 
-1. 前提条件の確認（WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf、room-github.conf、room-localgit.conf）
+1. 前提条件の確認（このスクリプトが部屋の中に無いこと、WSL、VS Code の WSL 拡張機能、ファイルの改行コード、room.conf、room-github.conf、room-localgit.conf）
    - 対話モード（room-setup-wizard.cmd）では、room.conf と room-github.conf を読む代わりに、部屋の名前を決めたあとで同じ内容を画面で聞く
+   - `-VerifyOnly` では、設定ファイルを読まず（聞かず）、部屋の中にある検証用のファイルがあることを確かめて 11. だけを行う
 2. `wsl --install <ディストリビューション> --name <部屋の名前>`（room.conf の `linux_user` と同じユーザー名と、パスワードを入力）
 3. 部屋が WSL2 で動いていること、部屋のユーザーが room.conf の `linux_user` と同じことを確認
 4. スクリプト一式と room.conf を部屋の中へコピーし、ハッシュ値で一致を確認
 5. `provision-root.sh --phase base`: apt の取得先を https に書き換え（すべて https になったことを確認）、パッケージの更新
    （apt が CVE-2026-109518 の修正版になったことを確認してから、必要なものを入れる）、部屋のユーザーを管理者のグループ（sudo など）から外す、
    `/etc/wsl.conf`、ホスト名（`/etc/hostname`）と `/etc/hosts`（部屋の名前だけの内容にする。部屋の名前は環境変数 `WSL_DISTRO_NAME` から読む）、
-   AppArmor、`/usr/local/bin/delzonei`
+   AppArmor、`/usr/local/bin/delzonei`、`/etc/claude-code/managed-settings.json`（サンドボックスと権限ルール。room.conf の `allowed_domains` を反映）
 6. 部屋を再起動（C ドライブが見えなくなり、ホスト名が部屋の名前になる）
 7. `provision-root.sh --phase mount`: VS Code 拡張フォルダの読み取り専用マウント
    （C ドライブが見えている間にやると本物の C ドライブの上にフォルダを作ってしまうので、再起動後に行う）と、/mnt の片付け
@@ -790,7 +872,7 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
      リンクに使う C コンパイラなどは、5. でパッケージ（build-essential・pkg-config・libssl-dev）として入れる
 9. （room-github.conf に記入があるときだけ）`provision-github.sh`
    - `--phase credentials`: git の設定と PAT の保存。room-github.conf の内容は、コマンドライン引数ではなく標準入力で渡す
-   - `--phase clone`: `~/projects/<リポジトリ名>` へのクローンと、`git push --dry-run` による書き込み権限の確認
+   - `--phase clone`: `~/projects/<リポジトリ名>` へのクローンと、`git push --dry-run` による書き込み権限の確認（新しくクローンしたときだけ）
    - （room-localgit.conf に記入があるときは、代わりに）`Sync-Room.ps1.tmpl` から部屋専用の同期スクリプトを作り、
      `-Initialize` を付けて実行する。部屋の `~/repos/<名前>.git` を Windows 側と同じハッシュの形式で作り、Windows 側の内容を写して
      `~/projects/<名前>` にクローンする。部屋の中で動かすコードは、実行のたびに同期スクリプトから渡す（部屋の中には置かない）
@@ -812,10 +894,11 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 「部屋のユーザー（…）が、room.conf の linux_user（…）と違います」 | 部屋を作るときに、room.conf と違うユーザー名を入力した | room.conf の `linux_user` を実際のユーザー名に直して `-Resume` を付けて実行する。または部屋を作り直す（`wsl --unregister` で中身はすべて消えます） |
 | 「VS Code の WSL 拡張機能が見つかりません」 | room.conf の `windows_user` が違う、または拡張機能が入っていない | `C:\Users` の中の自分のフォルダ名を `windows_user` に書く。拡張機能が無ければ `code --install-extension ms-vscode-remote.remote-wsl` |
 | 「部屋に入ると root になる状態です」 | ユーザー作成が終わる前に中断した | 表示に従って `wsl --unregister <部屋の名前>`（中身はすべて消えます）してから、もう一度実行 |
+| `-VerifyOnly` で「部屋の中に検証用のファイル…がありません」 | 部屋の設定が途中で止まった、またはこのスクリプトで作った部屋ではない | `-Resume` を付けて設定をやり直す（`-VerifyOnly` は部屋の中にあるファイルをそのまま使い、コピーしません） |
 | 検証 02・04・05 が FAIL / VS Code で「WSL Daemon exited with code 0」 | VS Code 拡張フォルダが正しくマウントされていない | `-Resume` で設定をやり直す。直らなければ部屋の中で `cat /etc/fstab` と `mount \| grep -i extensions` の結果を Claude Code に見せて相談 |
 | 検証 10 が FAIL（bwrap が失敗する） | AppArmor が bubblewrap を止めている可能性 | 部屋の中で `sysctl kernel.apparmor_restrict_unprivileged_userns` を確認。`1` なら `-Resume` でやり直す（自動でプロファイルを追加します） |
 | 検証 06 が FAIL | Windows のプログラムを呼べる状態（とても危険） | `-Resume` でやり直す。直るまでこの部屋で Claude Code を使わない |
-| 検証 08・R1・R2 が FAIL | パスワードなしで sudo できる設定がある | Windows の PowerShell から `wsl -d <部屋の名前> -u root` で入り、表示された行を `visudo`（または `visudo -f <ファイル>`）で削除 |
+| 検証 08・R1 が FAIL | 部屋のユーザーに sudo の権限がある（08 はパスワード不要のもの、R1 はパスワードが必要なものも含む） | 管理者のグループに入っているなら `-Resume` でやり直す（外します）。sudo の設定ファイルにユーザーの行があるなら、Windows の PowerShell から `wsl -d <部屋の名前> -u root` で入り、その行を `visudo`（または `visudo -f <ファイル>`）で削除 |
 | 検証 E8 が FAIL | 部屋のユーザーが sudo などの管理者のグループに入っている | `-Resume` でやり直す（グループから外します） |
 | 検証 E4 が FAIL | `/etc/wsl.conf` が仕様と違う（2026-11-15 より前に作った部屋には `[network]` の節が無いため、FAIL になります） | `-Resume` で仕様どおりに戻す |
 | 検証 E9 が FAIL | ホスト名が部屋の名前でない、`/etc/hosts` が WSL に作り直されている、または仕様の行が無い（2026-11-15 より前に作った部屋など） | `-Resume` で仕様どおりに戻す（部屋の再起動で、ホスト名も部屋の名前になります） |
@@ -826,8 +909,8 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 検証 A2 が FAIL / 部屋の作成が「apt の版が…修正版より古いままです」で止まる | apt が CVE-2026-109518 の修正版になっていない | 時間をおいて `-Resume` でやり直す（サーバーの同期が遅れていることがあります） |
 | 検証 A3 が FAIL | Apache（apache2）が入っている | 不要なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って `apt purge apache2` などで削除 |
 | 検証 A4 が WARN | 適用していない更新がある | [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で `apt update` と `apt upgrade` を実行 |
-| 検証 13 が FAIL | `~/.claude/settings.json` が仕様と違う（2026-11-12 までに作った部屋では、あとから追加した禁止ルール `Edit(...)`・`Read(~/.ssh/**)`・`Read(~/.aws/**)` が無いため FAIL になることがあります） | `-Resume` で仕様どおりに戻す（元のファイルは `settings.json.bak-日時` として残るので、ご自身で足した設定があれば足し直す） |
-| Claude に `.bashrc` や Claude Code の設定の変更を頼むと拒否される | サンドボックスの外で自動で実行されるファイルは、Claude に書き換えさせないようにしている（[1 章](#1-安全のしくみかんたんな説明)の ⑤） | ご自身で編集する |
+| 検証 13 が FAIL | `/etc/claude-code/managed-settings.json` が無い・root 以外も書ける・内容が仕様と違う（2026-11-17 より前に作った部屋には、このファイルが無いため FAIL になります）、または `~/.claude/settings.json` に守りを弱める設定（`sandbox.excludedCommands`・`sandbox.filesystem.allowWrite`・`permissions.additionalDirectories`・`bypassPermissions`）がある | `-Resume` で仕様どおりに戻す（`~/.claude/settings.json` の元のファイルは `settings.json.bak-日時` として残るので、ご自身で足した設定があれば足し直す） |
+| Claude に `.bashrc`・`.git` の中・Claude Code の設定（プロジェクトの `.claude/settings.json` を含む）の変更を頼むと拒否される | サンドボックスの外で自動で実行されるファイルは、Claude に書き換えさせないようにしている（[1 章](#1-安全のしくみかんたんな説明)の ⑤） | ご自身で編集する（Claude に書く内容を示してもらうことはできます）。git の操作は、Claude が実行するコマンドで行えます |
 | Claude が作業フォルダの外のファイルを読もうとすると、読み取りを許可するかを聞かれる | Claude Code の仕様（作業フォルダの外を初めて読むときに、一度だけ聞く） | 「Yes, and keep allowing any reads outside the working directories」を選ぶ（[6.4](#64-ふだんの使い方の約束)） |
 | Claude が作業フォルダの外のファイルを読めず、`/add-dir` を使うように言われる | 上の確認で「No, and block …」を選んだため、`~/.claude/settings.json` に `"blockReadsOutsideWorkingDirectories": true` が書き込まれた | ご自身で `~/.claude/settings.json` からその項目を削除し（前後の `,` に注意）、Claude Code を起動し直す。`-Resume` でも元に戻ります |
 | 検証 E7 が FAIL | `/usr/local/bin/delzonei` が無い、または書き換えられている | `-Resume` で置き直す |
@@ -837,8 +920,8 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 検証 G1 が FAIL | `~/.git-credentials` をほかのユーザーも読める | 部屋の中で `chmod 600 ~/.git-credentials` |
 | 検証 G2 が FAIL | git の設定の URL に PAT が書かれている、または部屋の中に room-github.conf がある | 表示に従って直す。Claude から読める場所にあった PAT は、GitHub で削除（失効）して作り直す |
 | 「room-github.conf の一部だけが記入されています」 | 4 つの項目の書き忘れ | すべて記入する（GitHub の設定をしないなら、すべて空欄にする） |
-| 対話モードで「このスクリプトは WSL の部屋の中にあります」「WSL の部屋の中を割り当てたドライブ…にあります」 | 部屋の中のフォルダ（`\\wsl.localhost\...`）にある room-setup-wizard.cmd を起動した | [3 章](#3-ファイルを-windows-側に用意する)の手順で Windows 側にコピーし、コピーしたほうを起動する |
-| 対話モードで「ネットワークドライブ…の接続先を確認できませんでした」 | ネットワークドライブ上のフォルダから起動した | Windows のローカルのフォルダ（`%USERPROFILE%` の下など）にコピーして起動する |
+| 「このスクリプトは WSL の部屋の中にあります」「WSL の部屋の中を割り当てたドライブ…にあります」 | 部屋の中のフォルダ（`\\wsl.localhost\...`）にある New-SecureRoom.ps1（または room-setup.cmd・room-setup-wizard.cmd）を起動した | [3 章](#3-ファイルを-windows-側に用意する)の手順で Windows 側にコピーし、コピーしたほうを起動する |
+| 「ネットワークドライブ…の接続先を確認できませんでした」 | ネットワークドライブ上のフォルダから起動した | Windows のローカルのフォルダ（`%USERPROFILE%` の下など）にコピーして起動する |
 | 「記入済みの room-github.conf が、WSL の部屋の中にあります」 | 部屋の中のフォルダから実行した、または部屋の中のファイルを指定した | Windows 側にコピーしたフォルダで記入して実行する。部屋の中のファイルに書いた PAT は、GitHub で削除（失効）して作り直す |
 | 「リポジトリをクローンできませんでした」 | `repo_url` の誤り、PAT の期限切れ・権限不足 | URL と PAT（対象のリポジトリへのアクセス権、Contents の権限）を確認し、room-github.conf を直して `-Resume` |
 | 「PAT で push できることを確認できませんでした」（`[注意]`） | PAT に書き込み権限が無い、または PAT が無効 | PAT の Contents を Read and write にする（または作り直す）。room-github.conf を直して `-Resume` |
@@ -870,7 +953,8 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
   （`C:\Users\山田 太郎` など）。fstab での書き方が未確認のため、room.conf の `windows_user` に書けないようにしています。
 - **ユーザーフォルダが `C:\Users\` の下に無い場合**。
 - **VS Code Insiders**（拡張フォルダの場所が違うため）。
-- **Ubuntu 以外のディストリビューション**。
+- **Ubuntu-26.04 以外のディストリビューション**（Ubuntu のほかの版も含みます。最初の質問で止まります）。
+  apt の脆弱性（CVE-2026-109518）への対策で確かめる apt の修正版が、Ubuntu の版ごとに違うためです。
 
 ### まだ実機で確認できていないこと
 
@@ -894,7 +978,22 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
   git の作者を設定していない状態でも、部屋の作成（LocalGit の `~/projects/<名前>` への clone）が最後まで進むこと
 - 部屋の再起動（`wsl --terminate`）と `wsl --shutdown` のあとも、それが保たれること（systemd から見たホスト名も同じ）
 
+2026-11-17 までに、次のことを実機で確かめました。
+
+- interop を無効にした部屋から、VS Code 拡張フォルダの .exe などの Windows のプログラムを起動できないこと
+- 2026-11-17 の変更（守りの設定を managed settings に移したこと、検証 13・R1 の変更など）を入れた状態で、新しい部屋の作成が最後まで進むこと
+- `/status` の Setting sources に `Enterprise managed settings (file)` が出て（個人の Pro プランでも出ます）、
+  managed settings（`/etc/claude-code/managed-settings.json`）の守りの設定が効いていること
+
 次の点は、まだ実機で確かめていません。
+
+- managed settings に移したあとも、[6.2](#62-ログイン後の手動確認) の表の結果がすべて今までと同じこと、
+  プロジェクトの `.claude/settings.local.json` に書いた `allowedDomains` が足し合わされること（[6.8](#68-部屋の管理作業パッケージの追加更新など)）
+- `-VerifyOnly` を、部屋の中のファイルをそのまま使う動作に変えたこと（2026-11-17）と、検証 R1 が、部屋のユーザーに sudo の権限があるときに FAIL になること
+- [1 章](#1-安全のしくみかんたんな説明)の ⑤ に加えた、`.git` の中とプロジェクトの `.claude/settings*.json` の書き換えの禁止（2026-11-17 に追加）が効くこと
+  （[6.2](#62-ログイン後の手動確認) の表の、`.git/config`・`~/.git`・`.claude/settings.local.json`・`/permissions` の 5 行。`~/**/` の書き方が `~/.git` にも当たること、
+  Claude が実行するコマンドからも `.claude/settings.local.json` を書けないこと、Claude Code 自身の書き込みは止まらないことを含む）
+- provision-github.sh を `/` で動かすようにしたこと（2026-11-17）: GitHub の設定をした部屋で `-Resume` が今までどおり進むこと
 
 - [1 章](#1-安全のしくみかんたんな説明)の ⑤ の書き換えの禁止（2026-11-12 に追加）が効くこと（[6.2](#62-ログイン後の手動確認) の表の、`~/.bashrc`・`statusline.sh`・メモリーの 3 行）
 - ⑤ の読み取りの禁止に加えた `~/.ssh`・`~/.aws`（2026-11-12 に追加）が効くことと、作業フォルダの外を初めて読むときの確認で「Yes, and keep allowing …」を選んだあとの動作
@@ -910,14 +1009,12 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
   - 両側で変更したとき・fast-forward でないとき・タグを付け替えたときに止まること、`-Direction` の動作
   - 同期スクリプトの .ps1 と .cmd を別のフォルダへ移しても動くこと、パスに空白や `'` を含むリポジトリで動くこと
   - `-Resume` で GitHub と LocalGit を混ぜようとすると止まること
-  - 設定ファイルの方式で、部屋の中（`\\wsl.localhost\...`）にある New-SecureRoom.ps1 を LocalGit の設定で実行すると止まること
+  - 部屋の中（`\\wsl.localhost\...`）にある New-SecureRoom.ps1 を実行すると止まること（2026-11-17 に、どの起動方法でも止まるようにした）
   - 上の「部屋を作ったあとの確認」（`Edit(~/repos/**)` の禁止ルールが効くこと）
 
 - ホスト名と `/etc/hosts`（2026-11-15 に追加）の残り: VS Code での接続と Claude Code のサンドボックスの通信が今までどおり動くこと、
   git の作者を設定していないと commit が止まること、検証 E9 が WSL の作り直した `/etc/hosts` を見分けられること
   （目印の文言 `automatically generated by WSL` が、今の WSL の書き方と合っていること）
-- interop を無効にした部屋から、実際に Windows のプログラムを起動できないこと
-  （検証 06 は申し送り書どおり「`cmd.exe` などが見つからない」ことを確かめるもので、起動そのものは試していません）
 - AppArmor の設定が必要な場合（値が `1`）の手順（Ubuntu 26.04 の WSL では不要だったため）
 - delzonei（2026-11-10 に追加）の実機での動作
 - apt の取得先の https への書き換えと、管理者のグループから外す処理（2026-11-10 に追加）を、設定ファイルの方法で使ったときの動作

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(//mnt/**)",
+      "Read(~/.git-credentials)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Edit(~/repos/**)",
+      "Edit(~/.bash*)",
+      "Edit(~/.profile)",
+      "Edit(~/.gitconfig)",
+      "Edit(~/**/.git)",
+      "Edit(~/**/.git/**)",
+      "Edit(~/.config/**)",
+      "Edit(~/.local/**)",
+      "Edit(~/.cargo/**)",
+      "Edit(~/.rustup/**)",
+      "Edit(~/.vscode-server/**)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.npmrc)",
+      "Edit(~/.claude/settings.json)",
+      "Edit(~/**/.claude/settings.json)",
+      "Edit(~/**/.claude/settings.local.json)",
+      "Edit(~/.claude/statusline.sh)",
+      "Edit(~/.claude.json)",
+      "Edit(~/.claude/plugins/**)",
+      "Edit(~/.claude/dev-mods/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "enableWeakerNestedSandbox": false,
+    "filesystem": {
+      "disabled": false,
+      "denyRead": ["/mnt"]
+    },
+    "credentials": {
+      "files": [
+        { "path": "~/.ssh", "mode": "deny" },
+        { "path": "~/.aws", "mode": "deny" },
+        { "path": "~/.git-credentials", "mode": "deny" },
+        { "path": "~/.claude/.credentials.json", "mode": "deny" }
+      ]
+    },
+    "network": {
+      "allowAllUnixSockets": false,
+      "allowedDomains": []
+    }
+  }
+}
