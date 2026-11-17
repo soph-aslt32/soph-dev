@@ -52,6 +52,8 @@ README 11 章の「まだ実機で確かめていません」を参照。主な�
 - 2026-11-17 に ⑤ に加えた `.git` の中とプロジェクトの `.claude/settings*.json` の禁止が効くこと（README 6.2 の表の 5 行）。
   `~/**/` の書き方が `~/.git` にも当たるか、Claude が実行するコマンドから `.claude/settings.local.json` を書けないか
 - provision-github.sh を `/` で動かすようにしたあとの、GitHub の部屋の `-Resume`
+- 守りの設定を `~/.claude/settings.json` にも置いたあと（2026-11-17）の、組織のアカウント（`/status` が `(remote)`）での README 6.2 の表の結果と、
+  個人のアカウントで今までの結果が変わらないこと
 - README 1 章の ⑤ の読み取りの禁止に加えた `~/.ssh`・`~/.aws` が効くことと、作業フォルダの外を初めて読むときの確認で Yes を選んだあとの動作（README 6.2 の表の 2 行）
 - ホスト名と `/etc/hosts`（2026-11-15 に追加。作成直後と再起動後に保たれることは確認済み）の残り:
   VS Code での接続とサンドボックスの通信が今までどおり動くこと、git の作者を設定していないと commit が止まること。
@@ -77,6 +79,10 @@ README 11 章の「まだ実機で確かめていません」を参照。主な�
 - managed settings（`/etc/claude-code/managed-settings.json`）で固定できるのは、1 つの値を持つ設定だけ。一覧の形の設定
   （`sandbox.network.allowedDomains`・`sandbox.filesystem.allowWrite`・`permissions.additionalDirectories` など）は、
   プロジェクトの設定からも足せる。`~/.claude/settings.json` の分は検証 13 で確かめるが、プロジェクトの分は README 6.4 の手動確認に任せる。
+- 組織のアカウントで、組織が claude.ai の管理画面から managed settings を配っていると、部屋の managed settings は使われない
+  （`managedSourcesBehavior` の既定の `first-wins`。`merge` にするのは組織の管理者で、協力は前提にしない）。そのときの守りは
+  `~/.claude/settings.json` の同じ設定（2026-11-17 に追加）で、1 つの値の設定はプロジェクトの設定で変えられ（ユーザーの責任）、
+  組織の設定に `allowManagedPermissionRulesOnly` があると `permissions.deny` は効かない（README 1 章・11 章）。
 - Windows のユーザーフォルダの名前（room.conf の `windows_user`）は、部屋の中の Claude からも見える
   （VS Code 拡張フォルダのマウント先 `/mnt/c/Users/<名前>/...` が `/proc/mounts` に出る。部屋の中の room.conf にも書かれている）。
   フォルダの中身は見えない。マウントに必要なので、名前を隠すことはできない。

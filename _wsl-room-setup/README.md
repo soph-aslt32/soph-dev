@@ -75,6 +75,17 @@ Claude Code はこのファイルを、`~/.claude/settings.json` やプロジェ
 それらのファイルに `"sandbox": {"enabled": false}` などが書かれても、守りは外れません（③ により、部屋の中ではこのファイルを書き換えられません）。
 ただし、一覧の形の設定（通信を許可するドメインなど）は、すべてのファイルの内容が足し合わされます（[6.4](#64-ふだんの使い方の約束)）。
 
+同じ内容は `~/.claude/settings.json` にも置きます。Claude Code に組織のアカウント（Team・Enterprise）でログインし、
+組織が claude.ai の管理画面から managed settings を配っていると、Claude Code はそれだけを使い、部屋の managed settings を使わないためです
+（`/status` の Setting sources が `Enterprise managed settings (remote)` になります）。その場合の守りは、次のようになります。
+
+- 組織の設定が、何よりも優先されます（このツールは組織の設定を外しません）。
+- Claude は `~/.claude/settings.json` を書き換えられない（⑤）ので、Claude が守りを外すことはできません。
+- 一覧の形の設定（⑤ の禁止、認証情報の置き場所、`/mnt` の読み取りの禁止）は、ほかの設定ファイルに何が書かれていても効きます。
+- 1 つの値の設定（サンドボックスの有効・無効など）は、プロジェクトの設定（`/sandbox` での変更や、リポジトリの `.claude/settings.json`）で変えられます。
+  変えないでください（リポジトリの設定は [6.4](#64-ふだんの使い方の約束) のとおり確かめてください）。
+- 組織の設定に `allowManagedPermissionRulesOnly` があると、⑤ の禁止は効きません（[11 章](#11-対応していない環境まだ確認できていないこと)）。
+
 ⑤ の書き換えの禁止は、④ を補うものです。Claude が実行するコマンドは ④ で作業フォルダの外に書き込めませんが、
 Claude のファイル編集機能（Edit・Write など）はサンドボックスの外の仕組みで、作業フォルダの外への書き込みは「確認で許可すれば書ける」状態です。
 そこで、許可しても書けないように、次のものを禁止しています（`/etc/claude-code/managed-settings.json` の `permissions.deny`）。
@@ -422,7 +433,7 @@ claude
 | 確認すること | 期待される結果 |
 |---|---|
 | `/sandbox` を開く | 「Dependencies」タブが出ない。Overrides が **Strict sandbox mode** |
-| `/status` を開く | Setting sources に **Enterprise managed settings (file)** と **User settings** がある |
+| `/status` を開く | Setting sources に **Enterprise managed settings (file)** と **User settings** がある（組織のアカウントでは `(remote)` になります。そのときも、ほかの行の結果は同じになるはずです。[1 章](#1-安全のしくみかんたんな説明)） |
 | Claude に「`touch ~/sandbox-probe` を実行して」と頼む | Read-only file system で**失敗する** |
 | Claude に「`~/outside.txt` を読んで」と頼む | **読める**（作業フォルダの外でも、部屋の中のファイルは読めます。初めてのときに出る確認には「Yes, and keep allowing …」を選びます。[6.4](#64-ふだんの使い方の約束)） |
 | Claude に「`~/.aws/wsl-room-probe.txt` を読んで」と頼む | **読めない**（[1 章](#1-安全のしくみかんたんな説明)の ⑤。認証情報の置き場所は、作業フォルダの外を読めるようにしても読めない） |
@@ -483,8 +494,9 @@ function devcode($name) { code --remote wsl+dev "/home/taro/projects/$name" }
 - `~/.bashrc`・`~/.gitconfig`・`~/.claude/settings.json`・プロジェクトの `.claude/settings.json` などを変えたいときは、ご自身で編集してください
   （Claude には書き換えられないようにしてあります。[1 章](#1-安全のしくみかんたんな説明)の ⑤）。
 - サンドボックスと権限ルール（守りの設定）は、root 所有の `/etc/claude-code/managed-settings.json` にあります。
-  `~/.claude/settings.json` を編集しても変わりません。変えるときは room.conf を直して `-Resume` を付けて実行します
-  （通信を許可するドメインを、1 つのプロジェクトだけで増やす方法は [6.8](#68-部屋の管理作業パッケージの追加更新など)）。
+  `~/.claude/settings.json` にも同じものがありますが（組織のアカウントで使うとき用。[1 章](#1-安全のしくみかんたんな説明)）、
+  そこにある守りの設定は、消したり緩めたりしないでください。変えるときは room.conf を直して `-Resume` を付けて実行します
+  （両方が置き直されます。通信を許可するドメインを、1 つのプロジェクトだけで増やす方法は [6.8](#68-部屋の管理作業パッケージの追加更新など)）。
 - **コミットする前に、git の作者（`user.name`・`user.email`）を設定してください。**
   部屋のホスト名にはドメインが無いので、git は作者を自動で決められず、設定が無いと commit は
   `Author identity unknown`・`fatal: unable to auto-detect email address` で止まります
@@ -626,7 +638,7 @@ rustup update
     { "sandbox": { "network": { "allowedDomains": ["index.crates.io", "static.crates.io"] } } }
     ```
 
-  `~/.claude/settings.json` に書いても効きますが、`-Resume` のときにひな形の内容で上書きされます（元のファイルは `settings.json.bak-日時` として残ります）。
+  `~/.claude/settings.json` に書いても効きますが、`-Resume` のときにひな形と守りの設定の内容で上書きされます（元のファイルは `settings.json.bak-日時` として残ります）。
 
 ### 6.9 LocalGit の同期
 
@@ -839,7 +851,7 @@ wsl-room-setup/
 ├── templates/
 │   ├── wsl.conf.tmpl         /etc/wsl.conf のひな形
 │   ├── managed-settings.json.tmpl  /etc/claude-code/managed-settings.json のひな形（サンドボックスと権限ルール。守りの設定）
-│   ├── claude-settings.json.tmpl   ~/.claude/settings.json のひな形（ステータスラインなどの好みの設定）
+│   ├── claude-settings.json.tmpl   ~/.claude/settings.json のひな形（ステータスラインなどの好みの設定。managed settings の守りの設定と合わせて置く）
 │   └── Sync-Room.ps1.tmpl    LocalGit の同期スクリプトのひな形（部屋の中で動かす部分も含む。部屋の中にはコピーしない）
 ├── rooms/                    （LocalGit の部屋を作ると作られる）部屋ごとの同期スクリプト Sync-<部屋の名前>.ps1 / .cmd
 └── .gitattributes            改行コードの指定（Linux 側のファイルは LF）
@@ -866,7 +878,7 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
    （C ドライブが見えている間にやると本物の C ドライブの上にフォルダを作ってしまうので、再起動後に行う）と、/mnt の片付け
    （初回起動時に WSL が作ったドライブ用のフォルダのうち、`/mnt/c` 以外の空のものを削除し、
    `/mnt/c` から取り付け先までのフォルダを root 所有・755 にする。`/mnt/c` は取り付け先の途中なので残す）
-8. `provision-user.sh`: Claude Code、PATH、uv、Rust、settings.json、ステータスライン（`~/.claude/statusline.sh`）、`~/projects`
+8. `provision-user.sh`: Claude Code、PATH、uv、Rust、settings.json（好みの設定と、5. で置いた managed settings の守りの設定を合わせたもの）、ステータスライン（`~/.claude/statusline.sh`）、`~/projects`
    - uv: 公式のインストールスクリプト（`https://astral.sh/uv/install.sh`）で `~/.local/bin` に入れる
    - Rust: 公式の rustup（`https://sh.rustup.rs`）で stable を `~/.cargo` と `~/.rustup` に入れ、`~/.bashrc` に `. "$HOME/.cargo/env"` を追記する。
      リンクに使う C コンパイラなどは、5. でパッケージ（build-essential・pkg-config・libssl-dev）として入れる
@@ -909,7 +921,7 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 | 検証 A2 が FAIL / 部屋の作成が「apt の版が…修正版より古いままです」で止まる | apt が CVE-2026-109518 の修正版になっていない | 時間をおいて `-Resume` でやり直す（サーバーの同期が遅れていることがあります） |
 | 検証 A3 が FAIL | Apache（apache2）が入っている | 不要なら、[6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で入って `apt purge apache2` などで削除 |
 | 検証 A4 が WARN | 適用していない更新がある | [6.8](#68-部屋の管理作業パッケージの追加更新など) の方法で `apt update` と `apt upgrade` を実行 |
-| 検証 13 が FAIL | `/etc/claude-code/managed-settings.json` が無い・root 以外も書ける・内容が仕様と違う（2026-11-17 より前に作った部屋には、このファイルが無いため FAIL になります）、または `~/.claude/settings.json` に守りを弱める設定（`sandbox.excludedCommands`・`sandbox.filesystem.allowWrite`・`permissions.additionalDirectories`・`bypassPermissions`）がある | `-Resume` で仕様どおりに戻す（`~/.claude/settings.json` の元のファイルは `settings.json.bak-日時` として残るので、ご自身で足した設定があれば足し直す） |
+| 検証 13 が FAIL | `/etc/claude-code/managed-settings.json` が無い・root 以外も書ける・内容が仕様と違う（2026-11-17 より前に作った部屋には、このファイルが無いため FAIL になります）、`~/.claude/settings.json` に守りの設定が無い（2026-11-17 より前に作った部屋など）、または `~/.claude/settings.json` に守りを弱める設定（`sandbox.excludedCommands`・`sandbox.filesystem.allowWrite`・`permissions.additionalDirectories`・`bypassPermissions`）がある | `-Resume` で仕様どおりに戻す（`~/.claude/settings.json` の元のファイルは `settings.json.bak-日時` として残るので、ご自身で足した設定があれば足し直す） |
 | Claude に `.bashrc`・`.git` の中・Claude Code の設定（プロジェクトの `.claude/settings.json` を含む）の変更を頼むと拒否される | サンドボックスの外で自動で実行されるファイルは、Claude に書き換えさせないようにしている（[1 章](#1-安全のしくみかんたんな説明)の ⑤） | ご自身で編集する（Claude に書く内容を示してもらうことはできます）。git の操作は、Claude が実行するコマンドで行えます |
 | Claude が作業フォルダの外のファイルを読もうとすると、読み取りを許可するかを聞かれる | Claude Code の仕様（作業フォルダの外を初めて読むときに、一度だけ聞く） | 「Yes, and keep allowing any reads outside the working directories」を選ぶ（[6.4](#64-ふだんの使い方の約束)） |
 | Claude が作業フォルダの外のファイルを読めず、`/add-dir` を使うように言われる | 上の確認で「No, and block …」を選んだため、`~/.claude/settings.json` に `"blockReadsOutsideWorkingDirectories": true` が書き込まれた | ご自身で `~/.claude/settings.json` からその項目を削除し（前後の `,` に注意）、Claude Code を起動し直す。`-Resume` でも元に戻ります |
@@ -956,6 +968,13 @@ room-github.conf はここに置きません（ここは部屋の中の誰でも
 - **Ubuntu-26.04 以外のディストリビューション**（Ubuntu のほかの版も含みます。最初の質問で止まります）。
   apt の脆弱性（CVE-2026-109518）への対策で確かめる apt の修正版が、Ubuntu の版ごとに違うためです。
 
+### 守りの一部が効かない環境（スクリプトは止まりません）
+
+- **組織のアカウントで、組織の managed settings に `allowManagedPermissionRulesOnly` があるとき**:
+  組織の managed settings の権限ルールだけが使われるので、[1 章](#1-安全のしくみかんたんな説明)の ⑤ の禁止（認証情報の読み取りの禁止を含む）が効きません。
+  ④ のサンドボックスの設定は効きます。この部屋には PAT を置かないでください（GitHub の設定をしない）。
+- **組織の managed settings が、部屋の守りと違う値を決めているとき**: 組織の値が使われます。
+
 ### まだ実機で確認できていないこと
 
 このスクリプトは、Claude Code がサンドボックスの中で書いたものです（サンドボックスの中からは `wsl.exe` や
@@ -994,6 +1013,9 @@ PowerShell を実行できません）。2026-10-29 に実機で一度実行し�
   （[6.2](#62-ログイン後の手動確認) の表の、`.git/config`・`~/.git`・`.claude/settings.local.json`・`/permissions` の 5 行。`~/**/` の書き方が `~/.git` にも当たること、
   Claude が実行するコマンドからも `.claude/settings.local.json` を書けないこと、Claude Code 自身の書き込みは止まらないことを含む）
 - provision-github.sh を `/` で動かすようにしたこと（2026-11-17）: GitHub の設定をした部屋で `-Resume` が今までどおり進むこと
+- 守りの設定を `~/.claude/settings.json` にも置いたこと（2026-11-17）: 組織のアカウント（組織の managed settings があり、`/status` が `(remote)`）で、
+  [6.2](#62-ログイン後の手動確認) の表の結果が個人のアカウントと同じになること。個人のアカウントで、今までの結果が変わらないこと
+  （組織の managed settings があると部屋の managed settings が使われないことは、2026-11-17 に別のユーザーの環境で確かめました）
 
 - [1 章](#1-安全のしくみかんたんな説明)の ⑤ の書き換えの禁止（2026-11-12 に追加）が効くこと（[6.2](#62-ログイン後の手動確認) の表の、`~/.bashrc`・`statusline.sh`・メモリーの 3 行）
 - ⑤ の読み取りの禁止に加えた `~/.ssh`・`~/.aws`（2026-11-12 に追加）が効くことと、作業フォルダの外を初めて読むときの確認で「Yes, and keep allowing …」を選んだあとの動作

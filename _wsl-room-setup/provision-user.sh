@@ -14,8 +14,8 @@
 #   -  Rust のインストール（公式の rustup https://sh.rustup.rs。stable の default プロファイルを ~/.cargo と ~/.rustup に入れ、
 #      ~/.bashrc に「. "$HOME/.cargo/env"」を追記）。リンクに使う C コンパイラなどは provision-root.sh が入れる
 #      （build-essential・pkg-config・libssl-dev）
-#   3. ~/.claude/settings.json の配置（ステータスラインなどの好みの設定。守りの設定（サンドボックスと権限ルール）は、
-#      provision-root.sh が managed settings として置く）
+#   3. ~/.claude/settings.json の配置（ステータスラインなどの好みの設定と、provision-root.sh が managed settings として置いた
+#      守りの設定（サンドボックスと権限ルール）を合わせたもの）
 #   4. ステータスライン（statusline.sh）を ~/.claude/statusline.sh に配置
 #   5. ~/projects の作成
 #
@@ -132,8 +132,14 @@ install_user_file() {
 }
 
 install_settings() {
+    local tmp
     step "3/5 Claude Code の設定ファイル（$SETTINGS_FILE）を配置します"
-    install_user_file "$SETTINGS_TEMPLATE" "$SETTINGS_FILE"
+    # 好みの設定（ひな形）に、守りの設定（provision-root.sh が置いた managed settings）を合わせて置く。
+    # 組織のサーバーから managed settings が配られると、Claude Code は部屋の managed settings を使わないため（README 1 章）
+    tmp=$(mktemp)
+    jq --indent 2 -s '.[0] * .[1]' "$SETTINGS_TEMPLATE" "$MANAGED_SETTINGS" > "$tmp"
+    install_user_file "$tmp" "$SETTINGS_FILE"
+    rm -f -- "$tmp"
 }
 
 # settings.json の statusLine（bash ~/.claude/statusline.sh）から実行されるファイルを置く

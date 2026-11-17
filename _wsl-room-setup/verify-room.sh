@@ -258,10 +258,12 @@ check_11() {
 }
 
 # Claude Code の設定。守りの設定（サンドボックスと権限ルール）は managed settings（root 所有）に置き、Claude Code は
-# それをユーザー設定・プロジェクト設定より優先する。ただし一覧の形の設定は、すべてのファイルの内容が足し合わされ、
-# permissions.defaultMode はユーザー設定で決まるので、それらは ~/.claude/settings.json も確かめる。
+# それをユーザー設定・プロジェクト設定より優先する。ただし組織のサーバーから managed settings が配られると、Claude Code は
+# 部屋の managed settings を使わないので、同じ守りの設定を ~/.claude/settings.json にも置いている（両方を確かめる）。
+# 一覧の形の設定は、すべてのファイルの内容が足し合わされ、permissions.defaultMode はユーザー設定で決まるので、
+# ~/.claude/settings.json に守りを弱める設定が無いことも確かめる。
 check_13() {
-    local m=$MANAGED_SETTINGS f="$HOME/.claude/settings.json" owner domains_json rule p bad=0
+    local m=$MANAGED_SETTINGS f="$HOME/.claude/settings.json" owner domains_json bad=0
     if ! command -v jq > /dev/null 2>&1; then detail "jq が見つからないため検査できません。"; return 1; fi
 
     # want <ファイル> <説明> <jq の条件式>
@@ -272,23 +274,18 @@ check_13() {
         fi
     }
 
-    # --- managed settings（templates/managed-settings.json.tmpl と同じ内容のはず） ---
-    check_root_only_writable "${m%/*}" || bad=1
-    if ! check_root_only_writable "$m"; then
-        bad=1
-    elif ! jq -e . "$m" > /dev/null 2>&1; then
-        detail "$m が JSON として読めません（書き方の誤り）。"
-        bad=1
-    else
-        want "$m" 'sandbox.enabled が true' '.sandbox.enabled == true'
-        want "$m" 'sandbox.failIfUnavailable が true' '.sandbox.failIfUnavailable == true'
-        want "$m" 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
+    # want_guard <ファイル>: templates/managed-settings.json.tmpl の守りの設定があること
+    want_guard() {
+        local file=$1 rule p
+        want "$file" 'sandbox.enabled が true' '.sandbox.enabled == true'
+        want "$file" 'sandbox.failIfUnavailable が true' '.sandbox.failIfUnavailable == true'
+        want "$file" 'sandbox.allowUnsandboxedCommands が false' '.sandbox.allowUnsandboxedCommands == false'
         # 次の 3 つは既定値も false だが、managed で false に固定して、ほかの設定ファイルから有効にできないようにしている
-        want "$m" 'sandbox.enableWeakerNestedSandbox が false' '.sandbox.enableWeakerNestedSandbox == false'
-        want "$m" 'sandbox.filesystem.disabled が false' '.sandbox.filesystem.disabled == false'
-        want "$m" 'sandbox.network.allowAllUnixSockets が false' '.sandbox.network.allowAllUnixSockets == false'
-        want "$m" 'sandbox.excludedCommands が空' '((.sandbox.excludedCommands // []) | length) == 0'
-        want "$m" 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
+        want "$file" 'sandbox.enableWeakerNestedSandbox が false' '.sandbox.enableWeakerNestedSandbox == false'
+        want "$file" 'sandbox.filesystem.disabled が false' '.sandbox.filesystem.disabled == false'
+        want "$file" 'sandbox.network.allowAllUnixSockets が false' '.sandbox.network.allowAllUnixSockets == false'
+        want "$file" 'sandbox.excludedCommands が空' '((.sandbox.excludedCommands // []) | length) == 0'
+        want "$file" 'sandbox.filesystem.denyRead に "/mnt" がある' '(.sandbox.filesystem.denyRead // []) | any(.[]; . == "/mnt")'
         # permissions.blockReadsOutsideWorkingDirectories は設定しない（README「このツールの考え方」・6.4）。
         # 部屋の中では作業フォルダの外も Claude に読ませる設計で、読ませないものは下の Read(...) で個別に禁止する。
         # true にすると、サンドボックスの中のコマンドもホームフォルダの中を読めなくなり、uv や Rust を使えなくなる見込み。
@@ -307,19 +304,30 @@ check_13() {
             'Edit(~/.claude/settings.json)' 'Edit(~/**/.claude/settings.json)' 'Edit(~/**/.claude/settings.local.json)' \
             'Edit(~/.claude/statusline.sh)' 'Edit(~/.claude.json)' \
             'Edit(~/.claude/plugins/**)' 'Edit(~/.claude/dev-mods/**)'; do
-            if ! jq -e --arg r "$rule" '(.permissions.deny // []) | any(.[]; . == $r)' "$m" > /dev/null 2>&1; then
-                detail "NG: $m の permissions.deny に \"$rule\" がない"
+            if ! jq -e --arg r "$rule" '(.permissions.deny // []) | any(.[]; . == $r)' "$file" > /dev/null 2>&1; then
+                detail "NG: ${file/#"$HOME"/\~} の permissions.deny に \"$rule\" がない"
                 bad=1
             fi
         done
         # 設定ファイルに書かれた文字列のまま比べるので、~ は展開しない
         # shellcheck disable=SC2088
         for p in '~/.ssh' '~/.aws' '~/.git-credentials' '~/.claude/.credentials.json'; do
-            if ! jq -e --arg p "$p" '(.sandbox.credentials.files // []) | any(.[]; .path == $p and .mode == "deny")' "$m" > /dev/null 2>&1; then
-                detail "NG: $m の sandbox.credentials.files で $p が deny になっていない"
+            if ! jq -e --arg p "$p" '(.sandbox.credentials.files // []) | any(.[]; .path == $p and .mode == "deny")' "$file" > /dev/null 2>&1; then
+                detail "NG: ${file/#"$HOME"/\~} の sandbox.credentials.files で $p が deny になっていない"
                 bad=1
             fi
         done
+    }
+
+    # --- managed settings（templates/managed-settings.json.tmpl と同じ内容のはず） ---
+    check_root_only_writable "${m%/*}" || bad=1
+    if ! check_root_only_writable "$m"; then
+        bad=1
+    elif ! jq -e . "$m" > /dev/null 2>&1; then
+        detail "$m が JSON として読めません（書き方の誤り）。"
+        bad=1
+    else
+        want_guard "$m"
         domains_json=$(jq -nc '$ARGS.positional' --args "${CONF_ALLOWED_DOMAINS[@]}")
         if ! jq -e --argjson want "$domains_json" '.sandbox.network.allowedDomains == $want' "$m" > /dev/null 2>&1; then
             detail "NG: $m の sandbox.network.allowedDomains が room.conf の allowed_domains と一致しない"
@@ -329,7 +337,7 @@ check_13() {
         fi
     fi
 
-    # --- ~/.claude/settings.json（managed では止められない、守りを弱める設定が無いこと） ---
+    # --- ~/.claude/settings.json（managed settings と同じ守りの設定があり、managed では止められない、守りを弱める設定が無いこと） ---
     # 通信を許可するドメインの追加（sandbox.network.allowedDomains）は、ここやプロジェクトの設定で行ってよい（README 6.8）
     if [[ ! -f $f ]]; then
         detail "$f がありません。"
@@ -344,8 +352,8 @@ check_13() {
             detail "$f が JSON として読めません（書き方の誤り）。"
             bad=1
         else
+            want_guard "$f"
             want "$f" 'permissions.defaultMode が bypassPermissions ではない' '(.permissions.defaultMode // "") != "bypassPermissions"'
-            want "$f" 'sandbox.excludedCommands が空' '((.sandbox.excludedCommands // []) | length) == 0'
             want "$f" 'sandbox.filesystem.allowWrite が空' '((.sandbox.filesystem.allowWrite // []) | length) == 0'
             want "$f" 'permissions.additionalDirectories が空' '((.permissions.additionalDirectories // []) | length) == 0'
         fi
