@@ -1,0 +1,779 @@
+﻿#Requires -Version 5.1
+<#
+.SYNOPSIS
+    開発環境「__ENV_NAME__」の中継の bare リポジトリ（/relay.git）と、Windows 側の bare リポジトリを同期します（LocalGit モード）。
+
+.DESCRIPTION
+    dev-container-setup が開発環境を作ったときに、この開発環境専用に生成したスクリプトです
+    （ひな形: dev-container-setup の templates/Sync-Env.ps1.tmpl）。
+    ふだんは、同じフォルダの Sync-__ENV_NAME__.cmd をダブルクリックして使います。
+    Sync-__ENV_NAME__.ps1 と Sync-__ENV_NAME__.cmd を同じフォルダに置けば、PC のどこへ移しても動きます。
+
+    前回の同期の状態（基準）を Windows 側のリポジトリの中の dcs-sync\__ENV_NAME__.txt に記録しておき、
+    Windows 側・開発環境の中・基準の 3 つを比べて、変わったほうの内容をもう一方へ写します。
+      - 両側が同じ               → 何もしない
+      - 片側だけが変わった       → 変わったほうの内容を、もう一方へ写す（確認してから）
+      - 両側が変わった           → 止まる（並行作業には対応していない）
+    写すのは、ブランチ（refs/heads/*）・タグ（refs/tags/*）・HEAD（既定のブランチ）です。削除も写します。
+    force にあたる変更（fast-forward でないブランチの更新、タグの付け替え）は写さずに止まります。
+
+    開発環境の中のリポジトリは、Windows 側の git では開きません。開発環境とは bundle（履歴を詰めたデータ）だけをやりとりし、
+    開発環境から受け取ったものは検査（fsck）してから取り込みます。
+    開発環境のコンテナが止まっていれば、起動してから同期します（土台とコンテナは、使っていないと止まるため）。
+
+.PARAMETER Direction
+    前回の同期の記録（基準）が無いときだけ使います。どちらに合わせるかを指定します。
+      ToEnv     : Windows 側の内容を開発環境へ写す
+      ToWindows : 開発環境の内容を Windows 側へ写す
+
+.PARAMETER Initialize
+    dev-container-setup が開発環境を作るとき（と、設定をやり直すとき）に使います。ふだんは使いません。
+    開発環境の /relay.git が空なら bare リポジトリを作って Windows 側の内容を写し、コンテナの作業フォルダ（/workspaces/<リポジトリ名>）が空なら clone します。
+#>
+[CmdletBinding()]
+param(
+    [ValidateSet('ToEnv', 'ToWindows')][string]$Direction,
+    [switch]$Initialize
+)
+
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+
+# =============================================================================
+# 開発環境を作ったときに埋め込まれた値（dev-container-setup が書き込みます）
+# =============================================================================
+$EnvName     = '__ENV_NAME__'
+$RepoPath    = '__REPO_PATH__'    # Windows 側の bare リポジトリ（正本）
+$GeneratedAt = '__GENERATED_AT__'
+$DevcontainerCli = '__DEVCONTAINER_CLI__'   # 土台の Dev Containers CLI
+$BaseName    = 'dcs-base'                   # 土台（WSL のディストリビューション）
+$BaseUser    = 'dcs'                        # 土台のユーザー
+$ConfigDir   = "/home/dcs/envs/$EnvName/config"
+# devcontainer up・exec に渡す名札（VS Code がコンテナに付ける名札と同じ。D44）
+$IdLabels    = @(
+    '--id-label', "devcontainer.local_folder=\\wsl.localhost\$BaseName\home\dcs\envs\$EnvName\config",
+    '--id-label', "devcontainer.config_file=$ConfigDir/.devcontainer/devcontainer.json")
+
+$TemplateVersion = '1'
+$MinGitVersion = [version]'2.46.0'   # bundle からの fetch で fsck（受け取ったデータの検査）が効く最初の版
+$BaseFile = Join-Path (Join-Path $RepoPath 'dcs-sync') "$EnvName.txt"
+
+# 同期する ref の名前の規則（半角英数字と . _ + / - だけ）と、コミットなどの ID
+$ReRef = '^refs/(heads|tags)/[A-Za-z0-9._+/-]+$'
+$ReHead = '^refs/heads/[A-Za-z0-9._+/-]+$'
+$ReOid = '^[0-9a-f]{40}([0-9a-f]{24})?$'
+
+# =============================================================================
+# 開発環境のコンテナの中で実行するコード（bash）
+# =============================================================================
+# 実行のたびに base64 にして引数で渡し、コンテナのユーザー（dev）として実行する（コンテナの中にはファイルとして置かない）。
+# 判断と検査は、すべてこのスクリプト（Windows 側）が行う。コンテナの中のコードは、言われた作業をするだけ。
+# 標準出力は機械が読むデータ（一覧、または bundle のバイナリ）、標準エラー出力は人が読むメッセージ。
+# 終了コード: 0 成功 / 2 引数の誤り / 3 /relay.git が bare リポジトリでない / 4 空でない / 5 作業フォルダが分からない / それ以外 失敗
+$EnvCode = @'
+set -Eeuo pipefail
+shift   # $1 はこのコードそのもの（base64）
+umask 077
+# コマンドは、システムのフォルダだけから探す（Claude が ~/.local/bin などに git などを置いても使われないように。C1）
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# ~/.gitconfig は読まない（Claude が書き換えた設定（core.hooksPath など）に、同期の動きを左右されないため）
+export LC_ALL=C GIT_TERMINAL_PROMPT=0 GIT_CONFIG_GLOBAL=/dev/null
+sub=${1-} arg=${2-}
+repo=/relay.git
+# 作業フォルダ（/workspaces/<リポジトリ名>）。注文書の containerEnv が知らせる（D49）
+proj=${DCS_WORKSPACE-}
+g() { git --git-dir="$repo" "$@"; }
+tmp=''
+trap '[[ -z $tmp ]] || rm -rf -- "$tmp"' EXIT
+if [[ $sub != init && $(g rev-parse --is-bare-repository 2> /dev/null) != true ]]; then exit 3; fi
+
+case $sub in
+list)
+    # 「HEAD <ref>」の行と、ブランチ・タグの「<ID> <ref>」の行
+    if ! head=$(g symbolic-ref -q HEAD); then
+        echo "/relay.git の HEAD がブランチを指していません。" >&2
+        exit 1
+    fi
+    printf 'HEAD %s\n' "$head"
+    g for-each-ref --format='%(objectname) %(refname)' refs/heads refs/tags
+    ;;
+export)
+    # 標準入力: Windows 側がすでに持っている ID（1 行に 1 つ）。それらを除いたブランチ・タグの bundle を標準出力に出す。
+    # 送るデータが無いときは、何も出さずに終わる。
+    revs=$(g for-each-ref --format='%(refname)' refs/heads refs/tags)
+    [[ -n $revs ]] || exit 0
+    have=$({ grep -E '^[0-9a-f]{40}([0-9a-f]{24})?$' || true; } | g cat-file --batch-check='%(objectname)' |
+        { grep -v ' missing$' || true; } | sed 's/^/^/')
+    # 標準出力へ直接書くと、送るデータが無いと分かる前に bundle の見出しを書いてしまうので、いったんファイルに作る
+    tmp=$(mktemp -d)
+    if g bundle create -q "$tmp/b" --stdin <<< "$revs${have:+$'\n'$have}" 2> "$tmp/err"; then
+        cat -- "$tmp/b"
+        exit 0
+    fi
+    if grep -q 'Refusing to create empty bundle' "$tmp/err"; then exit 0; fi
+    cat -- "$tmp/err" >&2
+    exit 1
+    ;;
+import)
+    # 標準入力: git update-ref --stdin の行（create・update・delete）と「head <ref>」の行、「--」の行、そのあとに bundle（無いこともある）
+    cmds=() head=''
+    while IFS= read -r line && [[ $line != -- ]]; do
+        if [[ $line == 'head '* ]]; then head=${line#head }; else cmds+=("$line"); fi
+    done
+    tmp=$(mktemp -d)
+    cat > "$tmp/b"
+    if [[ -s $tmp/b ]]; then
+        g bundle list-heads "$tmp/b" | cut -d ' ' -f 2 | g fetch -q --no-tags --no-write-fetch-head --stdin "$tmp/b"
+    fi
+    if (( ${#cmds[@]} > 0 )); then printf '%s\n' "${cmds[@]}" | g update-ref --stdin; fi
+    if [[ -n $head ]]; then g symbolic-ref HEAD "$head"; fi
+    ;;
+init)
+    # /relay.git（土台の relay.git をつないだもの）が空のときだけ、bare リポジトリを作る（$arg はハッシュの形式: sha1 か sha256）
+    [[ $arg == sha1 || $arg == sha256 ]] || exit 2
+    [[ -z $(ls -A -- "$repo") ]] || exit 4
+    git init -q --bare --object-format="$arg" -- "$repo"
+    ;;
+clone)
+    # 作業フォルダが空のときだけ、/relay.git から clone する（作業フォルダの場所が正しくなければ 5）。最後に作業フォルダの場所を出す
+    [[ $proj =~ ^/workspaces/[A-Za-z0-9._-]+$ && $proj != /workspaces/. && $proj != /workspaces/.. && -d $proj ]] || exit 5
+    [[ -n $(ls -A -- "$proj") ]] || git clone -q -- "$repo" "$proj"
+    printf '%s\n' "$proj"
+    ;;
+*)
+    exit 2
+    ;;
+esac
+'@
+
+# =============================================================================
+# 表示
+# =============================================================================
+
+function Write-Step([string]$Text) { Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
+function Write-Ok([string]$Text)   { Write-Host "  [完了] $Text" -ForegroundColor Green }
+function Write-Info([string]$Text) { Write-Host "  $Text" }
+function Write-Note([string]$Text) { Write-Host "  [注意] $Text" -ForegroundColor Yellow }
+
+# 何が起きたか（Message）と、次に何をすればよいか（Hint）を持たせて停止する
+function Stop-Sync {
+    param([Parameter(Mandatory = $true)][string]$Message, [string[]]$Hint = @())
+    $ex = New-Object System.Exception $Message
+    $ex.Data['Hint'] = $Hint
+    throw $ex
+}
+
+# 開発環境に由来する文字列（コミットの要約など）を表示する前に、制御文字と、文字の並びを入れ替える・見えなくする文字を取り除く。
+# エスケープシーケンスなどで画面を書き換えて、確認の表示を偽装されないようにするため。
+function Format-Safe([string]$Text) { return ($Text -replace '[\x00-\x1F\x7F-\x9F\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]', '?') }
+
+function Get-ShortId([string]$Oid) { return $Oid.Substring(0, 10) }
+
+# =============================================================================
+# 外部コマンド（git.exe・wsl.exe）の呼び出し
+# =============================================================================
+# PowerShell 5.1 は外部コマンドへの標準入力の行末に CR を付け、" を含む引数を正しく渡せないため、
+# .NET の Process で直接呼び出す。標準入力・標準出力はバイト列のまま扱う（bundle のバイナリも通すため）。
+# 標準エラー出力は、ふつうはこの画面にそのまま表示する（-CaptureError のときだけ受け取る）。
+
+# 1 つの引数を、Windows のコマンドラインの規則で囲む
+function ConvertTo-CommandLineArg([string]$Arg) {
+    if ($Arg -ne '' -and $Arg -notmatch '[\s"]') { return $Arg }
+    $bs = [char]92   # \
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append('"')
+    $slashes = 0
+    foreach ($ch in $Arg.ToCharArray()) {
+        if ($ch -eq $bs) { $slashes++; continue }
+        if ($ch -eq [char]'"') { [void]$sb.Append($bs, $slashes * 2 + 1) }
+        elseif ($slashes -gt 0) { [void]$sb.Append($bs, $slashes) }
+        [void]$sb.Append($ch)
+        $slashes = 0
+    }
+    [void]$sb.Append($bs, $slashes * 2).Append('"')
+    return $sb.ToString()
+}
+
+# 外部コマンドを実行し、Code（終了コード）・Text（標準出力。OutputFile を指定したときは空）・
+# Error（-CaptureError のときの標準エラー出力。指定しないときは画面にそのまま表示して、ここは空）を返す
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory = $true)][string]$File,
+        [Parameter(Mandatory = $true)][string[]]$ArgList,
+        [string]$InputText = '',
+        [string]$InputFile = '',
+        [string]$OutputFile = '',
+        [switch]$CaptureError
+    )
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $File
+    $psi.Arguments = (@($ArgList | ForEach-Object { ConvertTo-CommandLineArg $_ }) -join ' ')
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = [bool]$CaptureError
+    if ($OutputFile) { $out = [System.IO.File]::Create($OutputFile) } else { $out = New-Object System.IO.MemoryStream }
+    $err = New-Object System.IO.MemoryStream
+    # .NET Framework の Process は、標準入力をコンソールの入力の文字コードで開き、その文字コードに BOM があると
+    # 起動のときに BOM を書き込む。BOM なしの UTF-8 にしてから起動し、終わったら元に戻す
+    $savedInputEncoding = $null
+    try {
+        $savedInputEncoding = [Console]::InputEncoding
+        [Console]::InputEncoding = $utf8
+    } catch {
+        $savedInputEncoding = $null
+    }
+    try {
+        $p = [System.Diagnostics.Process]::Start($psi)
+        # 出力は並行して読む（読まずに標準入力を書き続けると、出力がたまって止まることがあるため）
+        $copy = $p.StandardOutput.BaseStream.CopyToAsync($out)
+        $copyErr = $null
+        if ($CaptureError) { $copyErr = $p.StandardError.BaseStream.CopyToAsync($err) }
+        try {
+            $in = $p.StandardInput.BaseStream
+            $bytes = $utf8.GetBytes($InputText)
+            $in.Write($bytes, 0, $bytes.Length)
+            if ($InputFile) {
+                $fs = [System.IO.File]::OpenRead($InputFile)
+                try { $fs.CopyTo($in) } finally { $fs.Dispose() }
+            }
+            $in.Close()
+        } catch [System.IO.IOException] {
+            # 相手が先に終わった（入力を最後まで読まずに失敗したなど）。終了コードで判断する。
+        }
+        $copy.Wait()
+        if ($null -ne $copyErr) { $copyErr.Wait() }
+        $p.WaitForExit()
+        $text = ''
+        if (-not $OutputFile) { $text = $utf8.GetString($out.ToArray()) }
+        return [pscustomobject]@{ Code = $p.ExitCode; Text = $text; Error = $utf8.GetString($err.ToArray()) }
+    } finally {
+        $out.Dispose()
+        $err.Dispose()
+        if ($null -ne $savedInputEncoding) {
+            try { [Console]::InputEncoding = $savedInputEncoding } catch { }
+        }
+    }
+}
+
+# 出力を行に分ける（空の行は除く）。
+# 配列を返す関数は、要素を 1 つずつ返す（return ,@(...) と書くと、パイプラインや @() の中で配列が 1 つのかたまりのまま渡ってしまう）。
+# そのため、呼び出す側はいつも @(...) で囲んで配列として受け取る。
+function ConvertTo-Lines([string]$Text) {
+    return @($Text -split "`n" | ForEach-Object { $_.TrimEnd("`r") } | Where-Object { $_ -ne '' })
+}
+
+# Windows 側の bare リポジトリで git を実行する。失敗したら止める（-AllowFail のときは止めずに結果を返す）。
+function Invoke-Git {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$GitArgs,
+        [string]$InputText = '',
+        [switch]$AllowFail
+    )
+    $r = Invoke-Native -File $script:GitExe -ArgList (@("--git-dir=$RepoPath") + $GitArgs) -InputText $InputText
+    if ($r.Code -ne 0 -and -not $AllowFail) {
+        Stop-Sync "Windows 側のリポジトリで git $($GitArgs[0]) が失敗しました（終了コード $($r.Code)）。" @(
+            '上に表示された git のメッセージを確認してください。')
+    }
+    return $r
+}
+
+# 開発環境のコンテナの中で、上の $EnvCode のサブコマンドを、コンテナのユーザーとして実行する。
+# 1 回の wsl.exe の呼び出しの中で、先に devcontainer up（止まっていれば起動し、ファイアウォールを入れる）をしてから exec する。
+# 土台とコンテナは、wsl.exe のプロセスが無いと止まるので、毎回これを行う（キープアライブは作らない）。
+# up に失敗したときは、終了コード 125 で、up の出力の最後を表示する。
+# コンテナからの標準エラー出力は、受け取ってから、1 行ずつ制御文字を除いて表示する（エスケープシーケンスで、
+# あとの確認の表示を見えなくされないように。I6）。コンテナの中の bash と base64 は、絶対パスで呼ぶ（C1）
+function Invoke-Env {
+    param(
+        [Parameter(Mandatory = $true)][string]$Sub,
+        [string]$Arg = '',
+        [string]$InputText = '',
+        [string]$InputFile = '',
+        [string]$OutputFile = ''
+    )
+    $code = [Convert]::ToBase64String((New-Object System.Text.UTF8Encoding($false)).GetBytes(($EnvCode -replace "`r", '')))
+    $sh = 'cli=$1 cfg=$2 l1=$3 l2=$4; shift 4; log=$(mktemp); ' +
+        '"$cli" up --workspace-folder "$cfg" --id-label "$l1" --id-label "$l2" --skip-post-attach < /dev/null > "$log" 2>&1 ' +
+        '|| { tail -n 30 -- "$log" >&2; rm -f -- "$log"; exit 125; }; rm -f -- "$log"; ' +
+        'exec "$cli" exec --workspace-folder "$cfg" --id-label "$l1" --id-label "$l2" "$@"'
+    $argList = @('-d', $BaseName, '-u', $BaseUser, '--cd', '/', '--exec', 'bash', '-c', $sh, '_', $DevcontainerCli, $ConfigDir, $IdLabels[1], $IdLabels[3],
+        '/bin/bash', '-c', '. <(/usr/bin/base64 -d <<< $1)', '_', $code, $Sub)
+    if ($Arg) { $argList += $Arg }
+    $r = Invoke-Native -File $script:WslExe -ArgList $argList -InputText $InputText -InputFile $InputFile -OutputFile $OutputFile -CaptureError
+    foreach ($l in @(ConvertTo-Lines $r.Error)) { Write-Host "  $(Format-Safe $l)" }
+    return $r
+}
+
+# 開発環境の中のコードの終了コードを確かめる
+function Assert-EnvResult($Result, [string]$What) {
+    if ($Result.Code -eq 0) { return }
+    if ($Result.Code -eq 3) {
+        Stop-Sync '開発環境の /relay.git が bare リポジトリになっていません。' @(
+            'dev-container-setup の setup-wizard.cmd を起動して「開発環境の設定をやり直す」を選択し、LocalGit の設定をやり直してください（README の「LocalGit の同期」）。')
+    }
+    if ($Result.Code -eq 4) {
+        Stop-Sync '開発環境の /relay.git が空ではないので、新しく作れません。' @(
+            'dev-container-setup の setup-wizard.cmd を起動して「開発環境の設定をやり直す」を選択し、LocalGit の設定をやり直してください（README の「LocalGit の同期」）。')
+    }
+    if ($Result.Code -eq 5) {
+        Stop-Sync '開発環境のコンテナの作業フォルダ（DCS_WORKSPACE）が分かりません。' @(
+            'dev-container-setup の setup-wizard.cmd を起動して「開発環境の設定をやり直す」を選択し、注文書とコンテナを作り直してください。')
+    }
+    if ($Result.Code -eq 125) {
+        Stop-Sync "開発環境「$EnvName」のコンテナを起動できませんでした。" @(
+            '上に表示されたメッセージを確認してください。',
+            'VS Code で開けるかを、Code-' + $EnvName + '.cmd で確かめてください。')
+    }
+    Stop-Sync "$What に失敗しました（終了コード $($Result.Code)）。" @('上に表示されたメッセージを確認してください。')
+}
+
+# =============================================================================
+# 起動時のチェック
+# =============================================================================
+
+function Test-Prerequisites {
+    Write-Step '同期に必要なものを確認します'
+    $git = Get-Command git.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $git) {
+        Stop-Sync 'git が見つかりません。' @('Git for Windows（https://git-scm.com/）をインストールしてから、もう一度実行してください。')
+    }
+    $script:GitExe = $git.Path
+    $ver = (Invoke-Native -File $script:GitExe -ArgList @('--version')).Text
+    if ($ver -notmatch '(\d+)\.(\d+)\.(\d+)' -or [version]"$($Matches[1]).$($Matches[2]).$($Matches[3])" -lt $MinGitVersion) {
+        Stop-Sync "git の版が古すぎます（$($ver.Trim())。$MinGitVersion 以上が必要です）。" @(
+            '開発環境から受け取ったデータを検査する機能（bundle からの fetch での fsck）は、この版から使えます。',
+            'Git for Windows を新しくしてから、もう一度実行してください（PowerShell で: git update-git-for-windows）。')
+    }
+    Write-Ok "git があります（$($ver.Trim())）。"
+
+    $wsl = Get-Command wsl.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $wsl) { Stop-Sync 'wsl.exe が見つかりません。' @('WSL が使える状態か確認してください。') }
+    $script:WslExe = $wsl.Path
+    # 古い WSL は WSL_UTF8 を無視して UTF-16 で出力するため、混ざった NUL 文字を取り除く
+    $names = @(ConvertTo-Lines ((Invoke-Native -File $script:WslExe -ArgList @('--list', '--quiet')).Text -replace "`0", ''))
+    if (-not (@($names | ForEach-Object { $_.Trim() }) -contains $BaseName)) {
+        Stop-Sync "土台（$BaseName）が見つかりません。" @('PowerShell で wsl -l -v を実行して、土台があるか確認してください。')
+    }
+    Write-Ok "土台（$BaseName）があります。"
+
+    if (-not (Test-Path -LiteralPath $RepoPath -PathType Container)) {
+        Stop-Sync "Windows 側のリポジトリが見つかりません: $RepoPath" @(
+            'リポジトリのフォルダを移動した場合は、元の場所に戻すか、setup-wizard.cmd を起動して「開発環境の設定をやり直す」を選択し、新しい場所を入力して同期スクリプトを作り直してください。')
+    }
+    $bare = Invoke-Git @('rev-parse', '--is-bare-repository') -AllowFail
+    if ($bare.Code -ne 0 -or $bare.Text.Trim() -ne 'true') {
+        Stop-Sync "Windows 側の $RepoPath が bare リポジトリとして読めません。" @('上に表示された git のメッセージを確認してください。')
+    }
+    Write-Ok "Windows 側のリポジトリがあります（$RepoPath）。"
+}
+
+# =============================================================================
+# 状態（HEAD とブランチ・タグの一覧）
+# =============================================================================
+# 状態は「HEAD <ref>」の行と「<ID> <ref>」の行（ref の名前の順）からなるテキストで表し、
+# Head・Refs（ref → ID）・Text（比べるためのテキスト）を持つものにする。基準のファイルも同じテキスト。
+
+function ConvertFrom-StateText([string]$Text, [string]$Where) {
+    $refs = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([StringComparer]::Ordinal)
+    $head = $null
+    foreach ($line in @(ConvertTo-Lines $Text)) {
+        if ($line -cmatch '^HEAD (\S+)$' -and $null -eq $head) {
+            $head = $Matches[1]
+            if ($head -cnotmatch $ReHead) {
+                Stop-Sync "$Where の HEAD が指すブランチの名前に、使えない文字が含まれています: $(Format-Safe $head)" @(
+                    'ブランチとタグの名前は、半角英数字と . _ + / - だけにしてください。')
+            }
+        } elseif ($line -cmatch '^(\S+) (\S+)$') {
+            $oid = $Matches[1]
+            $ref = $Matches[2]
+            if ($oid -cnotmatch $ReOid -or $refs.ContainsKey($ref)) { Stop-Sync "$Where の一覧を読めませんでした: $(Format-Safe $line)" }
+            if ($ref -cnotmatch $ReRef) {
+                Stop-Sync "$Where に、名前に使えない文字を含むブランチかタグがあります: $(Format-Safe $ref)" @(
+                    'ブランチとタグの名前は、半角英数字と . _ + / - だけにしてください。名前を変えてから、もう一度実行してください。')
+            }
+            $refs[$ref] = $oid
+        } else {
+            Stop-Sync "$Where の一覧を読めませんでした: $(Format-Safe $line)"
+        }
+    }
+    if ($null -eq $head) { Stop-Sync "$Where の HEAD を読めませんでした。" }
+    $names = New-Object System.Collections.Generic.List[string]
+    $names.AddRange($refs.Keys)
+    $names.Sort([StringComparer]::Ordinal)
+    $lines = @("HEAD $head") + @($names | ForEach-Object { "$($refs[$_]) $_" })
+    return [pscustomobject]@{ Head = $head; Refs = $refs; Text = (($lines -join "`n") + "`n") }
+}
+
+function Get-WinState {
+    $h = Invoke-Git @('symbolic-ref', '-q', 'HEAD') -AllowFail
+    if ($h.Code -ne 0) { Stop-Sync 'Windows 側のリポジトリの HEAD がブランチを指していません。' }
+    $list = Invoke-Git @('for-each-ref', '--format=%(objectname) %(refname)', 'refs/heads', 'refs/tags')
+    return (ConvertFrom-StateText ("HEAD $($h.Text.Trim())`n" + $list.Text) 'Windows 側のリポジトリ')
+}
+
+function Get-EnvState {
+    $r = Invoke-Env 'list'
+    Assert-EnvResult $r '開発環境の中のリポジトリの一覧の取得'
+    return (ConvertFrom-StateText $r.Text '開発環境の中のリポジトリ')
+}
+
+function Read-Base {
+    if (-not (Test-Path -LiteralPath $BaseFile -PathType Leaf)) { return $null }
+    return (ConvertFrom-StateText ([System.IO.File]::ReadAllText($BaseFile)) "前回の同期の記録（$BaseFile）")
+}
+
+# 基準を書く（一時ファイルに書いてから名前を変えるので、途中で止まっても壊れない）
+function Save-Base([string]$Text) {
+    $dir = Split-Path -Parent $BaseFile
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { $null = New-Item -ItemType Directory -Path $dir }
+    $tmp = "$BaseFile.tmp"
+    [System.IO.File]::WriteAllText($tmp, $Text, (New-Object System.Text.UTF8Encoding($false)))
+    # 3 つ目の引数（バックアップを作らない）は、$null と書くと PowerShell が空の文字列に変えてしまうため [NullString]::Value を使う
+    if (Test-Path -LiteralPath $BaseFile -PathType Leaf) { [System.IO.File]::Replace($tmp, $BaseFile, [NullString]::Value) }
+    else { [System.IO.File]::Move($tmp, $BaseFile) }
+}
+
+# $From の状態を $To に写すための変更（Kind: create・update・delete、Ref、Old、New）の一覧
+function Get-Changes($From, $To) {
+    $names = New-Object System.Collections.Generic.List[string]
+    $names.AddRange($From.Refs.Keys)
+    foreach ($n in $To.Refs.Keys) { if (-not $From.Refs.ContainsKey($n)) { $names.Add($n) } }
+    $names.Sort([StringComparer]::Ordinal)
+    $list = New-Object System.Collections.Generic.List[object]
+    foreach ($n in $names) {
+        $inFrom = $From.Refs.ContainsKey($n)
+        $inTo = $To.Refs.ContainsKey($n)
+        if ($inFrom -and -not $inTo) { $list.Add([pscustomobject]@{ Kind = 'create'; Ref = $n; Old = ''; New = $From.Refs[$n] }) }
+        elseif ($inTo -and -not $inFrom) { $list.Add([pscustomobject]@{ Kind = 'delete'; Ref = $n; Old = $To.Refs[$n]; New = '' }) }
+        elseif ($From.Refs[$n] -cne $To.Refs[$n]) { $list.Add([pscustomobject]@{ Kind = 'update'; Ref = $n; Old = $To.Refs[$n]; New = $From.Refs[$n] }) }
+    }
+    return $list.ToArray()
+}
+
+# 変更の一覧を git update-ref --stdin の行にする
+function Get-UpdateRefLines($Changes) {
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($c in $Changes) {
+        # switch の中では $_ が switch の値に変わるので、$c を使う
+        switch ($c.Kind) {
+            'create' { $lines.Add("create $($c.Ref) $($c.New)") }
+            'update' { $lines.Add("update $($c.Ref) $($c.New) $($c.Old)") }
+            'delete' { $lines.Add("delete $($c.Ref) $($c.Old)") }
+        }
+    }
+    return $lines.ToArray()
+}
+
+# =============================================================================
+# 確認
+# =============================================================================
+
+$KindLabel = @{ create = '作成'; update = '更新'; delete = '削除' }
+
+# force にあたる変更（タグの付け替え、fast-forward でないブランチの更新）が無いことを確かめる。
+# fast-forward の判定には新旧のコミットが Windows 側に必要なので、-TagsOnly のときはタグだけを確かめる。
+function Test-NoForce($Changes, [switch]$TagsOnly) {
+    foreach ($c in $Changes) {
+        if ($c.Kind -ne 'update') { continue }
+        if ($c.Ref.StartsWith('refs/tags/')) {
+            Stop-Sync "タグ $($c.Ref) が付け替えられています（force にあたるため写しません）。" @(
+                'タグを付け直す必要がある場合は、いったんタグを削除して同期し、そのあとで付け直して、もう一度同期してください。')
+        }
+        if ($TagsOnly) { continue }
+        $r = Invoke-Git @('merge-base', '--is-ancestor', $c.Old, $c.New) -AllowFail
+        if ($r.Code -eq 1) {
+            Stop-Sync "ブランチ $($c.Ref) の変更が fast-forward ではありません（force にあたるため写しません）。" @(
+                'rebase や reset、push --force などで履歴を書き換えた可能性があります。',
+                '履歴を書き換えないやり方（merge や revert など）で直してから、もう一度実行してください。')
+        }
+        if ($r.Code -ne 0) {
+            Stop-Sync "ブランチ $($c.Ref) の変更が fast-forward か確かめられませんでした（終了コード $($r.Code)）。" @(
+                '上に表示された git のメッセージを確認してください。')
+        }
+    }
+}
+
+function Write-ChangeList($Changes, [string]$OldHead, [string]$NewHead, [switch]$Detail) {
+    foreach ($c in $Changes) {
+        $label = $KindLabel[$c.Kind]
+        if (-not $Detail) { Write-Info "  $label  $($c.Ref)"; continue }
+        switch ($c.Kind) {
+            'create' {
+                $s = Invoke-Git @('log', '-1', '--no-show-signature', '--format=%h %s', $c.New) -AllowFail
+                if ($s.Code -eq 0) { $s = $s.Text.Trim() } else { $s = Get-ShortId $c.New }
+                Write-Info "  $label  $($c.Ref)  $(Format-Safe $s)"
+            }
+            'delete' { Write-Info "  $label  $($c.Ref)  （$(Get-ShortId $c.Old)）" }
+            'update' {
+                $n = (Invoke-Git @('rev-list', '--count', "$($c.Old)..$($c.New)")).Text.Trim()
+                Write-Info "  $label  $($c.Ref)  $(Get-ShortId $c.Old)..$(Get-ShortId $c.New)（$n コミット）"
+                foreach ($l in @(ConvertTo-Lines (Invoke-Git @('log', '-10', '--no-show-signature', '--format=%h %s', "$($c.Old)..$($c.New)")).Text)) {
+                    Write-Info "          $(Format-Safe $l)"
+                }
+                if ([int]$n -gt 10) { Write-Info '          ...' }
+            }
+        }
+    }
+    if ($OldHead -cne $NewHead) { Write-Info "  HEAD  $OldHead → $NewHead" }
+}
+
+# 写す内容を表示して、確かめてもらう。写すなら $true。
+function Confirm-Changes([string]$Title, $Changes, [string]$OldHead, [string]$NewHead) {
+    Write-Step $Title
+    if ($Initialize) {
+        Write-Info "ブランチとタグ $($Changes.Count) 個を写します。"
+        return $true
+    }
+    Write-ChangeList $Changes $OldHead $NewHead -Detail
+    Write-Host ''
+    $answer = Read-Host '  この内容で写しますか？ 写す場合は y を入力して Enter（それ以外は中止）'
+    if ($null -ne $answer -and $answer.Trim() -in @('y', 'Y', 'yes')) { return $true }
+    Write-Info '中止しました。何も変更していません。'
+    return $false
+}
+
+# =============================================================================
+# 同期
+# =============================================================================
+
+# Windows 側に無い ID を除いた一覧
+function Select-ExistingOids([string[]]$Oids) {
+    $Oids = @($Oids | Sort-Object -Unique)
+    if ($Oids.Count -eq 0) { return }
+    $r = Invoke-Git @('cat-file', '--batch-check=%(objectname)') -InputText (($Oids -join "`n") + "`n")
+    return @(ConvertTo-Lines $r.Text | Where-Object { $_ -cmatch $ReOid })
+}
+
+# bundle の一時ファイル。リポジトリの中身なので、Windows の一時フォルダではなく、基準と同じ dcs-sync フォルダに置く
+# （途中で強制終了されて残っても、リポジトリのフォルダの外には出ない。次の実行で上書きする）
+function New-TempFile {
+    $dir = Split-Path -Parent $BaseFile
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { $null = New-Item -ItemType Directory -Path $dir }
+    return (Join-Path $dir "$EnvName.bundle.tmp")
+}
+
+# Windows 側の内容を開発環境へ写す
+function Sync-ToEnv($Win, $EnvState) {
+    $changes = @(Get-Changes $Win $EnvState)
+    Test-NoForce $changes
+    if (-not (Confirm-Changes '開発環境へ写します（Windows 側 → 開発環境）' $changes $EnvState.Head $Win.Head)) { return $false }
+
+    $tmp = New-TempFile
+    try {
+        # 差分の bundle を作る（開発環境がすでに持っているコミットは除く）。送るデータが無ければ作らない。
+        $send = ''
+        $refs = @($changes | Where-Object { $_.Kind -ne 'delete' } | ForEach-Object { $_.Ref })
+        if ($refs.Count -gt 0) {
+            $exclude = @(Select-ExistingOids @($EnvState.Refs.Values) | ForEach-Object { "^$_" })
+            $b = Invoke-Native -File $script:GitExe -ArgList @("--git-dir=$RepoPath", 'bundle', 'create', '-q', $tmp, '--stdin') `
+                -InputText (((@($refs) + $exclude) -join "`n") + "`n") -CaptureError
+            if ($b.Code -eq 0) { $send = $tmp }
+            elseif ($b.Error -notmatch 'Refusing to create empty bundle') {
+                # 「Refusing to create empty bundle」は、送るデータが無い（開発環境がすでに持っている）ということなので、続ける
+                Write-Host $b.Error
+                Stop-Sync 'bundle を作れませんでした。' @('上に表示された git のメッセージを確認してください。')
+            }
+        }
+        $lines = @(Get-UpdateRefLines $changes)
+        if ($Win.Head -cne $EnvState.Head) { $lines += "head $($Win.Head)" }
+        $lines += '--'
+        $r = Invoke-Env 'import' -InputText (($lines -join "`n") + "`n") -InputFile $send
+        Assert-EnvResult $r '開発環境の中のリポジトリへの反映'
+    } finally {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    }
+    return $true
+}
+
+# 開発環境の内容を Windows 側へ写す
+function Sync-ToWindows($Win, $EnvState) {
+    $changes = @(Get-Changes $EnvState $Win)
+    Test-NoForce $changes -TagsOnly
+
+    $tmp = New-TempFile
+    try {
+        # 開発環境から差分の bundle を受け取る（Windows 側がすでに持っているコミットは除いてもらう）
+        $have = @($Win.Refs.Values | Sort-Object -Unique)
+        $r = Invoke-Env 'export' -InputText (($have -join "`n") + "`n") -OutputFile $tmp
+        Assert-EnvResult $r '開発環境の中のリポジトリからの受け取り'
+        if ((Get-Item -LiteralPath $tmp).Length -gt 0) {
+            # bundle の中の ref は、さきほどの開発環境の一覧と同じでなければならない
+            $heads = @(ConvertTo-Lines (Invoke-Git @('bundle', 'list-heads', $tmp)).Text)
+            foreach ($l in $heads) {
+                if ($l -cnotmatch '^(\S+) (\S+)$' -or -not $EnvState.Refs.ContainsKey($Matches[2]) -or $EnvState.Refs[$Matches[2]] -cne $Matches[1]) {
+                    Stop-Sync '同期の途中で、開発環境の中のリポジトリが変更されました。' @('もう一度実行してください。')
+                }
+            }
+            # 受け取ったデータを検査（fsck）しながら取り込む。ref は作らない（写すと決まるまで、どのブランチからも指されない）。
+            $refList = @($heads | ForEach-Object { ($_ -split ' ')[1] }) -join "`n"
+            $null = Invoke-Git @('-c', 'transfer.fsckObjects=true', 'fetch', '-q', '--no-tags', '--no-write-fetch-head', '--stdin', $tmp) -InputText "$refList`n"
+        }
+        $need = @($changes | Where-Object { $_.Kind -ne 'delete' } | ForEach-Object { $_.New } | Sort-Object -Unique)
+        $got = @(Select-ExistingOids $need)
+        if ($got.Count -ne $need.Count) {
+            Stop-Sync '開発環境から受け取ったデータに、必要なコミットが含まれていません。' @('もう一度実行してください。繰り返す場合は、開発環境の中のリポジトリを確認してください。')
+        }
+        Test-NoForce $changes
+        if (-not (Confirm-Changes 'Windows 側へ写します（開発環境 → Windows 側）' $changes $Win.Head $EnvState.Head)) { return $false }
+
+        $lines = @(Get-UpdateRefLines $changes)
+        if ($lines.Count -gt 0) { $null = Invoke-Git @('update-ref', '--stdin') -InputText (($lines -join "`n") + "`n") }
+        if ($Win.Head -cne $EnvState.Head) { $null = Invoke-Git @('symbolic-ref', 'HEAD', $EnvState.Head) }
+    } finally {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    }
+    return $true
+}
+
+# 写したあとで両側を取り直し、一致したときだけ基準を書く
+function Save-BaseIfSynced {
+    $w = Get-WinState
+    $e = Get-EnvState
+    if ($w.Text -cne $e.Text) {
+        Stop-Sync '写したあとの両側の内容が一致しませんでした。' @('同期の途中で、どちらかのリポジトリが変更された可能性があります。もう一度実行してください。')
+    }
+    Save-Base $w.Text
+}
+
+function Stop-BothChanged($Win, $EnvState, $Base) {
+    Write-Step '両側で変更されているため、同期できません'
+    Write-Info '前回の同期のあとで、Windows 側で変わったもの:'
+    Write-ChangeList @(Get-Changes $Win $Base) $Base.Head $Win.Head
+    Write-Info '前回の同期のあとで、開発環境の中で変わったもの:'
+    Write-ChangeList @(Get-Changes $EnvState $Base) $Base.Head $EnvState.Head
+    Stop-Sync 'Windows 側と開発環境の両方で変更されています（並行作業には対応していません）。' @(
+        'どちらか一方の変更を、前回の同期の状態に戻してから、もう一度実行してください（README の「LocalGit の同期」）。',
+        "前回の同期の状態は $BaseFile に記録されています。")
+}
+
+function Invoke-Main {
+    Write-Host ''
+    Write-Host "=== 開発環境「$EnvName」と Windows 側のリポジトリを同期します（LocalGit）===" -ForegroundColor Cyan
+    Write-Info "Windows 側  : $RepoPath"
+    Write-Info "開発環境の中: /relay.git（土台の /home/dcs/envs/$EnvName/relay.git）"
+    Write-Info "（このスクリプトの生成: $GeneratedAt、ひな形の版: $TemplateVersion）"
+    Test-Prerequisites
+
+    if ($Initialize) {
+        $r = Invoke-Env 'list'
+        if ($r.Code -eq 3) {
+            $fmt = (Invoke-Git @('rev-parse', '--show-object-format')).Text.Trim()
+            Assert-EnvResult (Invoke-Env 'init' -Arg $fmt) '開発環境の中のリポジトリの作成'
+            Write-Ok '開発環境の中に /relay.git を作りました。'
+        } else {
+            Assert-EnvResult $r '開発環境の中のリポジトリの一覧の取得'
+        }
+    }
+
+    Write-Step '両側の内容を比べます'
+    $win = Get-WinState
+    $envState = Get-EnvState
+    $base = Read-Base
+    $done = $false
+    if ($win.Text -ceq $envState.Text) {
+        Save-Base $win.Text
+        Write-Ok '両側は同じ内容です（同期済み）。'
+        $done = $true
+    } elseif ($Initialize) {
+        if ($envState.Refs.Count -eq 0) {
+            # 開発環境のリポジトリが空（作ったばかり）なら、Windows 側の内容を写す。前回の同期の記録があっても使わない
+            # （同じ名前で前に作った開発環境の記録が残っていることがある。写したあとで書き直す）
+            $dir = 'ToEnv'
+        } elseif ($null -ne $base) {
+            Write-Note '前回の同期のあとに変更があります。同期スクリプトで同期してください。'
+            $done = $true
+        } else {
+            Stop-Sync '開発環境の中のリポジトリに、Windows 側と違う内容が入っていて、前回の同期の記録もありません。' @(
+                "どちらに合わせるかを指定して、同期スクリプトを実行してください: Sync-$EnvName.cmd -Direction ToEnv（Windows 側に合わせる）または -Direction ToWindows（開発環境に合わせる）")
+        }
+    } elseif ($null -eq $base) {
+        if (-not $Direction) {
+            Stop-Sync "前回の同期の記録（$BaseFile）がありません。両側の内容が違うため、どちらに合わせるかを決められません。" @(
+                "どちらに合わせるかを指定して、もう一度実行してください:",
+                "  Sync-$EnvName.cmd -Direction ToEnv      Windows 側の内容を開発環境へ写す",
+                "  Sync-$EnvName.cmd -Direction ToWindows  開発環境の内容を Windows 側へ写す",
+                '写す先にしか無いブランチやタグは削除されます。実行すると、写す内容が表示されるので確かめてください。')
+        }
+        $dir = $Direction
+    } else {
+        if ($Direction) { Stop-Sync '-Direction は、前回の同期の記録が無いときだけ使えます。' @('-Direction を付けずに実行してください。') }
+        $winChanged = $win.Text -cne $base.Text
+        $envChanged = $envState.Text -cne $base.Text
+        if ($winChanged -and $envChanged) { Stop-BothChanged $win $envState $base }
+        if ($envChanged) { $dir = 'ToWindows' } else { $dir = 'ToEnv' }
+        # 写す元が空（ブランチもタグも無い）なのに、前回は中身があった場合は止める。開発環境やリポジトリを作り直したときに起きる状態で、
+        # このまま写すと、写す先のブランチとタグがすべて削除されてしまう
+        if ($dir -eq 'ToWindows') { $src = $envState } else { $src = $win }
+        if ($src.Refs.Count -eq 0 -and $base.Refs.Count -gt 0) {
+            if ($dir -eq 'ToWindows') {
+                Stop-Sync '開発環境の中のリポジトリが空になっています（このまま写すと、Windows 側のブランチとタグがすべて削除されます）。' @(
+                    '同じ名前で開発環境を作り直した場合は、dev-container-setup の setup-wizard.cmd を起動して「開発環境の設定をやり直す」を選択し、LocalGit の設定をやり直すと、Windows 側の内容が開発環境に写されます。',
+                    '本当にすべて削除したい場合は、Windows 側のリポジトリで削除してから同期してください。')
+            }
+            Stop-Sync 'Windows 側のリポジトリが空になっています（このまま写すと、開発環境の中のブランチとタグがすべて削除されます）。' @(
+                "Windows 側のリポジトリを作り直した場合は、$BaseFile を消してから、Sync-$EnvName.cmd -Direction ToWindows（開発環境の内容を Windows 側へ写す）を実行してください。",
+                '本当にすべて削除したい場合は、開発環境の中のリポジトリで削除してから同期してください。')
+        }
+    }
+
+    if (-not $done) {
+        if ($dir -eq 'ToEnv') { $applied = Sync-ToEnv $win $envState } else { $applied = Sync-ToWindows $win $envState }
+        if ($applied) {
+            Save-BaseIfSynced
+            Write-Ok '写し終わり、両側が同じ内容になったことを確認しました。'
+            if (-not $Initialize) {
+                if ($dir -eq 'ToEnv') { Write-Info '開発環境の作業フォルダ（/workspaces/<リポジトリ名>）で git pull --prune を実行すると、作業用の clone にも反映されます。' }
+                else { Write-Info 'Windows 側でこのリポジトリを clone して使っている場合は、そこで git pull --prune を実行すると反映されます。' }
+            }
+        }
+    }
+
+    if ($Initialize) {
+        $r = Invoke-Env 'clone'
+        Assert-EnvResult $r '作業フォルダへの clone'
+        # 開発環境が知らせる作業フォルダの場所（/workspaces/<リポジトリ名>。中で形を確かめてある）
+        $where = $r.Text.Trim()
+        if (-not $where) { $where = '/workspaces/<リポジトリ名>' }
+        Write-Ok "開発環境の作業フォルダ（$where）に clone してあります。"
+    }
+}
+
+# テストで関数だけを読み込む（. で読み込む）ときは、ここから下を実行しない
+if ($MyInvocation.InvocationName -ne '.') {
+    $exitCode = 0
+    $savedConsoleEncoding = $null
+    $savedWslUtf8 = $env:WSL_UTF8
+    $savedLcAll = $env:LC_ALL
+    try {
+        # wsl.exe の出力を UTF-8 にそろえ、git のメッセージを英語にそろえる（bundle が空のときの判定などのため）
+        $env:WSL_UTF8 = '1'
+        $env:LC_ALL = 'C'
+        try {
+            $savedConsoleEncoding = [Console]::OutputEncoding
+            [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+        } catch {
+            $savedConsoleEncoding = $null
+        }
+        Invoke-Main
+    } catch {
+        $exitCode = 1
+        $ex = $_.Exception
+        Write-Host ''
+        Write-Host "[エラー] $($ex.Message)" -ForegroundColor Red
+        if ($ex.Data.Contains('Hint')) {
+            foreach ($h in $ex.Data['Hint']) { Write-Host "        $h" }
+        } else {
+            Write-Host '        予期しないエラーです。次の表示を Claude Code に伝えると、原因を調べられます:'
+            Write-Host "        $($_.InvocationInfo.PositionMessage)"
+        }
+    } finally {
+        if ($null -ne $savedConsoleEncoding) {
+            try { [Console]::OutputEncoding = $savedConsoleEncoding } catch { }
+        }
+        $env:WSL_UTF8 = $savedWslUtf8
+        $env:LC_ALL = $savedLcAll
+    }
+    exit $exitCode
+}

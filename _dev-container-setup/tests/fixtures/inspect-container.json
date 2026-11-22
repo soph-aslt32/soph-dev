@@ -1,0 +1,31 @@
+{
+  "Id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "HostConfig": {
+    "Privileged": false,
+    "CapAdd": ["CAP_NET_ADMIN", "CAP_NET_RAW"],
+    "SecurityOpt": null,
+    "PortBindings": {},
+    "PidMode": "",
+    "IpcMode": "private",
+    "UTSMode": "",
+    "UsernsMode": "",
+    "CgroupnsMode": "private",
+    "Devices": [],
+    "DeviceRequests": null,
+    "DeviceCgroupRules": null,
+    "MaskedPaths": ["/proc/asound", "/proc/acpi", "/proc/interrupts", "/proc/kcore", "/proc/keys", "/proc/latency_stats", "/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/proc/scsi", "/sys/firmware", "/sys/devices/virtual/powercap"],
+    "ReadonlyPaths": ["/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"]
+  },
+  "Mounts": [
+    { "Type": "bind", "Source": "/home/dcs/envs/foo/work", "Destination": "/workspaces/foo-repo", "Mode": "", "RW": true, "Propagation": "rprivate" },
+    { "Type": "volume", "Name": "dcs-foo-claude", "Source": "/var/lib/docker/volumes/dcs-foo-claude/_data", "Destination": "/home/dev/.claude", "Driver": "local", "Mode": "z", "RW": true, "Propagation": "" },
+    { "Type": "volume", "Name": "dcs-foo-git", "Source": "/var/lib/docker/volumes/dcs-foo-git/_data", "Destination": "/home/dev/.dcs-git", "Driver": "local", "Mode": "z", "RW": true, "Propagation": "" },
+    { "Type": "bind", "Source": "/home/dcs/envs/foo/allowed-domains.txt", "Destination": "/etc/dcs/allowed-domains.txt", "Mode": "", "RW": false, "Propagation": "rprivate" }
+  ],
+  "NetworkSettings": {
+    "Ports": {},
+    "Networks": {
+      "dcs-foo": { "NetworkID": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210" }
+    }
+  }
+}

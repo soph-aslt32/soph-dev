@@ -1,0 +1,2 @@
+# /etc/sudoers.d/dcs-firewall（dcs-image。root 所有、0440）。dev が root で動かせるのは、ファイアウォールのスクリプトだけ
+dev ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh

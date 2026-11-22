@@ -1,0 +1,4 @@
+# /etc/gitconfig（dcs-image。root 所有）。GitHub の PAT は、開発環境のボリューム（~/.dcs-git）の中のファイルから読む
+[credential "https://github.com"]
+	helper = store --file=/home/dev/.dcs-git/credentials
+	useHttpPath = true

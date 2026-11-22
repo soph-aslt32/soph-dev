@@ -1,0 +1,5 @@
+# リポジトリの一番上の .gitignore（Python 向けのひな形）は lib/ を無視するので、このツールの lib/ は追う
+!lib/
+
+# 開発環境ごとに生成する Windows 側のスクリプト（Code-<名前>.cmd・Sync-<名前>.cmd・Sync-<名前>.ps1）
+envs/

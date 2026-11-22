@@ -1,0 +1,4 @@
+# 改行コードを、リポジトリに入っているとおりに保つ（Git for Windows の既定の core.autocrlf=true で clone しても変えない。I5）。
+# base\・image\・templates\devcontainer.json.tmpl などは LF のまま、土台とコンテナの中で使う（Copy-ToBase は CRLF のファイルを断る）。
+# .ps1・.cmd・templates\Sync-Env.ps1.tmpl は CRLF のまま
+* -text

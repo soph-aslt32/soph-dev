@@ -1,0 +1,75 @@
+// =============================================================================
+// 開発環境の注文書（devcontainer.json）のひな形（dev-container-setup）
+//
+// ウィザードは、開発環境を作るときと、設定をやり直すときに、このひな形の印（__ENV_NAME__ などの、
+// 前後に _ が 2 つずつ付いた大文字の名前）を、その開発環境の値に置き換えて、土台の
+// /home/dcs/envs/<名前>/config/.devcontainer/devcontainer.json に書きます。
+// // で始まる行（このような説明の行）は、書くときに取り除きます。
+//
+// 変えてよいところ（README の「カスタマイズ」）:
+//   - customizations.vscode.settings の「ここに足してよい」の場所: コンテナのウィンドウの VS Code の設定を足す
+//   - containerEnv の「ここに足してよい」の場所: コンテナの環境変数を足す
+//     （環境変数は、コンテナの中の Claude からも見えます。PAT やパスワードなどの秘密の値は書かないでください。
+//       PATH・LD_PRELOAD・LD_LIBRARY_PATH・LD_AUDIT・BASH_ENV・SHELLOPTS・BASHOPTS・PS4 と、名前の形でないもの
+//       （"PATH=…" など。名前は半角英数字と _ だけ）は、守りのために書けません。ウィザードが止めます）
+// VS Code の拡張機能は、ここではなく、ツールのフォルダの extensions.txt に書きます（__EXTENSIONS__ に入ります）。
+//
+// ほかのところ（イメージ、runArgs、つなぐもの、ユーザー、起動とつないだときのコマンド、userEnvProbe、
+// 受け渡しを止める 8 つの設定、印）は、このツールの守りのための設定です。変えないでください。変えたときの動きは、サポートしません
+// （外からの検証で [NG] になったり、守りが効かなくなったりします）。
+//
+// 書き方: JSON です。コメントは、// で始まる行だけが使えます（行の途中の // は使えません）。
+// 足す行は、どれも最後にカンマ（,）を付けてください（足す場所は、守りの設定より上にあります）。
+// 変えたあとは、ウィザードの「開発環境の設定をやり直す」で、開発環境ごとに注文書を書き直します
+// （「更新」では、注文書は書き直しません。新しく作る開発環境には、そのまま使われます）。
+// =============================================================================
+{
+  "name": "dcs-__ENV_NAME__",
+  "image": "dcs-image",
+  "runArgs": [
+    "--network=__NETWORK__",
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+    "--label=dcs=1",
+    "--label=dcs.env=__ENV_NAME__"
+  ],
+  "workspaceMount": "source=__WORK_DIR__,target=__WORKSPACE__,type=bind",
+  "workspaceFolder": "__WORKSPACE__",
+  "containerEnv": {
+    // ここに足してよい: 1 行に 1 つ、"名前": "値", の形（最後にカンマを付ける）。PATH などは書けません（上の説明）
+    // ここから下の DCS_WORKSPACE は、コンテナの中のスクリプトに作業フォルダの場所を知らせるもの。変えないでください。
+    "DCS_WORKSPACE": "__WORKSPACE__"
+  },
+  "mounts": [
+    "source=__CLAUDE_VOLUME__,target=/home/dev/.claude,type=volume",
+    "__SECOND_MOUNT__",
+    "source=__DOMAINS_FILE__,target=/etc/dcs/allowed-domains.txt,type=bind,readonly"
+  ],
+  "remoteUser": "dev",
+  "containerUser": "dev",
+  "updateRemoteUserUID": false,
+  // 起動とコマンドの実行の前に、~/.bashrc などを読ませない（Claude が書けるので、ファイアウォールの前に何かを動かせてしまう）
+  "userEnvProbe": "none",
+  // sudo は絶対パスで呼ぶ（Claude が ~/.local/bin に偽の sudo を置いても使われないように）
+  "postStartCommand": "/usr/bin/sudo /usr/local/bin/init-firewall.sh",
+  "waitFor": "postStartCommand",
+  "postAttachCommand": "/usr/local/bin/dcs-check-forwarding",
+  "customizations": {
+    "vscode": {
+      "extensions": __EXTENSIONS__,
+      "settings": {
+        // ここに足してよい: 1 行に 1 つ、"設定の名前": 値, の形（最後にカンマを付ける）
+        // ここから下の 8 つは、VS Code の受け渡し（git の認証情報・.gitconfig など）を止める守りの設定。変えないでください。
+        // remote.containers.* の 2 つは、拡張の不具合の回り道（DESIGN.md の D34a。VERIFY.md の V14）。
+        "dev.containers.copyGitConfig": false,
+        "remote.containers.copyGitConfig": false,
+        "dev.containers.gitCredentialHelperConfigLocation": "none",
+        "dev.containers.dockerCredentialHelper": false,
+        "remote.containers.dockerCredentialHelper": false,
+        "git.terminalAuthentication": false,
+        "git.useIntegratedAskPass": false,
+        "github.gitAuthentication": false
+      }
+    }
+  }
+}

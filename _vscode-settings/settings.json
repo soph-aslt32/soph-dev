@@ -2,7 +2,7 @@
     // フォントの設定
     // "editor.fontFamily": "'Monoid', 'Rounded Mgen+ 1mn'",
     // "editor.fontFamily": "'VL Gothic'",
-    "editor.fontFamily": "'Juisee HWNF'",
+    "editor.fontFamily": "'Juisee HWNF', 'Fluent Emoji Color'",
     "terminal.integrated.fontSize": 16,
     "editor.fontSize": 14,
     // --------------
@@ -324,5 +324,15 @@
         "**/.jj": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true
-    }
+    },
+
+    // devコンテナ
+    "dev.containers.executeInWSL": true,
+    "dev.containers.executeInWSLDistro": "dcs-base",
+    "dev.containers.mountWaylandSocket": false,
+    "dev.containers.forwardWSLServices": false,
+    "dev.containers.cacheVolume": false,
+    "dev.containers.copyGitConfig": false,
+    "dev.containers.gitCredentialHelperConfigLocation": "none",
+    "dev.containers.dockerCredentialHelper": false,
 }

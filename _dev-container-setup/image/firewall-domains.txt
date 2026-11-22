@@ -1,0 +1,27 @@
+# /etc/dcs/firewall-domains.txt（dcs-image。root 所有）— ファイアウォールの固定の許可リスト（DESIGN.md の 6.6）
+# 1 行に 1 つのドメイン。# の行はコメント。1 つでも引けないと、ファイアウォールは閉じたまま失敗する。
+# GitHub は、ここではなく https://api.github.com/meta の IP の範囲で許す。
+# Claude Code の公式の network-config のページが変わったら、ここを直す。
+
+# Claude Code（API、ログイン、組織の SSO、インストーラーと自動更新）
+api.anthropic.com
+claude.ai
+claude.com
+platform.claude.com
+sso.claude.com
+downloads.claude.ai
+# Claude Code のテレメトリとエラー報告（公式の既定どおり）
+http-intake.logs.us5.datadoghq.com
+browser-intake-us5-datadoghq.com
+# Claude Code の /release-notes、ドキュメント、claude.ai のコネクター
+raw.githubusercontent.com
+code.claude.com
+mcp-proxy.anthropic.com
+# VS Code の拡張機能とサーバー
+marketplace.visualstudio.com
+vscode.blob.core.windows.net
+update.code.visualstudio.com
+# Rust（rustup、cargo）
+static.rust-lang.org
+index.crates.io
+static.crates.io

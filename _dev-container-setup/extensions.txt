@@ -1,0 +1,52 @@
+# 開発環境のコンテナの VS Code に入れる拡張機能（dev-container-setup）。1 行に 1 つ、「発行者.名前」の形で書く。# の行はコメント。
+# 注文書（devcontainer.json）の customizations.vscode.extensions に入り、VS Code がコンテナにつながったときに入れる。
+# 従来の _wsl-room-setup の vscode/extensions.txt から、次のものを除いた:
+#   Windows の側で動くもの（テーマ・日本語の言語パック・Remote 系）、コンテナの中に Docker が無いので使えないもの（Docker 系）
+anthropic.claude-code
+astral-sh.ty
+charliermarsh.ruff
+davidanson.vscode-markdownlint
+eamodio.gitlens
+fanaticpythoner.better-todo-tree
+fill-labs.dependi
+grapecity.gc-excelviewer
+hediet.vscode-drawio
+james-yu.latex-workshop
+janisdd.vscode-edit-csv
+jebbs.plantuml
+jsynowiec.vscode-insertdatestring
+mhutchie.git-graph
+ms-python.autopep8
+ms-python.black-formatter
+ms-python.debugpy
+ms-python.isort
+ms-python.python
+ms-python.vscode-pylance
+ms-python.vscode-python-envs
+ms-toolsai.jupyter
+ms-toolsai.jupyter-keymap
+ms-toolsai.jupyter-renderers
+ms-toolsai.vscode-jupyter-cell-tags
+ms-toolsai.vscode-jupyter-slideshow
+ms-vscode.cmake-tools
+ms-vscode.cpp-devtools
+ms-vscode.cpptools
+ms-vscode.cpptools-extension-pack
+mushan.vscode-paste-image
+njpwerner.autodocstring
+redhat.java
+redhat.vscode-xml
+rust-lang.rust-analyzer
+shd101wyy.markdown-preview-enhanced
+tamasfe.even-better-toml
+tomoki1207.pdf
+vadimcn.vscode-lldb
+vscjava.migrate-java-to-azure
+vscjava.vscode-gradle
+vscjava.vscode-java-debug
+vscjava.vscode-java-dependency
+vscjava.vscode-java-pack
+vscjava.vscode-java-test
+vscjava.vscode-maven
+yzane.markdown-pdf
+yzhang.markdown-all-in-one

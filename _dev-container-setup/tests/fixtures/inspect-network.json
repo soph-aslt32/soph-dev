@@ -1,0 +1,8 @@
+{
+  "Name": "dcs-foo",
+  "EnableIPv6": false,
+  "Labels": { "dcs": "1", "dcs.env": "foo" },
+  "Containers": {
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": { "Name": "dcs-foo-container" }
+  }
+}
