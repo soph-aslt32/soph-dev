@@ -64,9 +64,95 @@ Describe 'Sync functions' {
         $EnvCode | Should Match '(?m)^export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\r?$'
     }
 }
+# Code-<名前>.cmd を、偽の VS Code（PATH の先の bin\code.cmd と、その 1 つ上の Code.exe）に対して実際に動かす。
+# code コマンド（code.cmd → cli.js）から開くと、新しく立ち上がった VS Code の本体がこの窓のコンソールを受け継ぎ、
+# VS Code をすべて閉じるまで窓が閉じなかった（2026-11-23 に実機で確かめた）。そのため Code.exe を start で直接起動する
 Describe 'New-CodeCmdLines' {
-    It 'is ASCII and opens config' { $l = New-CodeCmdLines 'foo'; ($l -join "`n") | Should Match 'call code --remote wsl\+dcs-base /home/dcs/envs/foo/config'; ($l -join '') -match '[^\x00-\x7F]' | Should Be $false }
-    It 'checks that VS Code is there' { (New-CodeCmdLines 'foo') -join "`n" | Should Match 'where code' }
+    BeforeAll {
+        $vsc = Join-Path $TestDrive 'Microsoft VS Code'
+        $null = New-Item -ItemType Directory -Force (Join-Path $vsc 'bin')
+        $noExe = Join-Path $TestDrive 'No Exe'
+        $null = New-Item -ItemType Directory -Force (Join-Path $noExe 'bin')
+        # 偽の code コマンド: 呼ばれたら印を残すだけ
+        foreach ($d in $vsc, $noExe) {
+            [IO.File]::WriteAllText((Join-Path $d 'bin\code.cmd'), "@echo off`r`necho cli> `"%~dp0..\cli-called.txt`"`r`n", [Text.Encoding]::ASCII)
+        }
+        # 偽の Code.exe（本物と同じ GUI のプログラム）: 受け取った引数と、VS Code の本体が見る環境変数を書き残す
+        Add-Type -OutputType WindowsApplication -OutputAssembly (Join-Path $vsc 'Code.exe') -TypeDefinition @'
+using System;
+using System.IO;
+public static class FakeCode {
+    static string Env(string name) { return Environment.GetEnvironmentVariable(name) ?? "(unset)"; }
+    public static void Main(string[] args) {
+        string dir = AppDomain.CurrentDomain.BaseDirectory;
+        File.WriteAllText(Path.Combine(dir, "started.tmp"),
+            string.Join("|", args) + "\r\n" +
+            "ELECTRON_NO_ATTACH_CONSOLE=" + Env("ELECTRON_NO_ATTACH_CONSOLE") + "\r\n" +
+            "ELECTRON_RUN_AS_NODE=" + Env("ELECTRON_RUN_AS_NODE") + "\r\n" +
+            "VSCODE_DEV=" + Env("VSCODE_DEV") + "\r\n");
+        File.Move(Path.Combine(dir, "started.tmp"), Path.Combine(dir, "started.txt"));
+    }
+}
+'@
+        $cmd = Join-Path $TestDrive 'Code-foo.cmd'
+        Write-AsciiCmd $cmd (New-CodeCmdLines 'foo')
+    }
+    # PATH を $PathDirs だけにして、ダブルクリックと同じく cmd.exe /c で動かす（入力は空。pause で止まらない）。
+    # 開発の PC の環境変数に左右されないよう、VS Code の本体が見る環境変数は、わざと逆の値にしておく
+    function Invoke-CodeCmd([string[]]$PathDirs) {
+        foreach ($d in $vsc, $noExe) { Remove-Item (Join-Path $d '*.txt') -ErrorAction SilentlyContinue }
+        $psi = New-Object Diagnostics.ProcessStartInfo
+        $psi.FileName = Join-Path $env:SystemRoot 'System32\cmd.exe'
+        $psi.Arguments = "/d /s /c `"`"$cmd`"`""
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.EnvironmentVariables['PATH'] = (@($PathDirs) + (Join-Path $env:SystemRoot 'System32')) -join ';'
+        $psi.EnvironmentVariables.Remove('ELECTRON_NO_ATTACH_CONSOLE')
+        $psi.EnvironmentVariables['ELECTRON_RUN_AS_NODE'] = '1'
+        $psi.EnvironmentVariables['VSCODE_DEV'] = '1'
+        $p = [Diagnostics.Process]::Start($psi)
+        $p.StandardInput.Close()
+        $out = $p.StandardOutput.ReadToEnd()
+        if (-not $p.WaitForExit(20000)) { $p.Kill(); throw 'Code-foo.cmd did not finish in 20 seconds.' }
+        return [pscustomobject]@{ Code = $p.ExitCode; Text = $out }
+    }
+    function Wait-Started([string]$Dir, [int]$Seconds) {
+        $f = Join-Path $Dir 'started.txt'
+        $deadline = (Get-Date).AddSeconds($Seconds)
+        while (-not (Test-Path $f) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 100 }
+        if (Test-Path $f) { return [IO.File]::ReadAllText($f) }
+        return $null
+    }
+
+    It 'is ASCII' { ((New-CodeCmdLines 'foo') -join '') -match '[^\x00-\x7F]' | Should Be $false }
+    It 'starts Code.exe next to the code command with the same arguments, not the code command itself' {
+        $r = Invoke-CodeCmd @((Join-Path $vsc 'bin'))
+        $r.Code | Should Be 0
+        $started = Wait-Started $vsc 10
+        $started | Should Match ([regex]::Escape('--remote|wsl+dcs-base|/home/dcs/envs/foo/config') + '\r\n')
+        Test-Path (Join-Path $vsc 'cli-called.txt') | Should Be $false
+    }
+    It 'gives Code.exe the environment that the code command gives it (does not attach to this console)' {
+        $null = Invoke-CodeCmd @((Join-Path $vsc 'bin'))
+        $started = Wait-Started $vsc 10
+        $started | Should Match 'ELECTRON_NO_ATTACH_CONSOLE=1\r\n'
+        $started | Should Match 'ELECTRON_RUN_AS_NODE=\(unset\)\r\n'
+        $started | Should Match 'VSCODE_DEV=\(unset\)\r\n'
+    }
+    It 'stops with a message when the code command is not on PATH' {
+        $r = Invoke-CodeCmd @()
+        $r.Code | Should Be 1
+        $r.Text | Should Match 'was not found'
+        Wait-Started $vsc 2 | Should Be $null
+    }
+    It 'stops with a message when Code.exe is not next to the code command' {
+        $r = Invoke-CodeCmd @((Join-Path $noExe 'bin'))
+        $r.Code | Should Be 1
+        $r.Text | Should Match 'was not found'
+        Test-Path (Join-Path $noExe 'cli-called.txt') | Should Be $false
+    }
 }
 Describe 'Write-EnvScripts and Get-PreviousRepoPath' {
     $savedRoot = $script:ToolRoot
