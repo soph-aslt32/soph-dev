@@ -9,6 +9,9 @@
 #   /etc/dcs/allowed-domains.txt   開発環境ごとの許可リスト（土台の allowed-domains.txt を読み取り専用でつないだもの。無ければ飛ばす）
 # 許すもの: lo、確立済みの接続、土台のゲートウェイの /24、許可リストのドメインの IPv4、GitHub（api.github.com/meta の web・api・git）。
 # DNS は Docker の内部の DNS（127.0.0.11。lo を通る）だけ。SSH（22 番）の規則は入れない。
+# 引けないドメインは飛ばす（そのドメインには通信できなくなるだけで、守りは弱まらない）。開発環境ごとの許可リストのものは [注意]、
+# 固定の許可リストのものは、目立つ [WARN] に用途と理由を付けて出し、最後（[完了] のあと）にももう一度出す。
+# ただし、DNS から答えが無いとき（ドメインのせいではない）は、失敗にする。
 # 終了コード: 成功が 0、失敗が 1（失敗したときは、lo と確立済みの接続だけを通す、閉じた状態にする）、引数の誤りが 2
 # 公式の参考例は写さず、しくみだけをもとに書いた（D40）。
 # =============================================================================
@@ -22,14 +25,26 @@ readonly GITHUB_META=https://api.github.com/meta
 readonly DOMAIN_RE='^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'
 readonly IPV4_RE='^([0-9]{1,3}\.){3}[0-9]{1,3}$'
 readonly CIDR4_RE='^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$'
+readonly DIG_STATUS_RE='status: ([A-Z]+)'
+readonly DIG_SERVER_RE='^;; SERVER: ([^#[:space:]]+)'
+readonly ALERT_RULE='========================================================================'
 
 # 色（端末に出すとき（VS Code のターミナルなど）だけ。ウィザードが受け取るときは付けない。ウィザードの色にそろえる）
 if [[ -t 1 ]]; then
-    readonly C_STEP=$'\e[96m' C_OK=$'\e[92m' C_NOTE=$'\e[93m' C_ERR=$'\e[91m' C_OFF=$'\e[0m'
+    readonly C_STEP=$'\e[96m' C_OK=$'\e[92m' C_NOTE=$'\e[93m' C_ALERT=$'\e[1;93m' C_ERR=$'\e[91m' C_OFF=$'\e[0m'
 else
-    readonly C_STEP='' C_OK='' C_NOTE='' C_ERR='' C_OFF=''
+    readonly C_STEP='' C_OK='' C_NOTE='' C_ALERT='' C_ERR='' C_OFF=''
 fi
 warn() { printf '%s[注意] %s%s\n' "$C_NOTE" "$1" "$C_OFF"; }
+
+# 目立たせる警告（固定の許可リストのドメインを飛ばすとき）。引数の 1 つが 1 行。
+# 色の付かないところ（ウィザードの画面など）でも見落とさないよう、= の線で囲む。端末では太字の黄色
+alert() {
+    local line
+    printf '%s%s%s\n' "$C_ALERT" "$ALERT_RULE" "$C_OFF"
+    for line in "$@"; do printf '%s%s%s\n' "$C_ALERT" "$line" "$C_OFF"; done
+    printf '%s%s%s\n' "$C_ALERT" "$ALERT_RULE" "$C_OFF"
+}
 
 # lo と確立済みの接続のほかは、出入りとも通さない
 close_all() {
@@ -75,6 +90,46 @@ resolve_v4() {
     return 0
 }
 
+# $1 のドメインの A レコードを引く（固定の許可リスト用。引けなかった理由も知りたいので、+short ではなく答えの全体を読む）。
+# 結果: v4（IPv4 のアドレスの配列）、why（引けなかった理由。引けたときは空）、no_reply（DNS から答えが無かったら 1）
+lookup_v4() {
+    local out rc=0 line cls rtype data status='' server='' last at=''
+    v4=() why='' no_reply=0
+    out=$(dig +time=3 +tries=2 A "$1" 2>&1) || rc=$?
+    while IFS= read -r line; do
+        if [[ $line =~ $DIG_STATUS_RE ]]; then
+            status=${BASH_REMATCH[1]}
+        elif [[ $line =~ $DIG_SERVER_RE ]]; then
+            server=${BASH_REMATCH[1]}
+        elif [[ -n $line && ${line:0:1} != ';' ]]; then
+            # 答えの行は「名前 TTL クラス 種類 値」（CNAME と、引けないときの SOA の行は飛ばす）
+            read -r _ _ cls rtype data <<< "$line"
+            if [[ $cls == IN && $rtype == A && $data =~ $IPV4_RE ]]; then v4+=("$data"); fi
+        fi
+    done <<< "$out"
+    if (( ${#v4[@]} > 0 )); then return 0; fi
+
+    last=${out##*$'\n'}
+    last=${last//[[:cntrl:]]/?}
+    if [[ -n $server ]]; then at="。問い合わせ先 ${server//[[:cntrl:]]/?}"; fi
+    if (( rc == 9 )); then
+        no_reply=1
+        why="DNS から答えがありません（${last:-dig の終了コード 9}）"
+    elif (( rc != 0 )); then
+        why="dig が終了コード $rc で失敗しました（${last:-理由の表示なし}）"
+    else
+        case $status in
+            NXDOMAIN) why="そのドメインはありません（DNS の答えが NXDOMAIN$at）" ;;
+            SERVFAIL) why="DNS サーバーが答えを出せませんでした（DNS の答えが SERVFAIL$at）" ;;
+            REFUSED) why="DNS サーバーに断られました（DNS の答えが REFUSED$at）" ;;
+            NOERROR) why="IPv4 のアドレス（A レコード）がありません（DNS の答えは NOERROR$at）" ;;
+            '') why="DNS の答えを読めませんでした（${last:-理由の表示なし}）" ;;
+            *) why="引けませんでした（DNS の答えが $status$at）" ;;
+        esac
+    fi
+    return 0
+}
+
 main() {
     if (( $# != 0 )); then
         echo '使い方: sudo /usr/local/bin/init-firewall.sh（引数は取りません）' >&2
@@ -86,8 +141,8 @@ main() {
     fi
     trap 'die "予期しないエラーです（$LINENO 行目）"' ERR
 
-    local -a addrs=() a=()
-    local line d meta gw hostnet out fixed=0 env=0 github=0
+    local -a addrs=() a=() v4=() skipped=()
+    local line d meta gw hostnet out why no_reply purpose='' fixed=0 env=0 github=0
 
     printf '%s==> ファイアウォールを入れます%s\n' "$C_STEP" "$C_OFF"
 
@@ -95,11 +150,22 @@ main() {
     [[ -r $FIXED_LIST ]] || die "固定の許可リスト（$FIXED_LIST）がありません"
     while IFS= read -r line || [[ -n $line ]]; do
         d=$(trim "${line%$'\r'}")
-        if [[ -z $d || $d == \#* ]]; then continue; fi
+        # 用途は、ドメインのすぐ上の # の行（空の行で区切る）。飛ばすときの警告に出す
+        if [[ -z $d ]]; then purpose=''; continue; fi
+        if [[ $d == \#* ]]; then purpose=$(trim "${d#\#}"); purpose=${purpose//[[:cntrl:]]/?}; continue; fi
         [[ $d =~ $DOMAIN_RE ]] || die "固定の許可リストに、ドメインの形でない行があります（${d//[[:cntrl:]]/?}）"
-        mapfile -t a < <(resolve_v4 "$d")
-        (( ${#a[@]} > 0 )) || die "固定の許可リストの $d の IPv4 のアドレスを引けませんでした（DNS に届いているかを確かめてください）"
-        addrs+=("${a[@]}")
+        lookup_v4 "$d"
+        (( ! no_reply )) || die "固定の許可リストの $d を引こうとしましたが、$why（DNS に届いているかを確かめてください）"
+        if (( ${#v4[@]} == 0 )); then
+            alert "[WARN] 固定の許可リストの $d は、IPv4 のアドレスを引けなかったので飛ばします。" \
+                "       このドメインには、コンテナの中から通信できません（ほかのドメインは、そのまま許します）。" \
+                "       用途: ${purpose:-（書かれていません）}" \
+                "       理由: $why" \
+                "       DNS の一時的な不調なら、コンテナを起動し直すと、もう一度引きます（README の「困ったとき」）。"
+            skipped+=("$d")
+            continue
+        fi
+        addrs+=("${v4[@]}")
         fixed=$((fixed + 1))
     done < "$FIXED_LIST"
 
@@ -164,6 +230,11 @@ EOF
 
     printf '  %s[完了] ファイアウォールを入れました（固定の許可リスト %s 個、開発環境ごとの許可リスト %s 個、GitHub の範囲 %s 個、ゲートウェイの %s）。%s\n' \
         "$C_OK" "$fixed" "$env" "$github" "$hostnet" "$C_OFF"
+    # 飛ばしたものを、最後にもう一度出す（上の [WARN] が流れて見落とされないように）
+    if (( ${#skipped[@]} > 0 )); then
+        alert "[WARN] 固定の許可リストのうち ${#skipped[@]} 個を、引けなかったので飛ばしました: ${skipped[*]}" \
+            "       これらのドメインには、コンテナの中から通信できません。理由は、上の [WARN] を見てください。"
+    fi
 }
 
 main "$@"
