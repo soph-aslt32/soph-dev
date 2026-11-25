@@ -13,8 +13,9 @@ cleanup() {
 trap cleanup EXIT
 
 # 1. ネットワークと、開発環境ごとの許可リスト（引けないドメインと、ドメインの形でない行を混ぜる）
+#    届くかを確かめるドメインは、固定の許可リストに無いもの（registry.npmjs.org）にする（あると、開発環境ごとの許可リストを確かめられない。D55）
 docker network create --label dcs=1 --label dcs.env=fwtest "$net" > /dev/null
-printf 'pypi.org\nnonexistent.invalid\nbad line!\n' > "$tmp/allowed-domains.txt"
+printf 'registry.npmjs.org\nnonexistent.invalid\nbad line!\n' > "$tmp/allowed-domains.txt"
 chmod 644 -- "$tmp/allowed-domains.txt"
 run=(docker run --rm -i --pull never --network "$net" --cap-add NET_ADMIN --cap-add NET_RAW
      -v "$tmp/allowed-domains.txt:/etc/dcs/allowed-domains.txt:ro")
@@ -28,7 +29,7 @@ printf '%s\n' "$out"
 grep -qF 'nonexistent.invalid' <<< "$out" || { echo 'nonexistent.invalid の警告がありません'; exit 1; }
 grep -qF 'bad line!' <<< "$out" || { echo 'bad line! の警告がありません'; exit 1; }
 dcs-verify --only firewall
-curl -sS -o /dev/null --max-time 10 https://pypi.org
+curl -sS -o /dev/null --max-time 10 https://registry.npmjs.org
 # 色: 端末でないとき（ウィザードが受け取るとき）は付けない。端末（VS Code のターミナルなど）では付ける。入れ直しても同じ結果になる
 [[ $out != *$'\e['* ]] || { echo '端末でないのに色が付いています'; exit 1; }
 command -v script > /dev/null || { echo 'script がありません'; exit 1; }

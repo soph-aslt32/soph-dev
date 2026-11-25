@@ -1,7 +1,12 @@
-# /etc/dcs/firewall-domains.txt（dcs-image。root 所有）— ファイアウォールの固定の許可リスト（DESIGN.md の 6.6）
-# 1 行に 1 つのドメイン。# の行はコメント。1 つでも引けないと、ファイアウォールは閉じたまま失敗する。
-# GitHub は、ここではなく https://api.github.com/meta の IP の範囲で許す。
-# Claude Code の公式の network-config のページが変わったら、ここを直す。
+# /etc/dcs/firewall-domains.txt（dcs-image。root 所有）— ファイアウォールの固定の許可リスト（DESIGN.md の 6.6。D55）
+# 1 行に 1 つのドメイン。# の行はコメント。ドメインのすぐ上の # の行が、そのドメインの用途になる
+# （引けなかったときの [WARN] に出す。空の行で区切ると、用途は引き継がない）。
+# 引けないドメインは [WARN] を出して飛ばす。DNS から答えが無いときは、閉じた状態で失敗する（D54）。
+# 起動のときに 1 回引いた IP だけを許すので、引くたびに違う IP を返すドメイン（Google の共用の入り口など）は書かない（届かない。D55）。
+# github.com・api.github.com などの GitHub の本体は、ここではなく https://api.github.com/meta の IP の範囲で許す。
+# GitHub のドメインのうち、その範囲の外のものと、用途をはっきりさせておきたいものだけを、ここに書く。
+# 開発環境で必ず使うもの（Claude Code・VS Code・GitHub・Rust・Python）は、ここに書く。それ以外は、開発環境ごとの allowed_domains に書く。
+# 次の公式のページが変わったら、ここを直す: Claude Code の network-config、VS Code の network と Remote の FAQ、uv の環境変数の一覧。
 
 # Claude Code（API、ログイン、組織の SSO、インストーラーと自動更新）
 api.anthropic.com
@@ -13,15 +18,33 @@ downloads.claude.ai
 # Claude Code のテレメトリとエラー報告（公式の既定どおり）
 http-intake.logs.us5.datadoghq.com
 browser-intake-us5-datadoghq.com
-# Claude Code の /release-notes、ドキュメント、claude.ai のコネクター
-raw.githubusercontent.com
+# Claude Code のドキュメント、claude.ai のコネクター
 code.claude.com
 mcp-proxy.anthropic.com
+
 # VS Code の拡張機能とサーバー
 marketplace.visualstudio.com
 vscode.blob.core.windows.net
 update.code.visualstudio.com
-# Rust（rustup、cargo）
+# VS Code の拡張機能 Even Better TOML の、スキーマの一覧と Cargo.toml などのスキーマ（今は GitHub の範囲にも入る）
+www.schemastore.org
+
+# GitHub の生のファイル（Claude Code の /release-notes、uv の予備の取得先、pyproject.toml のスキーマなど）
+raw.githubusercontent.com
+# GitHub のリポジトリの zip・tar.gz（GitHub の範囲の外）
+codeload.github.com
+# GitHub のリリースの添付ファイル（uv の予備の取得先など。今は GitHub の範囲にも入る）
+objects.githubusercontent.com
+release-assets.githubusercontent.com
+
+# Rust（rustup、cargo の索引・取得・API）
 static.rust-lang.org
 index.crates.io
 static.crates.io
+crates.io
+
+# Python（PyPI の索引とパッケージ。uv・pip）
+pypi.org
+files.pythonhosted.org
+# Python（uv の自分の更新と、uv python install の Python。だめなら GitHub から取る）
+releases.astral.sh

@@ -188,7 +188,7 @@ function Read-EnvName([string[]]$Names, [string]$What) {
 function Read-WizardDomains([string[]]$Default) {
     if ($Default.Count -gt 0) { $def = $Default -join ', ' } else { $def = '-' }
     $text = Read-WizardValue -Title 'allowed_domains（開発環境のコンテナから通信してよいドメイン）' -Default $def -Help @(
-        'カンマ区切りで入力します（例: registry.npmjs.org, pypi.org）。Claude Code・GitHub・VS Code などの通信先は、ツールが許可します。',
+        'カンマ区切りで入力します（例: registry.npmjs.org, repo1.maven.org）。Claude Code・VS Code・GitHub・Rust・Python（PyPI・uv）の通信先は、ツールが許可します。',
         '*.example.com のような書き方は使えません。使うサブドメインを 1 つずつ書いてください。「*」（すべて許可）も使えません。',
         '通信を許可するドメインが無い場合は - を入力してください。') -Validate {
         param($v)

@@ -148,8 +148,9 @@ guiApplications=false
 
 ### 5.2 `allowed_domains` の書き方
 
-- カンマ区切りで書きます（例: `registry.npmjs.org, pypi.org`）。通信を許可するドメインが無い場合は `-` を入力します。
-- Claude Code・GitHub・VS Code・Rust・uv など、ツールが動くのに要る通信先は、ツールが別に許可しています。ここに書くのは、それ以外のものだけです。
+- カンマ区切りで書きます（例: `registry.npmjs.org, repo1.maven.org`）。通信を許可するドメインが無い場合は `-` を入力します。
+- Claude Code・VS Code・GitHub・Rust（rustup・cargo）・Python（PyPI・uv）の通信先は、ツールが別に許可しています（`image\firewall-domains.txt`）。ここに書くのは、それ以外のものだけです。
+- 既定値（`defaults.conf`）の `registry.npmjs.org` は、Claude Code のプラグイン（npm で配られるもの）と、npx で動かす MCP サーバーが使います。
 - `*.example.com` のような、サブドメインをまとめて許す書き方は使えません。ファイアウォールが、コンテナを起動するときにドメインごとに IP アドレスを引くためです。使うサブドメインを 1 つずつ書いてください。`*`（すべて許可）も使えません。
 - 許可するドメインを増やすほど、データを外へ持ち出される経路も増えます。必要なものだけを書いてください。
 - VS Code の拡張機能を、コンテナの中で自動で入れたいとき（[6.2](#62-拡張機能が自動で入らないとき)）は、拡張機能の発行者ごとに `<発行者>.gallerycdn.vsassets.io` と `<発行者>.gallery.vsassets.io` を足します。
@@ -198,6 +199,7 @@ VS Code がコンテナにつながるたびに、受け渡しの確かめ（`dc
 
 - そのような拡張機能は、コンテナの中では使わず（`extensions.txt` から外すか、コンテナのウィンドウでアンインストールする）、Windows の VS Code（コンテナにつないでいないウィンドウ）で使ってください。
 - 取ってくる先を `allowed_domains` に足すこともできますが、`storage.googleapis.com` のように、誰でも置き場所を作れる広いドメインを許すと、データを外へ持ち出される経路が大きく広がります（[11 章](#11-既知のリスク黙認するもの)の R5）。
+- 引くたびに違う IP アドレスを返すドメインは、`allowed_domains` に足しても、しばらくすると届かなくなります（ファイアウォールは、コンテナを起動したときに 1 回引いた IP アドレスだけを許すため）。例: Dependi（`fill-labs.dependi`）の脆弱性の表示は、問い合わせ先の `api.osv.dev` がそうなので、コンテナの中では出ません（依存の版の表示は使えます）。
 
 ### 6.3 Claude Code にログインする
 
